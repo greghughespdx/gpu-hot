@@ -445,6 +445,12 @@ window.addEventListener('focus', () => {
  * Handle cluster/hub mode data
  * Data structure: { mode: 'hub', nodes: {...}, cluster_stats: {...} }
  */
+function getClusterProcesses(nodes) {
+    return Object.values(nodes)
+        .filter(node => node.status === 'online')
+        .flatMap(node => node.processes || []);
+}
+
 function handleClusterData(data) {
     const overviewContainer = document.getElementById('overview-container');
     const now = Date.now();
@@ -585,12 +591,12 @@ function handleClusterData(data) {
         aggregateCardInjected = false;
     }
 
-    // Update processes and system info (use first online node)
+    // Update processes from all online nodes and system info from the first one
     const firstOnlineNode = Object.values(data.nodes).find(n => n.status === 'online');
     if (firstOnlineNode) {
         if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
             pendingUpdates.set('_system', {
-                processes: firstOnlineNode.processes || [],
+                processes: getClusterProcesses(data.nodes),
                 system: firstOnlineNode.system || {},
                 now
             });

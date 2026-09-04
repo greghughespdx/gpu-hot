@@ -75,6 +75,7 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
         globalThis.attemptReconnect = attemptReconnect;
+        globalThis.getClusterProcesses = getClusterProcesses;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -107,6 +108,25 @@ describe('createWebSocketConnection', () => {
             host: 'secure.example.com'
         });
         expect(instances[0].url).toBe('wss://secure.example.com/socket.io/');
+    });
+});
+
+describe('getClusterProcesses', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+    });
+
+    it('collects processes from every online node', () => {
+        loadSocketHandlers();
+        const llama = { name: 'llama-server', pid: '125458', memory: 23008 };
+
+        expect(getClusterProcesses({
+            'first-node': { status: 'online', processes: [] },
+            'second-node': { status: 'online', processes: [llama] },
+            offline: { status: 'offline', processes: [{ name: 'stale' }] }
+        })).toEqual([llama]);
     });
 });
 
