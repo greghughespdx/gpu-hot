@@ -121,6 +121,8 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
+    const hasFan = hasMetric(gpuInfo, 'fan_speed');
+    const hasPstate = hasMetric(gpuInfo, 'performance_state');
 
     // Build secondary info items
     let secondaryItems = '';
@@ -178,11 +180,11 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                         ? `<span class="gpu-detail-uuid" title="${gpuInfo.uuid}">${gpuInfo.uuid}</span>` : ''}
                 </div>
                 <div class="gpu-detail-specs">
-                    <span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}%</span>
-                    <span class="spec-tag" id="sgo-pstate-badge-${gpuId}">${gpuInfo.performance_state || ''}</span>
+                    ${hasFan ? `<span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}%</span>` : ''}
+                    ${hasPstate ? `<span class="spec-tag" id="sgo-pstate-badge-${gpuId}">${gpuInfo.performance_state}</span>` : ''}
                     <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                     ${hasMetric(gpuInfo, 'architecture') ? `<span class="spec-tag">${gpuInfo.architecture}</span>` : ''}
-                    <span class="spec-tag">${gpuInfo._fallback_mode ? 'smi' : 'NVML'}</span>
+                    <span class="spec-tag">${gpuInfo.vendor === 'amd' ? 'sysfs' : (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
                 </div>
             </div>
 
@@ -226,14 +228,14 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                         <div class="bullet-bar"><div class="bullet-fill ${bulletClass(powerPercent, 80, 95)}" data-metric="power" id="sgo-power-bar-${gpuId}" style="width:${powerPercent}%"></div></div>
                     </div>
 
-                    <div class="metric-cell">
+                    ${hasFan ? `<div class="metric-cell">
                         <div class="metric-num-row">
                             <span class="metric-num" id="sgo-fan-${gpuId}">${fan_speed}</span>
                             <span class="metric-unit">%</span>
                         </div>
                         <span class="metric-label">FAN</span>
                         <div class="bullet-bar"><div class="bullet-fill" data-metric="fan" id="sgo-fan-bar-${gpuId}" style="width:${fan_speed}%"></div></div>
-                    </div>
+                    </div>` : ''}
                 </div>
 
                 <div class="sgo-mini-chart">
@@ -270,7 +272,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (tempEl) { tempEl.textContent = temperature; tempEl.className = `metric-num ${bulletClass(temperature, 75, 85)}`; }
         if (memEl) { memEl.textContent = formatMemory(memory_used); memEl.className = `metric-num ${bulletClass(memPercent, 85, 95)}`; }
         if (powerEl) { powerEl.textContent = power_draw.toFixed(0); powerEl.className = `metric-num ${bulletClass(powerPercent, 80, 95)}`; }
-        if (fanEl) fanEl.textContent = fan_speed;
+        if (hasMetric(gpuInfo, 'fan_speed') && fanEl) fanEl.textContent = fan_speed;
 
         const memUnitEl = document.getElementById(`sgo-mem-unit-${gpuId}`);
         if (memUnitEl) memUnitEl.textContent = formatMemoryUnit(memory_used);
@@ -297,13 +299,13 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (tempBar) { tempBar.style.width = `${Math.min(temperature / 100 * 100, 100)}%`; tempBar.className = `bullet-fill ${bulletClass(temperature, 75, 85)}`; }
         if (memBar) { memBar.style.width = `${memPercent}%`; memBar.className = `bullet-fill ${bulletClass(memPercent, 85, 95)}`; }
         if (powerBar) { powerBar.style.width = `${powerPercent}%`; powerBar.className = `bullet-fill ${bulletClass(powerPercent, 80, 95)}`; }
-        if (fanBar) fanBar.style.width = `${fan_speed}%`;
+        if (hasMetric(gpuInfo, 'fan_speed') && fanBar) fanBar.style.width = `${fan_speed}%`;
 
         // Header badges
         const fanBadgeEl = document.getElementById(`sgo-fan-badge-${gpuId}`);
-        if (fanBadgeEl) fanBadgeEl.textContent = `Fan ${fan_speed}%`;
+        if (hasMetric(gpuInfo, 'fan_speed') && fanBadgeEl) fanBadgeEl.textContent = `Fan ${fan_speed}%`;
         const pstateBadgeEl = document.getElementById(`sgo-pstate-badge-${gpuId}`);
-        if (pstateBadgeEl) pstateBadgeEl.textContent = getMetricValue(gpuInfo, 'performance_state', '');
+        if (hasMetric(gpuInfo, 'performance_state') && pstateBadgeEl) pstateBadgeEl.textContent = gpuInfo.performance_state;
 
         // Secondary metrics
         const clockGrEl = document.getElementById(`sgo-clock-gr-${gpuId}`);
@@ -315,7 +317,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
 
         if (clockGrEl) clockGrEl.textContent = `${getMetricValue(gpuInfo, 'clock_graphics', 0)} MHz`;
         if (clockMemEl) clockMemEl.textContent = `${getMetricValue(gpuInfo, 'clock_memory', 0)} MHz`;
-        if (pstateEl) pstateEl.textContent = getMetricValue(gpuInfo, 'performance_state', 'N/A');
+        if (hasMetric(gpuInfo, 'performance_state') && pstateEl) pstateEl.textContent = gpuInfo.performance_state;
         if (memUtilEl) memUtilEl.textContent = `${getMetricValue(gpuInfo, 'memory_utilization', 0)}%`;
         if (pcieEl) pcieEl.textContent = `Gen${getMetricValue(gpuInfo, 'pcie_gen', '?')} x${getMetricValue(gpuInfo, 'pcie_width', '?')}`;
         if (energyEl && hasMetric(gpuInfo, 'energy_consumption_wh')) energyEl.textContent = formatEnergy(gpuInfo.energy_consumption_wh);
@@ -343,6 +345,8 @@ function createGPUCard(gpuId, gpuInfo) {
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
+    const hasFan = hasMetric(gpuInfo, 'fan_speed');
+    const hasPstate = hasMetric(gpuInfo, 'performance_state');
 
     // Build optional metric cells
     let extraMetrics = '';
@@ -532,7 +536,8 @@ function createGPUCard(gpuId, gpuInfo) {
     }
 
     const throttle_reasons = getMetricValue(gpuInfo, 'throttle_reasons', 'None');
-    const isThrottling = throttle_reasons && throttle_reasons !== 'None' && throttle_reasons !== 'N/A';
+    const isThrottling = hasMetric(gpuInfo, 'throttle_reasons') &&
+        !['None', 'N/A', 'UNTHROTTLED', 'Unthrottled'].includes(throttle_reasons);
     extraMetrics += `
         <div class="metric-cell">
             <div class="metric-num-row">
@@ -614,11 +619,11 @@ function createGPUCard(gpuId, gpuInfo) {
                 <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
             </div>
             <div class="gpu-detail-specs">
-                <span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}%</span>
-                <span class="spec-tag" id="pstate-header-${gpuId}">${gpuInfo.performance_state || ''}</span>
+                ${hasFan ? `<span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}%</span>` : ''}
+                ${hasPstate ? `<span class="spec-tag" id="pstate-header-${gpuId}">${gpuInfo.performance_state}</span>` : ''}
                 <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen || '?'}</span>
                 <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
-                <span class="spec-tag">${gpuInfo._fallback_mode ? 'smi' : 'NVML'}</span>
+                <span class="spec-tag">${gpuInfo.vendor === 'amd' ? 'sysfs' : (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
             </div>
 
             <!-- PRIMARY TIER: Hero metrics with identity-colored bars -->
@@ -662,14 +667,14 @@ function createGPUCard(gpuId, gpuInfo) {
                         <div class="bullet-bar"><div class="bullet-fill ${bulletClass(powerPercent, 80, 95)}" data-metric="power" id="power-bar-${gpuId}" style="width:${powerPercent}%"></div></div>
                     </div>
 
-                    <div class="metric-cell">
+                    ${hasFan ? `<div class="metric-cell">
                         <div class="metric-num-row">
                             <span class="metric-num" id="fan-val-${gpuId}">${fan_speed}</span>
                             <span class="metric-unit">%</span>
                         </div>
                         <span class="metric-label">FAN</span>
                         <div class="bullet-bar"><div class="bullet-fill" data-metric="fan" id="fan-bar-${gpuId}" style="width:${fan_speed}%"></div></div>
-                    </div>
+                    </div>` : ''}
                 </div>
             </div>
 
@@ -731,7 +736,7 @@ function createGPUCard(gpuId, gpuInfo) {
                         <div class="sparkline-canvas-wrap"><canvas id="chart-power-${gpuId}"></canvas></div>
                     </div>
 
-                    <div class="sparkline-container" data-chart-type="fanSpeed" data-gpu-id="${gpuId}">
+                    ${hasFan ? `<div class="sparkline-container" data-chart-type="fanSpeed" data-gpu-id="${gpuId}">
                         <div class="sparkline-header">
                             <span class="sparkline-title">Fan Speed</span>
                             <div class="sparkline-stats">
@@ -742,7 +747,7 @@ function createGPUCard(gpuId, gpuInfo) {
                             </div>
                         </div>
                         <div class="sparkline-canvas-wrap"><canvas id="chart-fanSpeed-${gpuId}"></canvas></div>
-                    </div>
+                    </div>` : ''}
 
                     <div class="sparkline-container" data-chart-type="clocks" data-gpu-id="${gpuId}">
                         <div class="sparkline-header">
@@ -892,8 +897,10 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         const memUnitEl = document.getElementById(`mem-unit-${gpuId}`);
         if (memUnitEl) memUnitEl.textContent = formatMemoryUnit(memory_used);
         if (powerEl) { powerEl.textContent = `${power_draw.toFixed(0)}`; powerEl.className = `metric-num ${bulletClass(powerPercent, 80, 95)}`; }
-        if (fanEl) fanEl.textContent = `Fan ${fan_speed}%`;
-        if (fanValEl) fanValEl.textContent = `${fan_speed}`;
+        if (hasMetric(gpuInfo, 'fan_speed')) {
+            if (fanEl) fanEl.textContent = `Fan ${fan_speed}%`;
+            if (fanValEl) fanValEl.textContent = `${fan_speed}`;
+        }
 
         const utilBar = document.getElementById(`util-bar-${gpuId}`);
         const tempBar = document.getElementById(`temp-bar-${gpuId}`);
@@ -917,7 +924,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
             powerBar.style.width = `${powerPercent}%`;
             powerBar.className = `bullet-fill ${bulletClass(powerPercent, 80, 95)}`;
         }
-        if (fanBar) fanBar.style.width = `${fan_speed}%`;
+        if (hasMetric(gpuInfo, 'fan_speed') && fanBar) fanBar.style.width = `${fan_speed}%`;
 
         // Secondary metrics (only if elements exist)
         const clockGrEl = document.getElementById(`clock-gr-${gpuId}`);
@@ -933,7 +940,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (clockSmEl) clockSmEl.textContent = `${getMetricValue(gpuInfo, 'clock_sm', 0)}`;
         if (memUtilEl) memUtilEl.textContent = `${getMetricValue(gpuInfo, 'memory_utilization', 0)}`;
         if (pcieEl) pcieEl.textContent = `Gen ${getMetricValue(gpuInfo, 'pcie_gen', 'N/A')}`;
-        if (pstateEl) pstateEl.textContent = `${getMetricValue(gpuInfo, 'performance_state', 'N/A')}`;
+        if (hasMetric(gpuInfo, 'performance_state') && pstateEl) pstateEl.textContent = `${gpuInfo.performance_state}`;
         if (encoderEl) encoderEl.textContent = `${getMetricValue(gpuInfo, 'encoder_sessions', 0)}`;
 
         // Encoder/Decoder utilization sub-labels
@@ -943,7 +950,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         // Header badges
         const pstateHeaderEl = document.getElementById(`pstate-header-${gpuId}`);
         const pcieHeaderEl = document.getElementById(`pcie-header-${gpuId}`);
-        if (pstateHeaderEl) pstateHeaderEl.textContent = `${getMetricValue(gpuInfo, 'performance_state', 'N/A')}`;
+        if (hasMetric(gpuInfo, 'performance_state') && pstateHeaderEl) pstateHeaderEl.textContent = `${gpuInfo.performance_state}`;
         if (pcieHeaderEl) pcieHeaderEl.textContent = `PCIe ${getMetricValue(gpuInfo, 'pcie_gen', 'N/A')}`;
 
         // Memory sublabel
@@ -978,7 +985,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (decUtilEl) decUtilEl.textContent = `${getMetricValue(gpuInfo, 'decoder_utilization', 0)}% utilization`;
         if (throttleEl) {
             const tr = getMetricValue(gpuInfo, 'throttle_reasons', 'None');
-            const isT = tr && tr !== 'None' && tr !== 'N/A';
+            const isT = tr && !['None', 'N/A', 'UNTHROTTLED', 'Unthrottled'].includes(tr);
             throttleEl.textContent = isT ? tr : 'GPU Idle';
             throttleEl.style.color = isT ? 'var(--warning)' : '';
             const throttleSubEl = document.getElementById(`throttle-sub-${gpuId}`);
@@ -1034,7 +1041,9 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
     updateChart(gpuId, 'temperature', temperature);
     updateChart(gpuId, 'memory', memPercent);
     updateChart(gpuId, 'power', power_draw);
-    updateChart(gpuId, 'fanSpeed', fan_speed);
+    if (hasMetric(gpuInfo, 'fan_speed')) {
+        updateChart(gpuId, 'fanSpeed', fan_speed);
+    }
     updateChart(gpuId, 'clocks',
         getMetricValue(gpuInfo, 'clock_graphics', 0),
         getMetricValue(gpuInfo, 'clock_sm', 0),

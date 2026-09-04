@@ -6,9 +6,9 @@ services:
     ports:
       - "1312:1312"
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - NODE_NAME=${HOSTNAME}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NODE_NAME: ${NODE_NAME:-gpu-hot-node}
       # Optional — override polling intervals (seconds)
       # - UPDATE_INTERVAL=0.5
       # - NVIDIA_SMI_INTERVAL=2.0
@@ -33,4 +33,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
