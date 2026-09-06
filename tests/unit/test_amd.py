@@ -159,10 +159,12 @@ class TestAMDCollection:
         list_payload = json.loads((FIXTURE_ROOT / "amd-smi-list.json").read_text())
         process_payload = json.loads((FIXTURE_ROOT / "amd-smi-process.json").read_text())
         metric_payload = json.loads((FIXTURE_ROOT / "amd-smi-metric.json").read_text())
+        static_payload = json.loads((FIXTURE_ROOT / "amd-smi-static.json").read_text())
         payloads = {
             "list": list_payload,
             "process": process_payload,
             "metric": metric_payload,
+            "static": static_payload,
         }
 
         def result_for(argv, **_kwargs):
@@ -177,7 +179,9 @@ class TestAMDCollection:
             ["list", "--json"],
             ["process", "--json"],
             ["metric", "--json"],
+            ["static", "--asic", "--json"],
         ]
+        assert data["amd-0"]["name"] == "AMD RADEON PRO V620 Azure"
         assert data["amd-0"]["throttle_reasons"] == "UNTHROTTLED"
         assert processes[0]["pid"] == "18679"
         assert processes[0]["name"] == "llama-server"
@@ -206,10 +210,17 @@ class TestAMDCollection:
                 {"gpu": 1, "power": {"throttle_status": "CARD-ONE"}},
             ]
         }
+        static_payload = {
+            "gpu_data": [
+                {"gpu": 0, "asic": {"market_name": "CARD-TWO"}},
+                {"gpu": 1, "asic": {"market_name": "CARD-ONE"}},
+            ]
+        }
         payloads = {
             "list": list_payload,
             "process": process_payload,
             "metric": metric_payload,
+            "static": static_payload,
         }
 
         def result_for(argv, **_kwargs):
@@ -227,6 +238,54 @@ class TestAMDCollection:
         }
         assert data["amd-0"]["throttle_reasons"] == "CARD-ONE"
         assert data["amd-1"]["throttle_reasons"] == "CARD-TWO"
+
+    def test_empty_product_name_uses_amd_smi_market_name(self, tmp_path):
+        device = tmp_path / "device"
+        device.mkdir()
+        (device / "product_name").write_text("\n")
+        amd_device = AMDDevice("0", device, device, pci_bus_id="0000:17:00.0")
+        payloads = {
+            "list": [{"gpu": 0, "bdf": "0000:17:00.0"}],
+            "process": [],
+            "metric": {"gpu_data": []},
+            "static": {
+                "gpu_data": [
+                    {"gpu": 0, "asic": {"market_name": "AMD Radeon Pro V620"}}
+                ]
+            },
+        }
+
+        def result_for(argv, **_kwargs):
+            command_result = MagicMock(returncode=0)
+            command_result.stdout = json.dumps(payloads[argv[1]])
+            return command_result
+
+        with patch("core.amd.subprocess.run", side_effect=result_for):
+            data, _ = AMDCollector([amd_device], amd_smi_path="amd-smi").collect()
+
+        assert data["amd-0000:17:00.0"]["name"] == "AMD Radeon Pro V620"
+
+    def test_empty_product_name_uses_pci_ids_when_amd_smi_is_absent(
+        self, tmp_path
+    ):
+        device = tmp_path / "device"
+        device.mkdir()
+        (device / "product_name").write_text("\n")
+        (device / "vendor").write_text("0x1002\n")
+        (device / "device").write_text("0x73a1\n")
+        pci_ids = tmp_path / "pci.ids"
+        pci_ids.write_text(
+            "1002  Advanced Micro Devices, Inc. [AMD/ATI]\n"
+            "\t73a1  Navi 21 [Radeon Pro V620]\n"
+            "\t\t1002 0e34  Radeon Pro V620\n"
+            "10de  NVIDIA Corporation\n"
+        )
+        amd_device = AMDDevice("0", device, device, pci_bus_id="0000:17:00.0")
+
+        with patch("core.amd.PCI_IDS_PATHS", (pci_ids,)):
+            data, _ = AMDCollector([amd_device], amd_smi_path="").collect()
+
+        assert data["amd-0000:17:00.0"]["name"] == "Navi 21 [Radeon Pro V620]"
 
     def test_failed_amd_smi_list_omits_optional_enrichment(self):
         collector = AMDCollector(discover_amd_devices(SYSFS_ROOT), amd_smi_path="amd-smi")
