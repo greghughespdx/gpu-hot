@@ -17,8 +17,10 @@ logger = logging.getLogger(__name__)
 
 MAX_SYSFS_BYTES = 4096
 MAX_AMD_SMI_BYTES = 1024 * 1024
+MAX_PCI_IDS_BYTES = 4 * 1024 * 1024
 AMD_SMI_TIMEOUT = 5
 AMD_SMI_INTERVAL = 10.0
+PCI_IDS_PATHS = (Path("/usr/share/misc/pci.ids"), Path("/usr/share/hwdata/pci.ids"))
 
 _CARD_RE = re.compile(r"card(\d+)$")
 _PCI_BDF_RE = re.compile(r"^(?:[0-9a-fA-F]{4}:)?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]$")
@@ -161,6 +163,45 @@ def _read_number(path: Path) -> float | None:
     return _parse_number(_read_text(path))
 
 
+def _pci_id(device_path: Path, filename: str) -> str | None:
+    identifier = _read_text(device_path / filename)
+    if identifier is None:
+        return None
+    identifier = identifier.casefold().removeprefix("0x")
+    return identifier if re.fullmatch(r"[0-9a-f]{4}", identifier) else None
+
+
+def _name_from_pci_ids(path: Path, vendor_id: str, device_id: str) -> str | None:
+    database = _read_text(path, MAX_PCI_IDS_BYTES)
+    if database is None:
+        return None
+    in_vendor = False
+    for line in database.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        if not line[0].isspace():
+            fields = line.split(None, 1)
+            in_vendor = fields[0].casefold() == vendor_id
+            continue
+        if not in_vendor or not line.startswith("\t") or line.startswith("\t\t"):
+            continue
+        fields = line.strip().split(None, 1)
+        if len(fields) == 2 and fields[0].casefold() == device_id:
+            return fields[1].strip() or None
+    return None
+
+
+def _pci_device_name(device_path: Path) -> str | None:
+    vendor_id = _pci_id(device_path, "vendor")
+    device_id = _pci_id(device_path, "device")
+    if vendor_id is None or device_id is None:
+        return None
+    for pci_ids_path in PCI_IDS_PATHS:
+        if device_name := _name_from_pci_ids(pci_ids_path, vendor_id, device_id):
+            return device_name
+    return None
+
+
 def _find_hwmon_files(device_path: Path, filename: str) -> list[Path]:
     paths: list[Path] = []
     direct = device_path / filename
@@ -258,6 +299,8 @@ class AMDCollector:
         self._smi_last_ts = 0.0
         self._smi_processes: list[dict] = []
         self._smi_metrics: dict[str, dict] = {}
+        self._smi_names: dict[str, str] = {}
+        self._fallback_names: dict[str, str] = {}
 
     @staticmethod
     def _device_has_uuid(device: AMDDevice) -> bool:
@@ -281,6 +324,7 @@ class AMDCollector:
             for device in self.devices
         }
         self._poll_smi()
+        self._add_device_names(gpu_payloads)
         self._add_throttle_status(gpu_payloads)
         return gpu_payloads, list(self._smi_processes)
 
@@ -397,6 +441,20 @@ class AMDCollector:
             if enrichment and enrichment.get("throttle_reasons"):
                 gpu_payload["throttle_reasons"] = enrichment["throttle_reasons"]
 
+    def _add_device_names(self, gpu_payloads: dict[str, dict]) -> None:
+        for gpu_id, gpu_payload in gpu_payloads.items():
+            if gpu_payload.get("name"):
+                continue
+            device = self.device_by_gpu_id[gpu_id]
+            device_name = self._fallback_names.get(gpu_id)
+            if device_name is None:
+                device_name = self._smi_names.get(gpu_id) or _pci_device_name(
+                    device.device_path
+                )
+            if device_name:
+                self._fallback_names[gpu_id] = device_name
+                gpu_payload["name"] = device_name
+
     def _poll_smi(self) -> None:
         if not self.amd_smi_path:
             return
@@ -410,20 +468,52 @@ class AMDCollector:
             logger.warning("amd-smi list mapping unavailable")
             self._clear_smi_enrichment()
             return
-        self._smi_processes, self._smi_metrics = self._collect_smi_enrichment(ordinal_map)
+        (
+            self._smi_processes,
+            self._smi_metrics,
+            self._smi_names,
+        ) = self._collect_smi_enrichment(ordinal_map)
 
     def _clear_smi_enrichment(self) -> None:
         self._smi_processes = []
         self._smi_metrics = {}
+        self._smi_names = {}
 
     def _collect_smi_enrichment(
         self, ordinal_map: dict[str, str]
-    ) -> tuple[list[dict], dict[str, dict]]:
+    ) -> tuple[list[dict], dict[str, dict], dict[str, str]]:
         process_json = self._run_json([self.amd_smi_path, "process", "--json"])
         metric_json = self._run_json([self.amd_smi_path, "metric", "--json"])
+        static_json = self._run_json(
+            [self.amd_smi_path, "static", "--asic", "--json"]
+        )
         processes = self._extract_process_records(process_json, ordinal_map)
         metrics = self._extract_metric_records(metric_json, ordinal_map)
-        return processes, metrics
+        names = self._extract_name_records(static_json, ordinal_map)
+        return processes, metrics, names
+
+    def _extract_name_records(
+        self, payload: object, ordinal_map: dict[str, str]
+    ) -> dict[str, str]:
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("gpu_data"), list
+        ):
+            return {}
+        names_by_gpu: dict[str, str] = {}
+        for gpu_record in payload["gpu_data"]:
+            if not isinstance(gpu_record, dict):
+                continue
+            gpu_id = self._record_index(gpu_record, ordinal_map)
+            asic = gpu_record.get("asic")
+            market_name = asic.get("market_name") if isinstance(asic, dict) else None
+            if gpu_id and isinstance(market_name, str):
+                normalised_name = market_name.strip()
+                if normalised_name and normalised_name.upper() not in {
+                    "N/A",
+                    "UNKNOWN",
+                }:
+                    names_by_gpu[gpu_id] = normalised_name
+        return names_by_gpu
 
     def _run_json(self, argv: list[str]) -> object | None:
         try:
