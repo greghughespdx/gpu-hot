@@ -45,6 +45,48 @@ Open `http://localhost:1312`
 
 **Process monitoring:** Add `--init --pid=host` to see process names. Note: This allows the container to access host process information.
 
+### NVIDIA, AMD, and hub nodes
+
+The normal `docker-compose.yml` and `docker run --gpus all` commands use the
+NVIDIA Container Toolkit and preserve the NVIDIA NVML and nvidia-smi paths.
+
+For an AMD host, the same application image can use the standalone compose
+file. It reads required metrics from amdgpu sysfs and hwmon, so ROCm and
+amd-smi are not required:
+
+```bash
+NODE_NAME=$(hostname) \
+docker compose -f docker-compose.amd.yml up --build -d
+```
+
+This base AMD path is sysfs-only. It does not require ROCm, `amd-smi`,
+`/dev/dri`, or `/dev/kfd`. The compose default is `gpu-hot-node` when
+`NODE_NAME` is not set, and `NODE_NAME=$(hostname)` gives the host name.
+
+To opt in to AMD process and throttle enrichment, use the separate override.
+It mounts the host ROCm runtime read-only and adds only the device access needed
+by `amd-smi`:
+
+```bash
+NODE_NAME=$(hostname) \
+ROCM_HOST_PATH=/opt/rocm/core-7.14 \
+docker compose -f docker-compose.amd.yml -f docker-compose.amd-smi.yml up --build -d
+```
+
+Set `ROCM_HOST_PATH` to the host directory that contains `bin/amd-smi` and
+`lib`. On the tested ROCm host, the path is `/opt/rocm/core-7.14`, so the
+container runs `/opt/rocm/core-7.14/bin/amd-smi` from the read-only mount.
+Process discovery also needs `SYS_PTRACE` and an unconfined AppArmor profile,
+which the override applies to this container. Together with host PID mode,
+these settings let `amd-smi` inspect host GPU process names and memory use. Use
+the enrichment override only on a trusted host. The core sysfs metrics continue
+to work if the optional command is unavailable.
+
+For a hub node with no GPU, use the existing hub command with
+`GPU_HOT_MODE=hub` and `NODE_URLS` as shown below. A missing AMD fan value and
+the NVIDIA P-state value are not replaced with zero or `N/A`; those fields are
+hidden when the source does not provide them.
+
 **From source:**
 ```bash
 git clone https://github.com/psalias2006/gpu-hot
@@ -82,7 +124,8 @@ UPDATE_INTERVAL=0.5            # Optional. NVML polling interval in seconds (def
 NVIDIA_SMI_INTERVAL=2.0        # Optional. nvidia-smi fallback polling interval (default: 2.0)
 ```
 
-Polling is paused automatically when no clients are connected, so idle CPU usage stays near zero.
+Single-node polling pauses when no clients are connected. Hub mode keeps its node
+connections active so its health check can verify that node data remains fresh.
 
 **Backend (`core/config.py`):**
 ```python
@@ -98,6 +141,7 @@ PORT = 1312            # Server port
 GET /              # Dashboard
 GET /api/gpu-data  # JSON metrics snapshot
 GET /api/version   # Version and update info
+GET /health        # Service health; hub mode also checks node-data freshness
 ```
 
 ### WebSocket

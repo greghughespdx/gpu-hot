@@ -43,10 +43,10 @@ else:
     logger.info("Starting GPU Hot (FastAPI)")
     logger.info(f"Node name: {config.NODE_NAME}")
     
-    from core.monitor import GPUMonitor
+    from core.monitor_factory import create_monitor
     from core.handlers import register_handlers
     
-    monitor = GPUMonitor()
+    monitor = create_monitor()
     register_handlers(app, monitor)
     monitor_or_hub = monitor
 
@@ -68,6 +68,19 @@ async def api_gpu_data():
         return {"gpus": await monitor_or_hub.get_gpu_data(), "timestamp": "async"}
     
     return {"gpus": {}, "timestamp": "no_data"}
+
+
+@app.get("/health")
+async def health():
+    """Report service health and, in hub mode, node-data freshness."""
+    if config.MODE == 'hub':
+        health_status = monitor_or_hub.get_health_status()
+        return JSONResponse(
+            health_status,
+            status_code=200 if health_status['status'] == 'healthy' else 503
+        )
+
+    return {"status": "healthy", "mode": "node"}
 
 
 def compare_versions(current, latest):

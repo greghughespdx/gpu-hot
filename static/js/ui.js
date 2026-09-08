@@ -74,7 +74,8 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         btn.dataset.view = `gpu-${gpuId}`;
         // For cluster IDs like "gpu-server-2-0", show only the last segment
         const parts = String(gpuId).split('-');
-        btn.textContent = parts.length > 1 ? parts[parts.length - 1] : gpuId;
+        const displayId = parts.length > 1 ? parts[parts.length - 1] : gpuId;
+        btn.textContent = gpuInfo.vendor === 'amd' ? `AMD ${displayId}` : displayId;
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);

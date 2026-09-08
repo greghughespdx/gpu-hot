@@ -90,6 +90,16 @@ describe('ensureGPUTab', () => {
         const btn = document.querySelector('[data-view="gpu-server-2-0"]');
         expect(btn.textContent).toBe('0');
     });
+
+    it('keeps NVIDIA and AMD sidebar labels distinct', () => {
+        ensureGPUTab('0', { vendor: 'nvidia', name: 'NVIDIA GPU' }, false);
+        ensureGPUTab('amd-0', { vendor: 'amd', name: 'AMD GPU' }, false);
+
+        const labels = [...document.querySelectorAll('.sidebar-btn')].map(btn => btn.textContent);
+        expect(labels).toContain('0');
+        expect(labels).toContain('AMD 0');
+        expect(new Set(labels).size).toBe(labels.length);
+    });
 });
 
 describe('removeGPUTab', () => {

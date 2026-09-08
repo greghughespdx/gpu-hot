@@ -144,6 +144,23 @@ let rafScheduled = false; // Flag to prevent duplicate RAF scheduling
 const lastDOMUpdate = {}; // Track last update time per GPU
 const DOM_UPDATE_INTERVAL = 1000; // Text/card updates every 1s, charts update every frame
 
+function getInitialChartValues(gpuInfo) {
+    const chartValues = {
+        utilization: gpuInfo.utilization,
+        temperature: gpuInfo.temperature,
+        memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
+        power: gpuInfo.power_draw,
+        clockGraphics: gpuInfo.clock_graphics,
+        clockSm: gpuInfo.clock_sm,
+        clockMemory: gpuInfo.clock_memory,
+        powerLimit: gpuInfo.power_limit
+    };
+    if (hasMetric(gpuInfo, 'fan_speed')) {
+        chartValues.fanSpeed = gpuInfo.fan_speed;
+    }
+    return chartValues;
+}
+
 // Handle incoming GPU data
 function handleSocketMessage(event) {
     const data = JSON.parse(event.data);
@@ -171,17 +188,7 @@ function handleSocketMessage(event) {
         Object.keys(data.gpus).forEach(gpuId => {
             const gpuInfo = data.gpus[gpuId];
             if (!chartData[gpuId]) {
-                initGPUData(gpuId, {
-                    utilization: gpuInfo.utilization,
-                    temperature: gpuInfo.temperature,
-                    memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
-                    power: gpuInfo.power_draw,
-                    fanSpeed: gpuInfo.fan_speed,
-                    clockGraphics: gpuInfo.clock_graphics,
-                    clockSm: gpuInfo.clock_sm,
-                    clockMemory: gpuInfo.clock_memory,
-                    powerLimit: gpuInfo.power_limit
-                });
+                initGPUData(gpuId, getInitialChartValues(gpuInfo));
             }
             updateAllChartDataOnly(gpuId, gpuInfo);
             // Also update system chart data during scroll
@@ -198,17 +205,7 @@ function handleSocketMessage(event) {
 
         // Initialize chart data structures if first time seeing this GPU
         if (!chartData[gpuId]) {
-            initGPUData(gpuId, {
-                utilization: gpuInfo.utilization,
-                temperature: gpuInfo.temperature,
-                memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
-                power: gpuInfo.power_draw,
-                fanSpeed: gpuInfo.fan_speed,
-                clockGraphics: gpuInfo.clock_graphics,
-                clockSm: gpuInfo.clock_sm,
-                clockMemory: gpuInfo.clock_memory,
-                powerLimit: gpuInfo.power_limit
-            });
+            initGPUData(gpuId, getInitialChartValues(gpuInfo));
         }
 
         // Determine if text/card DOM should update (throttled) or just charts (every frame)
@@ -366,9 +363,11 @@ function updateAllChartDataOnly(gpuId, gpuInfo) {
         temperature: gpuInfo.temperature || 0,
         memory: memPercent,
         power: power_draw,
-        fanSpeed: gpuInfo.fan_speed || 0,
         efficiency: power_draw > 0 ? (gpuInfo.utilization || 0) / power_draw : 0
     };
+    if (hasMetric(gpuInfo, 'fan_speed')) {
+        metrics.fanSpeed = gpuInfo.fan_speed;
+    }
 
     // Update single-line charts
     Object.entries(metrics).forEach(([chartType, value]) => {
@@ -445,6 +444,12 @@ window.addEventListener('focus', () => {
  * Handle cluster/hub mode data
  * Data structure: { mode: 'hub', nodes: {...}, cluster_stats: {...} }
  */
+function getClusterProcesses(nodes) {
+    return Object.values(nodes)
+        .filter(node => node.status === 'online')
+        .flatMap(node => node.processes || []);
+}
+
 function handleClusterData(data) {
     const overviewContainer = document.getElementById('overview-container');
     const now = Date.now();
@@ -463,17 +468,7 @@ function handleClusterData(data) {
                 Object.entries(nodeData.gpus).forEach(([gpuId, gpuInfo]) => {
                     const fullGpuId = `${nodeName}-${gpuId}`;
                     if (!chartData[fullGpuId]) {
-                        initGPUData(fullGpuId, {
-                            utilization: gpuInfo.utilization,
-                            temperature: gpuInfo.temperature,
-                            memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
-                            power: gpuInfo.power_draw,
-                            fanSpeed: gpuInfo.fan_speed,
-                            clockGraphics: gpuInfo.clock_graphics,
-                            clockSm: gpuInfo.clock_sm,
-                            clockMemory: gpuInfo.clock_memory,
-                            powerLimit: gpuInfo.power_limit
-                        });
+                        initGPUData(fullGpuId, getInitialChartValues(gpuInfo));
                     }
                     updateAllChartDataOnly(fullGpuId, gpuInfo);
                     if (nodeData.system) {
@@ -508,17 +503,7 @@ function handleClusterData(data) {
 
                 // Initialize chart data with current values
                 if (!chartData[fullGpuId]) {
-                    initGPUData(fullGpuId, {
-                        utilization: gpuInfo.utilization,
-                        temperature: gpuInfo.temperature,
-                        memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
-                        power: gpuInfo.power_draw,
-                        fanSpeed: gpuInfo.fan_speed,
-                        clockGraphics: gpuInfo.clock_graphics,
-                        clockSm: gpuInfo.clock_sm,
-                        clockMemory: gpuInfo.clock_memory,
-                        powerLimit: gpuInfo.power_limit
-                    });
+                    initGPUData(fullGpuId, getInitialChartValues(gpuInfo));
                 }
 
                 // Queue update
@@ -585,12 +570,12 @@ function handleClusterData(data) {
         aggregateCardInjected = false;
     }
 
-    // Update processes and system info (use first online node)
+    // Update processes from all online nodes and system info from the first one
     const firstOnlineNode = Object.values(data.nodes).find(n => n.status === 'online');
     if (firstOnlineNode) {
         if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
             pendingUpdates.set('_system', {
-                processes: firstOnlineNode.processes || [],
+                processes: getClusterProcesses(data.nodes),
                 system: firstOnlineNode.system || {},
                 now
             });

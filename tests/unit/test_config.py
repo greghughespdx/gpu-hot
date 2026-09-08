@@ -73,9 +73,15 @@ class TestConfig:
         config = self._reload_config({'NODE_NAME': 'my-gpu-server'})
         assert config.NODE_NAME == 'my-gpu-server'
 
+    def test_node_name_empty_uses_hostname(self):
+        import socket
+        config = self._reload_config({'NODE_NAME': ''})
+        assert config.NODE_NAME == socket.gethostname()
+
     def test_server_constants(self):
         config = self._reload_config()
         assert config.HOST == '0.0.0.0'
         assert config.PORT == 1312
         assert config.UPDATE_INTERVAL == 0.5
         assert config.NVIDIA_SMI_INTERVAL == 2.0
+        assert config.HUB_HEALTH_STALE_SECONDS == 30.0
