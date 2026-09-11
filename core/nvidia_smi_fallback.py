@@ -7,7 +7,34 @@ import subprocess
 import logging
 from datetime import datetime
 
+from .external_fans import normalise_pci_address
+
 logger = logging.getLogger(__name__)
+
+NOT_AVAILABLE = ('N/A', '[N/A]', '')
+
+
+def _optional_float(value):
+    """Return the reading, or None when the driver reports none.
+
+    A card whose driver reports no fan has to stay distinguishable from one
+    whose fan is idling at zero percent: the first is a card an external fan
+    mapping should cover, the second already reports its own fan. Turning
+    "N/A" into 0 erases that difference, so it becomes None instead.
+    """
+    if value in NOT_AVAILABLE:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _pci_bus_id(value):
+    """Return the PCI address in the same shape the fan mapping is keyed by."""
+    if value in NOT_AVAILABLE:
+        return None
+    return normalise_pci_address(value) or value.strip() or None
 
 
 def parse_nvidia_smi():
@@ -23,7 +50,9 @@ def parse_nvidia_smi():
             'pcie.link.gen.current,pcie.link.gen.max,pcie.link.width.current,pcie.link.width.max,'
             'encoder.stats.sessionCount,encoder.stats.averageFps,encoder.stats.averageLatency,'
             'pstate,compute_mode,'
-            'utilization.encoder,utilization.decoder',
+            'utilization.encoder,utilization.decoder,'
+            # Last so the earlier field positions keep their meaning.
+            'pci.bus_id',
             '--format=csv,noheader,nounits'
         ], capture_output=True, text=True, timeout=10)
         
@@ -39,7 +68,7 @@ def parse_nvidia_smi():
                 parts = [p.strip() for p in line.split(',')]
                 if len(parts) >= 27:
                     gpu_id = parts[0]
-                    gpu_data[gpu_id] = {
+                    entry = {
                         'index': parts[0],
                         'vendor': 'nvidia',
                         'name': parts[1],
@@ -56,7 +85,7 @@ def parse_nvidia_smi():
                         'power_draw': float(parts[11]) if parts[11] not in ['N/A', '[N/A]', ''] else 0,
                         'power_limit': float(parts[12]) if parts[12] not in ['N/A', '[N/A]', ''] else 0,
                         'power_default_limit': 0,
-                        'fan_speed': float(parts[13]) if parts[13] not in ['N/A', '[N/A]', ''] else 0,
+                        'fan_speed': _optional_float(parts[13]),
                         'clock_graphics': float(parts[14]) if parts[14] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_sm': float(parts[15]) if parts[15] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_memory': float(parts[16]) if parts[16] not in ['N/A', '[N/A]', ''] else 0,
@@ -82,6 +111,13 @@ def parse_nvidia_smi():
                         'timestamp': datetime.now().isoformat(),
                         '_fallback_mode': True
                     }
+                    # The external fan mapping is keyed by PCI address, so a
+                    # card collected this way needs to carry one.
+                    if len(parts) > 31:
+                        bus_id = _pci_bus_id(parts[31])
+                        if bus_id:
+                            entry['pci_bus_id'] = bus_id
+                    gpu_data[gpu_id] = entry
         
         if gpu_data:
             logger.debug(f"nvidia-smi returned data for {len(gpu_data)} GPU(s)")
@@ -103,7 +139,8 @@ def parse_nvidia_smi_fallback():
             'nvidia-smi', 
             '--query-gpu=index,name,temperature.gpu,utilization.gpu,utilization.memory,'
             'memory.used,memory.total,power.draw,power.limit,fan.speed,'
-            'clocks.gr,clocks.sm,clocks.mem,pstate',
+            # pci.bus_id last so the earlier field positions keep their meaning.
+            'clocks.gr,clocks.sm,clocks.mem,pstate,pci.bus_id',
             '--format=csv,noheader,nounits'
         ], capture_output=True, text=True, timeout=10)
         
@@ -119,7 +156,7 @@ def parse_nvidia_smi_fallback():
                 parts = [p.strip() for p in line.split(',')]
                 if len(parts) >= 14:
                     gpu_id = parts[0]
-                    gpu_data[gpu_id] = {
+                    entry = {
                         'index': parts[0],
                         'vendor': 'nvidia',
                         'name': parts[1],
@@ -136,7 +173,7 @@ def parse_nvidia_smi_fallback():
                         'power_draw': float(parts[7]) if parts[7] not in ['N/A', '[N/A]', ''] else 0,
                         'power_limit': float(parts[8]) if parts[8] not in ['N/A', '[N/A]', ''] else 0,
                         'power_default_limit': 0,
-                        'fan_speed': float(parts[9]) if parts[9] not in ['N/A', '[N/A]', ''] else 0,
+                        'fan_speed': _optional_float(parts[9]),
                         'clock_graphics': float(parts[10]) if parts[10] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_sm': float(parts[11]) if parts[11] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_memory': float(parts[12]) if parts[12] not in ['N/A', '[N/A]', ''] else 0,
@@ -162,6 +199,11 @@ def parse_nvidia_smi_fallback():
                         'timestamp': datetime.now().isoformat(),
                         '_fallback_mode': True
                     }
+                    if len(parts) > 14:
+                        bus_id = _pci_bus_id(parts[14])
+                        if bus_id:
+                            entry['pci_bus_id'] = bus_id
+                    gpu_data[gpu_id] = entry
         
         if gpu_data:
             logger.info(f"Basic nvidia-smi query successful - Found {len(gpu_data)} GPU(s)")

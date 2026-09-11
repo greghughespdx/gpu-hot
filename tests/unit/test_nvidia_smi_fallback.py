@@ -1,9 +1,13 @@
 """Tests for core/nvidia_smi_fallback.py"""
 
+import json
 import subprocess
+from pathlib import Path
+
 import pytest
 from unittest.mock import patch, MagicMock
 
+from core.external_fans import create_external_fan_reader
 from core.nvidia_smi_fallback import parse_nvidia_smi, parse_nvidia_smi_fallback
 
 
@@ -16,15 +20,40 @@ FULL_CSV = (
     "4, 4, 16, 16, "
     "0, 0.0, 0.0, "
     "P0, Default, "
-    "0, 0"
+    "0, 0, "
+    "00000000:19:00.0"
 )
 
 # Realistic CSV output for basic query (14 fields)
 BASIC_CSV = (
     "0, NVIDIA GeForce RTX 3090, 72, 75, 45, "
     "8192, 24576, 250.00, 350.00, 65, "
-    "1800, 1800, 5001, P0"
+    "1800, 1800, 5001, P0, 00000000:19:00.0"
 )
+
+# The fan channel that cools the passive card at 0000:19:00.0 on the fixture
+# controller: 3705 RPM at PWM 145.
+HWMON_ROOT = (
+    Path(__file__).parents[1] / "fixtures" / "external_fans" / "sys" / "class" / "hwmon"
+)
+MAPPED_CARD = "0000:19:00.0"
+CHANNEL_ONE_PERCENT = round(145 / 255 * 100, 1)
+
+FULL_FAN_FIELD = 13
+BASIC_FAN_FIELD = 9
+
+
+def _with_field(csv, index, value):
+    """Return the CSV line with one field replaced."""
+    parts = [part.strip() for part in csv.split(',')]
+    parts[index] = value
+    return ", ".join(parts)
+
+
+def _mapping(**overrides):
+    entry = {"source": "hwmon", "name": "arctic_fan", "channel": 1}
+    entry.update(overrides)
+    return json.dumps({MAPPED_CARD: entry})
 
 
 def _make_result(stdout, returncode=0):
@@ -153,3 +182,120 @@ class TestParseNvidiaSmiBasicFallback:
         data = parse_nvidia_smi_fallback()
         gpu = data['0']
         assert gpu['memory_free'] == gpu['memory_total'] - gpu['memory_used']
+
+
+class TestPCIAddressAndFanAvailability:
+    """The external fan mapping is keyed by PCI address and needs to know
+    whether a card reports a fan at all, so both have to survive this path."""
+
+    @patch('subprocess.run')
+    def test_both_queries_ask_for_the_pci_address(self, mock_run):
+        mock_run.return_value = _make_result(FULL_CSV + "\n")
+        parse_nvidia_smi()
+        assert 'pci.bus_id' in " ".join(mock_run.call_args[0][0])
+
+        mock_run.return_value = _make_result(BASIC_CSV + "\n")
+        parse_nvidia_smi_fallback()
+        assert 'pci.bus_id' in " ".join(mock_run.call_args[0][0])
+
+    @patch('subprocess.run')
+    def test_comprehensive_query_carries_a_normalised_address(self, mock_run):
+        mock_run.return_value = _make_result(FULL_CSV + "\n")
+        assert parse_nvidia_smi()['0']['pci_bus_id'] == MAPPED_CARD
+
+    @patch('subprocess.run')
+    def test_basic_query_carries_a_normalised_address(self, mock_run):
+        mock_run.return_value = _make_result(BASIC_CSV + "\n")
+        assert parse_nvidia_smi_fallback()['0']['pci_bus_id'] == MAPPED_CARD
+
+    @patch('subprocess.run')
+    def test_an_unusable_address_is_left_out(self, mock_run):
+        mock_run.return_value = _make_result(_with_field(FULL_CSV, 31, 'N/A') + "\n")
+        assert 'pci_bus_id' not in parse_nvidia_smi()['0']
+
+    @pytest.mark.parametrize("reported", ['N/A', '[N/A]', ''])
+    @patch('subprocess.run')
+    def test_comprehensive_unsupported_fan_is_absent_not_zero(self, mock_run, reported):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, reported)
+        mock_run.return_value = _make_result(csv + "\n")
+        assert parse_nvidia_smi()['0']['fan_speed'] is None
+
+    @pytest.mark.parametrize("reported", ['N/A', '[N/A]', ''])
+    @patch('subprocess.run')
+    def test_basic_unsupported_fan_is_absent_not_zero(self, mock_run, reported):
+        csv = _with_field(BASIC_CSV, BASIC_FAN_FIELD, reported)
+        mock_run.return_value = _make_result(csv + "\n")
+        assert parse_nvidia_smi_fallback()['0']['fan_speed'] is None
+
+    @patch('subprocess.run')
+    def test_comprehensive_real_zero_fan_stays_zero(self, mock_run):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, '0')
+        mock_run.return_value = _make_result(csv + "\n")
+        assert parse_nvidia_smi()['0']['fan_speed'] == 0.0
+
+    @patch('subprocess.run')
+    def test_basic_real_zero_fan_stays_zero(self, mock_run):
+        csv = _with_field(BASIC_CSV, BASIC_FAN_FIELD, '0')
+        mock_run.return_value = _make_result(csv + "\n")
+        assert parse_nvidia_smi_fallback()['0']['fan_speed'] == 0.0
+
+
+class TestExternalFanHandoff:
+    """An nvidia-smi payload has to reach the fan mapping the same way an NVML
+    one does: matched by PCI address, and covered only when no fan is reported."""
+
+    @patch('subprocess.run')
+    def test_comprehensive_payload_without_a_fan_gets_the_mapping(self, mock_run):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, 'N/A')
+        mock_run.return_value = _make_result(csv + "\n")
+        payloads = parse_nvidia_smi()
+
+        create_external_fan_reader(_mapping(), HWMON_ROOT).apply(payloads)
+
+        assert payloads['0']['fan_speed'] == CHANNEL_ONE_PERCENT
+        assert payloads['0']['fan_rpm'] == 3705
+
+    @patch('subprocess.run')
+    def test_basic_payload_without_a_fan_gets_the_mapping(self, mock_run):
+        csv = _with_field(BASIC_CSV, BASIC_FAN_FIELD, 'N/A')
+        mock_run.return_value = _make_result(csv + "\n")
+        payloads = parse_nvidia_smi_fallback()
+
+        create_external_fan_reader(_mapping(), HWMON_ROOT).apply(payloads)
+
+        assert payloads['0']['fan_speed'] == CHANNEL_ONE_PERCENT
+        assert payloads['0']['fan_rpm'] == 3705
+
+    @patch('subprocess.run')
+    def test_a_fan_reporting_zero_percent_is_left_alone(self, mock_run):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, '0')
+        mock_run.return_value = _make_result(csv + "\n")
+        payloads = parse_nvidia_smi()
+
+        create_external_fan_reader(_mapping(), HWMON_ROOT).apply(payloads)
+
+        assert payloads['0']['fan_speed'] == 0.0
+        assert 'fan_rpm' not in payloads['0']
+
+    @patch('subprocess.run')
+    def test_override_replaces_a_fan_reporting_zero_percent(self, mock_run):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, '0')
+        mock_run.return_value = _make_result(csv + "\n")
+        payloads = parse_nvidia_smi()
+
+        create_external_fan_reader(_mapping(override=True), HWMON_ROOT).apply(payloads)
+
+        assert payloads['0']['fan_speed'] == CHANNEL_ONE_PERCENT
+        assert payloads['0']['fan_rpm'] == 3705
+
+    @patch('subprocess.run')
+    def test_an_unmapped_card_keeps_its_absent_fan(self, mock_run):
+        csv = _with_field(FULL_CSV, FULL_FAN_FIELD, 'N/A')
+        csv = _with_field(csv, 31, '00000000:b3:00.0')
+        mock_run.return_value = _make_result(csv + "\n")
+        payloads = parse_nvidia_smi()
+
+        create_external_fan_reader(_mapping(), HWMON_ROOT).apply(payloads)
+
+        assert payloads['0']['fan_speed'] is None
+        assert 'fan_rpm' not in payloads['0']

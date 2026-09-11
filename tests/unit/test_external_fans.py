@@ -3,6 +3,7 @@
 import json
 import logging
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -13,6 +14,7 @@ from core.external_fans import (
     normalise_pci_address,
     parse_external_fans,
 )
+from core.metrics.collector import MetricsCollector
 
 
 HWMON_ROOT = (
@@ -368,6 +370,18 @@ class TestApplication:
         assert payloads["1"]["fan_rpm"] == 3441
         assert payloads["0"]["fan_speed"] == CHANNEL_ONE_PERCENT
         assert payloads["1"]["fan_speed"] == CHANNEL_TWO_PERCENT
+
+    def test_a_card_whose_nvml_driver_reports_no_fan_gets_the_mapping(self):
+        """NVML answers fan-not-supported, so the payload carries no fan at all."""
+        collector = MetricsCollector()
+        payload = {"vendor": "nvidia", "pci_bus_id": "00000000:19:00.0"}
+        with patch("core.metrics.collector.safe_get", return_value=None):
+            collector._add_fan_speeds(MagicMock(name="nvml_handle"), payload)
+        assert "fan_speed" not in payload
+
+        _reader(_config()).apply({"0": payload})
+        assert payload["fan_speed"] == CHANNEL_ONE_PERCENT
+        assert payload["fan_rpm"] == 3705
 
     def test_a_failing_lookup_never_breaks_collection(self, caplog):
         class Exploding(dict):
