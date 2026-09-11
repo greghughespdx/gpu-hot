@@ -172,8 +172,9 @@ class TestEndpoints:
         self.app_module.monitor_or_hub = hub
 
         transport = ASGITransport(app=self.app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get("/health")
+        with patch('core.hub.time.monotonic', return_value=100.0):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.get("/health")
 
         assert response.status_code == 503
         assert response.json()['reason'] == 'node_data_stale'
