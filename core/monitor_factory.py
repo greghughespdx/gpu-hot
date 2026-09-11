@@ -40,18 +40,24 @@ class MonitorComposition:
 
     def _merge_amd_data(self, gpu_payloads: dict[str, dict]) -> None:
         """Keep bare numeric IDs unique when both vendors share a host."""
-        used_ids = set(gpu_payloads)
+        id_map = self._amd_id_mapping(set(gpu_payloads))
+        for gpu_id, payload in self._amd_data.items():
+            merged_id = id_map[gpu_id]
+            gpu_payloads[merged_id] = {**payload, "index": merged_id}
+        self._amd_id_map = id_map
+
+    def _amd_id_mapping(self, used_ids: set[str]) -> dict[str, str]:
+        """Return stable bare IDs without colliding with collected NVIDIA IDs."""
         next_id = max((int(gpu_id) for gpu_id in used_ids if gpu_id.isdigit()), default=-1) + 1
         id_map: dict[str, str] = {}
-        for gpu_id, payload in self._amd_data.items():
+        for gpu_id in self._amd_data:
             merged_id = gpu_id
             while merged_id in used_ids:
                 merged_id = str(next_id)
                 next_id += 1
             used_ids.add(merged_id)
             id_map[gpu_id] = merged_id
-            gpu_payloads[merged_id] = {**payload, "index": merged_id}
-        self._amd_id_map = id_map
+        return id_map
 
     async def get_processes(self) -> list[dict]:
         process_records: list[dict] = []
@@ -62,6 +68,14 @@ class MonitorComposition:
                 logger.error("NVIDIA process collection failed: %s", error)
         if self.amd is not None:
             await self._await_amd()
+            if not self._amd_id_map:
+                nvidia_ids: set[str] = set()
+                if self.nvidia is not None and getattr(self.nvidia, "initialized", False):
+                    try:
+                        nvidia_ids = set(await self.nvidia.get_gpu_data())
+                    except Exception as error:
+                        logger.error("NVIDIA collection failed: %s", error)
+                self._amd_id_map = self._amd_id_mapping(nvidia_ids)
             process_records.extend(
                 {
                     **process,

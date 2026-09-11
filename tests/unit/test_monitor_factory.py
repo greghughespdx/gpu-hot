@@ -1,5 +1,7 @@
 """Tests for vendor monitor composition."""
 
+import asyncio
+
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -22,6 +24,17 @@ class StubNvidiaMonitor:
 
     async def get_processes(self):
         return self.processes
+
+
+class StubAMDCollector:
+    def collect(self):
+        return (
+            {
+                "0": {"index": "0", "vendor": "amd"},
+                "1": {"index": "1", "vendor": "amd"},
+            },
+            [{"gpu_id": "0", "gpu_uuid": "AMD-one"}],
+        )
 
 
 @pytest.mark.asyncio
@@ -47,13 +60,11 @@ async def test_mixed_monitor_remaps_overlapping_ordinals_to_bare_indices():
         {"0": {"vendor": "nvidia", "uuid": "GPU-one"}},
         [{"gpu_id": "0", "gpu_uuid": "GPU-one"}],
     )
-    fixture_root = Path(__file__).parents[1] / "fixtures" / "amd" / "sys" / "class" / "drm"
-    amd = AMDCollector(discover_amd_devices(fixture_root), amd_smi_path="")
-    monitor = MonitorComposition(nvidia, amd)
+    monitor = MonitorComposition(nvidia, StubAMDCollector())
 
-    data = await monitor.get_gpu_data()
-    monitor._amd_processes = [{"gpu_id": "0", "gpu_uuid": "AMD-one"}]
-    processes = await monitor.get_processes()
+    data, processes = await asyncio.gather(
+        monitor.get_gpu_data(), monitor.get_processes()
+    )
 
     assert set(data) == {"0", "1", "2"}
     assert data["0"]["vendor"] == "nvidia"
