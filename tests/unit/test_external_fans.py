@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from core.external_fans import (
+    MAX_CONFIG_CHARS,
     ExternalFanReader,
     ExternalFanSource,
     create_external_fan_reader,
@@ -140,6 +141,23 @@ class TestConfigParsing:
         with caplog.at_level(logging.WARNING):
             assert parse_external_fans(json.dumps(document)) == {}
         assert "not implemented yet" in caplog.text
+
+    def test_an_oversized_document_never_reaches_the_parser(self, caplog):
+        document = {CARD_ONE: {"name": "x" * MAX_CONFIG_CHARS, "channel": 1}}
+        raw = json.dumps(document)
+        assert len(raw) > MAX_CONFIG_CHARS
+        with caplog.at_level(logging.WARNING):
+            assert parse_external_fans(raw) == {}
+        assert "over the" in caplog.text
+
+    def test_a_deeply_nested_document_is_contained(self, caplog):
+        # Deep nesting reaches the interpreter's recursion limit inside the JSON
+        # parser on the runtimes this ships on, which is not a ValueError.
+        raw = "[" * 2000 + "]" * 2000
+        assert len(raw) < MAX_CONFIG_CHARS
+        with caplog.at_level(logging.WARNING):
+            assert parse_external_fans(raw) == {}
+        assert "EXTERNAL_FANS" in caplog.text
 
     def test_a_bad_entry_does_not_drop_the_good_ones(self, caplog):
         document = {

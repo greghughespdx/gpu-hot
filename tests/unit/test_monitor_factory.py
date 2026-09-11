@@ -146,3 +146,26 @@ async def test_monitor_without_external_fans_adds_no_fan_fields():
     data = await monitor.get_gpu_data()
 
     assert data == {"0": {"vendor": "nvidia", "pci_bus_id": "0000:19:00.0"}}
+
+
+@pytest.mark.asyncio
+async def test_a_deeply_nested_external_fans_value_still_starts_the_monitor(tmp_path):
+    """A bad EXTERNAL_FANS value disables the mapping; it never stops startup.
+
+    Deep nesting reaches the interpreter's recursion limit inside the JSON
+    parser, which is not the ValueError a malformed document raises, so it has
+    to be contained here or node construction never returns.
+    """
+    nested = "[" * 2000 + "]" * 2000
+    nvidia = StubNvidiaMonitor(True, {"0": {"vendor": "nvidia"}}, [])
+
+    with (
+        patch.object(monitor_factory, "GPUMonitor", return_value=nvidia),
+        patch.object(monitor_factory, "EXTERNAL_FANS", nested),
+    ):
+        monitor = monitor_factory.create_monitor(tmp_path)
+        data = await monitor.get_gpu_data()
+
+    assert monitor.external_fans.mapping == {}
+    assert not monitor.external_fans
+    assert data == {"0": {"vendor": "nvidia"}}

@@ -27,6 +27,12 @@ HWMON_ROOT = Path("/sys/class/hwmon")
 MAX_SYSFS_BYTES = 64
 PWM_MAX = 255
 
+# A mapping is a handful of cards, so a few kilobytes is already generous. The
+# bound keeps an accidental or hostile value from being handed to the parser at
+# all; whatever the parser then raises is contained separately, because deeply
+# nested input reaches the interpreter's recursion limit long before this size.
+MAX_CONFIG_CHARS = 8192
+
 # Source kinds this module understands. "hwmon" reads a controller that the
 # kernel already exposes. A "file" kind is reserved for a later phase: a JSON
 # document published by another process, for hosts whose fans are driven over
@@ -82,10 +88,20 @@ def parse_external_fans(raw: str | None) -> dict[str, ExternalFanSource]:
     """Parse the EXTERNAL_FANS document. A bad entry is dropped and logged."""
     if not raw or not raw.strip():
         return {}
+    if len(raw) > MAX_CONFIG_CHARS:
+        logger.warning(
+            "EXTERNAL_FANS is %d characters, over the %d limit, ignoring it",
+            len(raw),
+            MAX_CONFIG_CHARS,
+        )
+        return {}
     try:
         document = json.loads(raw)
     except ValueError as error:
         logger.warning("EXTERNAL_FANS is not valid JSON, ignoring it: %s", error)
+        return {}
+    except Exception as error:  # RecursionError on deeply nested input, and anything else
+        logger.warning("EXTERNAL_FANS could not be parsed, ignoring it: %s", error)
         return {}
     if not isinstance(document, dict):
         logger.warning("EXTERNAL_FANS must be an object of PCI address to fan source")
