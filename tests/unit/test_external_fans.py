@@ -34,6 +34,8 @@ CHANNEL_TWO_PERCENT = round(139 / 255 * 100, 1)
 def _config(**overrides):
     entry = {"source": "hwmon", "name": "arctic_fan", "channel": 1}
     entry.update(overrides)
+    if "path" in overrides and "name" not in overrides:
+        entry.pop("name")  # an entry names the device one way or the other
     return json.dumps({CARD_ONE: entry})
 
 
@@ -141,6 +143,14 @@ class TestConfigParsing:
         with caplog.at_level(logging.WARNING):
             assert parse_external_fans(json.dumps(document)) == {}
         assert "not implemented yet" in caplog.text
+
+    def test_an_entry_naming_both_a_path_and_a_name_is_rejected(self, caplog):
+        document = {
+            CARD_ONE: {"name": "arctic_fan", "path": str(CONTROLLER), "channel": 1}
+        }
+        with caplog.at_level(logging.WARNING):
+            assert parse_external_fans(json.dumps(document)) == {}
+        assert "both an hwmon path and a name" in caplog.text
 
     def test_an_oversized_document_never_reaches_the_parser(self, caplog):
         document = {CARD_ONE: {"name": "x" * MAX_CONFIG_CHARS, "channel": 1}}
@@ -370,7 +380,7 @@ class TestApplication:
         assert payloads["0"]["fan_speed"] == CHANNEL_ONE_PERCENT
         assert payloads["0"]["fan_rpm"] == 3705
 
-    def test_both_inf_cards_map_to_their_own_channel(self):
+    def test_two_mapped_cards_map_to_their_own_channel(self):
         reader = _reader(
             json.dumps(
                 {

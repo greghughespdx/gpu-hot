@@ -154,6 +154,13 @@ def _parse_entry(address: object, entry: object) -> ExternalFanSource | None:
             "EXTERNAL_FANS entry for %s needs an hwmon path or name", pci_address
         )
         return None
+    if path is not None and name is not None:
+        logger.warning(
+            "EXTERNAL_FANS entry for %s sets both an hwmon path and a name; "
+            "use one or the other",
+            pci_address,
+        )
+        return None
 
     return ExternalFanSource(
         kind=SOURCE_HWMON,

@@ -156,7 +156,7 @@ EXTERNAL_FANS='{
 |---|---|
 | `source` | `hwmon` (the default, and the only kind today) |
 | `name` | hwmon device name, matched against `/sys/class/hwmon/*/name`. Preferred: hwmon numbers are not stable across boots |
-| `path` | An hwmon directory, if you would rather name it directly. Use `name` or `path`, not both |
+| `path` | An hwmon directory, if you would rather name it directly. An entry gives `name` or `path`, never both, and is rejected with a log line if it gives both |
 | `channel` | The channel number `N` in that device's `fanN_input` and `pwmN` |
 | `override` | `true` to use the mapping even when the card reports its own fan. Defaults to `false` |
 
@@ -170,6 +170,11 @@ mapping still loads.
 hwmon names are not guaranteed to be unique. If two devices answer to the same
 `name`, the entry reports nothing at all rather than guess which one cools the
 card, and says so once in the log; give that entry an explicit `path` instead.
+
+These are a few small, bounded sysfs reads per mapped card per poll, and they
+run on the event loop rather than in a thread. On a normal `/sys` that is
+microseconds, but it is synchronous work on the loop, so a host whose sysfs
+reads block would feel it.
 
 Find the device name and its channels with:
 
