@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "upstream_base": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
+  "composed_base_commit": "86f6e647bbddad5053fbb6c69850d330ad1a67d1",
+  "source_refs": [
+    {
+      "name": "pr/external-fans",
+      "commit": "c701359295a516e0a3f79f1ccf8e3db5e936155a"
+    },
+    {
+      "name": "deploy/mc-ai506-hub",
+      "commit": "86f6e647bbddad5053fbb6c69850d330ad1a67d1"
+    }
+  ],
+  "upstream_review": {
+    "checked_at": "2026-09-11T23:12:00Z",
+    "latest_commit": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
+    "relevant_issue": 47,
+    "relevant_open_pull_requests": []
+  }
+}

@@ -1,0 +1,17 @@
+services:
+  gpu-hot:
+    image: ${GPU_HOT_IMAGE:?GPU_HOT_IMAGE must name the loaded immutable image}
+    container_name: ${GPU_HOT_CONTAINER_NAME:-gpu-hot}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${GPU_HOT_BIND_ADDRESS:-0.0.0.0}:${GPU_HOT_PORT:-1312}:1312"
+    environment:
+      GPU_HOT_MODE: hub
+      NODE_URLS: ${NODE_URLS:?NODE_URLS must list at least one node}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1312/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
