@@ -107,7 +107,7 @@ docker-compose up --build
 - System metrics (CPU, RAM)
 - Scale from 1 to 100+ GPUs
 
-**Metrics:** Utilization, temperature, memory, power draw, fan speed, clock speeds, PCIe info, P-State, throttle status, encoder/decoder sessions
+**Metrics:** Utilization, temperature, memory, power draw, fan speed and RPM, clock speeds, PCIe info, P-State, throttle status, encoder/decoder sessions
 
 ---
 
@@ -122,6 +122,7 @@ NODE_NAME=gpu-server-1         # Node display name (default: hostname)
 NODE_URLS=http://host:1312...  # Comma-separated node URLs (required for hub mode)
 UPDATE_INTERVAL=0.5            # Optional. NVML polling interval in seconds (default: 0.5)
 NVIDIA_SMI_INTERVAL=2.0        # Optional. nvidia-smi fallback polling interval (default: 2.0)
+EXTERNAL_FANS={...}            # Optional. Fan channels for passive cards (default: off, see below)
 ```
 
 Polling is paused automatically when no clients are connected, so idle CPU usage stays near zero.
@@ -130,6 +131,53 @@ Polling is paused automatically when no clients are connected, so idle CPU usage
 ```python
 PORT = 1312            # Server port
 ```
+
+### External fans for passive cards
+
+A passive server card has no fan of its own and so reports no fan speed. The
+fan that actually cools it sits on a chassis or duct controller, which Linux
+exposes through hwmon. `EXTERNAL_FANS` maps a GPU's PCI address to one of
+those channels so the dashboard shows the fan that is doing the work.
+
+It is off unless set, and it applies to any vendor: an AMD card with no fan
+node and an NVIDIA card whose driver reports no fan are both covered, because
+the mapping is keyed by PCI address and applied after the vendor collector.
+
+The value is a JSON object of PCI address to fan source:
+
+```bash
+EXTERNAL_FANS='{
+  "0000:19:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 1},
+  "0000:67:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 2}
+}'
+```
+
+| Field | Meaning |
+|---|---|
+| `source` | `hwmon` (the default, and the only kind today) |
+| `name` | hwmon device name, matched against `/sys/class/hwmon/*/name`. Preferred: hwmon numbers are not stable across boots |
+| `path` | An hwmon directory, if you would rather name it directly. Use `name` or `path`, not both |
+| `channel` | The channel number `N` in that device's `fanN_input` and `pwmN` |
+| `override` | `true` to use the mapping even when the card reports its own fan. Defaults to `false` |
+
+`pwmN` becomes `fan_speed` as a percentage of the kernel's 0 to 255 range, and
+`fanN_input` becomes `fan_rpm`, shown under the fan reading on the GPU card.
+Either is omitted if its file is missing, so a controller with no tachometer
+still reports a speed. A missing or unreadable file never interrupts
+collection. A malformed entry is skipped with a log line and the rest of the
+mapping still loads.
+
+Find the device name and its channels with:
+
+```bash
+grep . /sys/class/hwmon/*/name
+grep . /sys/class/hwmon/hwmonN/fan*_input /sys/class/hwmon/hwmonN/pwm*
+```
+
+and the PCI address of each card with `ls -l /sys/class/drm/card*/device`.
+
+No extra container configuration is needed: Docker already mounts the host's
+`/sys` read-only, so `/sys/class/hwmon` is visible inside the container.
 
 ---
 
