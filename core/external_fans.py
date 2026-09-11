@@ -169,6 +169,7 @@ class ExternalFanReader:
         self.mapping = mapping or {}
         self.hwmon_root = Path(hwmon_root)
         self._resolved: dict[str, Path] = {}
+        self._ambiguous: set[str] = set()
 
     def __bool__(self) -> bool:
         return bool(self.mapping)
@@ -230,14 +231,33 @@ class ExternalFanReader:
         return found
 
     def _find_hwmon(self, name: str) -> Path | None:
+        """Return the one device with this name, or None if that is not unique.
+
+        hwmon names are not required to be unique. Two controllers answering to
+        the same name would otherwise bind an arbitrary channel to a GPU, so an
+        ambiguous name reports nothing at all; an explicit path names the
+        device the operator meant.
+        """
         try:
             candidates = sorted(self.hwmon_root.glob("hwmon*"))
         except OSError:
             return None
-        for candidate in candidates:
-            if _hwmon_name(candidate) == name:
-                return candidate
-        return None
+        matches = [
+            candidate for candidate in candidates if _hwmon_name(candidate) == name
+        ]
+        if len(matches) > 1:
+            if name not in self._ambiguous:
+                self._ambiguous.add(name)
+                logger.warning(
+                    "External fan hwmon name %r matches %d devices (%s); refusing to "
+                    "guess. Give that entry an explicit path instead.",
+                    name,
+                    len(matches),
+                    ", ".join(str(match) for match in matches),
+                )
+            return None
+        self._ambiguous.discard(name)
+        return matches[0] if matches else None
 
 
 def _hwmon_name(directory: Path) -> str | None:

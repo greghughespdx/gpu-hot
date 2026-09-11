@@ -250,6 +250,61 @@ class TestResolution:
         assert second["1"]["fan_speed"] == 100.0
 
 
+class TestAmbiguousNames:
+    @staticmethod
+    def _controller(directory, name, pwm):
+        directory.mkdir()
+        (directory / "name").write_text(name + "\n")
+        (directory / "pwm1").write_text(pwm + "\n")
+        (directory / "fan1_input").write_text("3000\n")
+        return directory
+
+    def _two_controllers_named_the_same(self, tmp_path):
+        self._controller(tmp_path / "hwmon0", "chassis_fan", "128")
+        self._controller(tmp_path / "hwmon5", "chassis_fan", "255")
+
+    def test_two_devices_with_one_name_report_nothing(self, tmp_path, caplog):
+        self._two_controllers_named_the_same(tmp_path)
+        reader = _reader(_config(name="chassis_fan"), tmp_path)
+        payloads = {"0": {"vendor": "amd", "pci_bus_id": CARD_ONE}}
+        with caplog.at_level(logging.WARNING):
+            reader.apply(payloads)
+        assert "fan_speed" not in payloads["0"]
+        assert "fan_rpm" not in payloads["0"]
+        assert "matches 2 devices" in caplog.text
+
+    def test_the_ambiguity_is_reported_once_not_every_poll(self, tmp_path, caplog):
+        self._two_controllers_named_the_same(tmp_path)
+        reader = _reader(_config(name="chassis_fan"), tmp_path)
+        with caplog.at_level(logging.WARNING):
+            for _ in range(3):
+                reader.apply({"0": {"pci_bus_id": CARD_ONE}})
+        assert caplog.text.count("matches 2 devices") == 1
+
+    def test_an_explicit_path_is_the_way_past_an_ambiguous_name(self, tmp_path):
+        self._two_controllers_named_the_same(tmp_path)
+        reader = _reader(_config(path=str(tmp_path / "hwmon5")), tmp_path)
+        payloads = {"0": {"vendor": "amd", "pci_bus_id": CARD_ONE}}
+        reader.apply(payloads)
+        assert payloads["0"]["fan_speed"] == 100.0
+        assert payloads["0"]["fan_rpm"] == 3000
+
+    def test_a_duplicate_appearing_later_is_not_served_from_cache(self, tmp_path):
+        self._controller(tmp_path / "hwmon0", "chassis_fan", "128")
+        reader = _reader(_config(name="chassis_fan"), tmp_path)
+        first = {"0": {"pci_bus_id": CARD_ONE}}
+        reader.apply(first)
+        assert first["0"]["fan_speed"] == round(128 / 255 * 100, 1)
+
+        # The cached device is renamed and two others answer to the name.
+        (tmp_path / "hwmon0" / "name").write_text("something_else\n")
+        self._controller(tmp_path / "hwmon5", "chassis_fan", "255")
+        self._controller(tmp_path / "hwmon6", "chassis_fan", "64")
+        second = {"1": {"pci_bus_id": CARD_ONE}}
+        reader.apply(second)
+        assert "fan_speed" not in second["1"]
+
+
 class TestApplication:
     def test_unmapped_gpu_is_untouched(self):
         reader = _reader(_config())

@@ -167,6 +167,10 @@ still reports a speed. A missing or unreadable file never interrupts
 collection. A malformed entry is skipped with a log line and the rest of the
 mapping still loads.
 
+hwmon names are not guaranteed to be unique. If two devices answer to the same
+`name`, the entry reports nothing at all rather than guess which one cools the
+card, and says so once in the log; give that entry an explicit `path` instead.
+
 Find the device name and its channels with:
 
 ```bash
