@@ -82,6 +82,26 @@ these settings let `amd-smi` inspect host GPU process names and memory use. Use
 the enrichment override only on a trusted host. The core sysfs metrics continue
 to work if the optional command is unavailable.
 
+If a busy AMD GPU shows no processes, first confirm that the node was created
+with both Compose files above. `amd-smi process --json` can exit successfully
+with `No running processes detected` when the container can see KFD clients but
+cannot inspect a host process. In that state, `rocm-smi --showpids --json` may
+still list the client, so an empty `amd-smi` result is not proof that the GPU is
+idle. Compare the two commands inside the node container:
+
+```bash
+docker compose -f docker-compose.amd.yml -f docker-compose.amd-smi.yml \
+  exec gpu-hot amd-smi process --json
+docker compose -f docker-compose.amd.yml -f docker-compose.amd-smi.yml \
+  exec gpu-hot rocm-smi --showpids --json
+```
+
+If only `rocm-smi` sees the client, recreate the node with the two-file command
+above. An equivalent manual `docker run` must preserve `--pid=host`,
+`--cap-add=SYS_PTRACE`, and `--security-opt apparmor=unconfined`. The collector
+does not replace a successful empty `amd-smi` response with guessed process
+data because `rocm-smi --showpids` does not provide the same per-GPU payload.
+
 For a hub node with no GPU, use the existing hub command with
 `GPU_HOT_MODE=hub` and `NODE_URLS` as shown below. AMD devices use the same
 bare numeric GPU indices and payload shape as NVIDIA devices. The `vendor`

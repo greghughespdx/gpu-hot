@@ -8,6 +8,8 @@ services:
       - /dev/dri:/dev/dri:rwm
       - /dev/kfd:/dev/kfd:rwm
     cap_add:
+      # Without this, amd-smi can exit successfully with an empty process list
+      # even while KFD compute clients are active on the host.
       - SYS_PTRACE
     security_opt:
       - apparmor=unconfined
