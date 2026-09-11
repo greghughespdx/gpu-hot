@@ -34,7 +34,9 @@ def _pci_bus_id(value):
     """Return the PCI address in the same shape the fan mapping is keyed by."""
     if value in NOT_AVAILABLE:
         return None
-    return normalise_pci_address(value) or value.strip() or None
+    # Only the normalized form is usable as a mapping key; a malformed value is
+    # left out rather than stored raw.
+    return normalise_pci_address(value)
 
 
 def parse_nvidia_smi():
@@ -85,7 +87,6 @@ def parse_nvidia_smi():
                         'power_draw': float(parts[11]) if parts[11] not in ['N/A', '[N/A]', ''] else 0,
                         'power_limit': float(parts[12]) if parts[12] not in ['N/A', '[N/A]', ''] else 0,
                         'power_default_limit': 0,
-                        'fan_speed': _optional_float(parts[13]),
                         'clock_graphics': float(parts[14]) if parts[14] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_sm': float(parts[15]) if parts[15] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_memory': float(parts[16]) if parts[16] not in ['N/A', '[N/A]', ''] else 0,
@@ -117,6 +118,11 @@ def parse_nvidia_smi():
                         bus_id = _pci_bus_id(parts[31])
                         if bus_id:
                             entry['pci_bus_id'] = bus_id
+                    # Same schema as the NVML path: no fan field at all when the
+                    # driver reports none, so an external mapping can cover it.
+                    fan = _optional_float(parts[13])
+                    if fan is not None:
+                        entry['fan_speed'] = fan
                     gpu_data[gpu_id] = entry
         
         if gpu_data:
@@ -173,7 +179,6 @@ def parse_nvidia_smi_fallback():
                         'power_draw': float(parts[7]) if parts[7] not in ['N/A', '[N/A]', ''] else 0,
                         'power_limit': float(parts[8]) if parts[8] not in ['N/A', '[N/A]', ''] else 0,
                         'power_default_limit': 0,
-                        'fan_speed': _optional_float(parts[9]),
                         'clock_graphics': float(parts[10]) if parts[10] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_sm': float(parts[11]) if parts[11] not in ['N/A', '[N/A]', ''] else 0,
                         'clock_memory': float(parts[12]) if parts[12] not in ['N/A', '[N/A]', ''] else 0,
@@ -203,6 +208,9 @@ def parse_nvidia_smi_fallback():
                         bus_id = _pci_bus_id(parts[14])
                         if bus_id:
                             entry['pci_bus_id'] = bus_id
+                    fan = _optional_float(parts[9])
+                    if fan is not None:
+                        entry['fan_speed'] = fan
                     gpu_data[gpu_id] = entry
         
         if gpu_data:

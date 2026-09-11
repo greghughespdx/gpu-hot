@@ -208,9 +208,11 @@ class TestPCIAddressAndFanAvailability:
         mock_run.return_value = _make_result(BASIC_CSV + "\n")
         assert parse_nvidia_smi_fallback()['0']['pci_bus_id'] == MAPPED_CARD
 
+    @pytest.mark.parametrize("reported", ['N/A', '[N/A]', '', 'not-a-pci-address', '19:00'])
     @patch('subprocess.run')
-    def test_an_unusable_address_is_left_out(self, mock_run):
-        mock_run.return_value = _make_result(_with_field(FULL_CSV, 31, 'N/A') + "\n")
+    def test_an_unusable_address_is_left_out(self, mock_run, reported):
+        """Only a value the normalizer accepts becomes a mapping key; anything else is omitted, never stored raw."""
+        mock_run.return_value = _make_result(_with_field(FULL_CSV, 31, reported) + "\n")
         assert 'pci_bus_id' not in parse_nvidia_smi()['0']
 
     @pytest.mark.parametrize("reported", ['N/A', '[N/A]', ''])
@@ -218,14 +220,14 @@ class TestPCIAddressAndFanAvailability:
     def test_comprehensive_unsupported_fan_is_absent_not_zero(self, mock_run, reported):
         csv = _with_field(FULL_CSV, FULL_FAN_FIELD, reported)
         mock_run.return_value = _make_result(csv + "\n")
-        assert parse_nvidia_smi()['0']['fan_speed'] is None
+        assert 'fan_speed' not in parse_nvidia_smi()['0']
 
     @pytest.mark.parametrize("reported", ['N/A', '[N/A]', ''])
     @patch('subprocess.run')
     def test_basic_unsupported_fan_is_absent_not_zero(self, mock_run, reported):
         csv = _with_field(BASIC_CSV, BASIC_FAN_FIELD, reported)
         mock_run.return_value = _make_result(csv + "\n")
-        assert parse_nvidia_smi_fallback()['0']['fan_speed'] is None
+        assert 'fan_speed' not in parse_nvidia_smi_fallback()['0']
 
     @patch('subprocess.run')
     def test_comprehensive_real_zero_fan_stays_zero(self, mock_run):
@@ -297,5 +299,5 @@ class TestExternalFanHandoff:
 
         create_external_fan_reader(_mapping(), HWMON_ROOT).apply(payloads)
 
-        assert payloads['0']['fan_speed'] is None
+        assert 'fan_speed' not in payloads['0']
         assert 'fan_rpm' not in payloads['0']

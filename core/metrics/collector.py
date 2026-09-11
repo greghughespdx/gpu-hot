@@ -183,14 +183,19 @@ class MetricsCollector:
             data['energy_consumption_wh'] = float(energy) / 3600000.0
     
     def _add_fan_speeds(self, handle, data):
-        if fan := safe_get(pynvml.nvmlDeviceGetFanSpeed, handle):
+        # A fan reading of 0 is a reading (a stopped or zero-RPM-idle fan); only
+        # None means the driver reports no fan. The distinction matters once an
+        # external fan mapping is configured: a card with a real reading keeps it.
+        fan = safe_get(pynvml.nvmlDeviceGetFanSpeed, handle)
+        if fan is not None:
             data['fan_speed'] = float(fan)
         
         if hasattr(pynvml, 'nvmlDeviceGetNumFans') and hasattr(pynvml, 'nvmlDeviceGetFanSpeed_v2'):
             if num_fans := safe_get(pynvml.nvmlDeviceGetNumFans, handle):
                 fans = []
                 for i in range(num_fans):
-                    if speed := safe_get(pynvml.nvmlDeviceGetFanSpeed_v2, handle, i):
+                    speed = safe_get(pynvml.nvmlDeviceGetFanSpeed_v2, handle, i)
+                    if speed is not None:
                         fans.append(float(speed))
                 if fans:
                     data['fan_speeds'] = fans

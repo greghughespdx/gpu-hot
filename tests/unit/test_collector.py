@@ -219,6 +219,18 @@ class TestPowerThermal:
         assert data['power_draw'] == 250.0
         assert data['power_limit'] == 350.0
 
+    def test_fan_speed_zero_is_recorded(self, collector, mock_handle):
+        data = {}
+        with patch('core.metrics.collector.safe_get', return_value=0):
+            collector._add_fan_speeds(mock_handle, data)
+        assert data['fan_speed'] == 0.0
+
+    def test_fan_speed_unsupported_is_absent(self, collector, mock_handle):
+        data = {}
+        with patch('core.metrics.collector.safe_get', return_value=None):
+            collector._add_fan_speeds(mock_handle, data)
+        assert 'fan_speed' not in data
+
     def test_fan_speed(self, collector, mock_handle):
         with patch('core.metrics.collector.safe_get', return_value=65):
             data = {}

@@ -411,6 +411,18 @@ class TestApplication:
         assert payload["fan_speed"] == CHANNEL_ONE_PERCENT
         assert payload["fan_rpm"] == 3705
 
+    def test_a_native_nvml_fan_at_zero_percent_is_kept(self):
+        """NVML reports a real 0 (stopped or idle fan): it is a reading, so a non-override mapping must not replace it."""
+        collector = MetricsCollector()
+        payload = {"vendor": "nvidia", "pci_bus_id": "00000000:19:00.0"}
+        with patch("core.metrics.collector.safe_get", return_value=0):
+            collector._add_fan_speeds(MagicMock(name="nvml_handle"), payload)
+        assert payload["fan_speed"] == 0.0
+
+        _reader(_config()).apply({"0": payload})
+        assert payload["fan_speed"] == 0.0
+        assert "fan_rpm" not in payload
+
     def test_a_failing_lookup_never_breaks_collection(self, caplog):
         class Exploding(dict):
             def get(self, key, default=None):
