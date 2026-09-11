@@ -1,6 +1,7 @@
 """Tests for vendor monitor composition."""
 
 import asyncio
+import json
 
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -9,6 +10,7 @@ import pytest
 
 from core.amd import AMDCollector, discover_amd_devices
 from core import monitor_factory
+from core.external_fans import create_external_fan_reader
 from core.monitor_factory import MonitorComposition
 
 
@@ -102,3 +104,45 @@ async def test_create_monitor_skips_amd_for_empty_or_non_amdgpu_tree(tmp_path, n
     assert data == {"0": {"vendor": "nvidia"}}
     amd_constructor.assert_not_called()
     subprocess_run.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_external_fans_are_applied_after_both_collectors():
+    hwmon_root = (
+        Path(__file__).parents[1] / "fixtures" / "external_fans" / "sys" / "class" / "hwmon"
+    )
+    nvidia = StubNvidiaMonitor(
+        True,
+        {"0": {"vendor": "nvidia", "pci_bus_id": "00000000:19:00.0"}},
+        [],
+    )
+
+    class StubAMDWithAddress:
+        def collect(self):
+            return ({"0": {"index": "0", "vendor": "amd", "pci_bus_id": "0000:67:00.0"}}, [])
+
+    reader = create_external_fan_reader(
+        json.dumps(
+            {
+                "0000:19:00.0": {"name": "arctic_fan", "channel": 1},
+                "0000:67:00.0": {"name": "arctic_fan", "channel": 2},
+            }
+        ),
+        hwmon_root,
+    )
+    monitor = MonitorComposition(nvidia, StubAMDWithAddress(), reader)
+
+    data = await monitor.get_gpu_data()
+
+    assert data["0"]["fan_rpm"] == 3705
+    assert data["1"]["fan_rpm"] == 3441
+
+
+@pytest.mark.asyncio
+async def test_monitor_without_external_fans_adds_no_fan_fields():
+    nvidia = StubNvidiaMonitor(True, {"0": {"vendor": "nvidia", "pci_bus_id": "0000:19:00.0"}}, [])
+    monitor = MonitorComposition(nvidia, None)
+
+    data = await monitor.get_gpu_data()
+
+    assert data == {"0": {"vendor": "nvidia", "pci_bus_id": "0000:19:00.0"}}

@@ -84,3 +84,13 @@ class TestConfig:
         assert config.PORT == 1312
         assert config.UPDATE_INTERVAL == 0.5
         assert config.NVIDIA_SMI_INTERVAL == 2.0
+
+    def test_external_fans_default_is_empty(self):
+        os.environ.pop('EXTERNAL_FANS', None)
+        config = self._reload_config()
+        assert config.EXTERNAL_FANS == ''
+
+    def test_external_fans_from_env(self):
+        mapping = '{"0000:19:00.0": {"name": "arctic_fan", "channel": 1}}'
+        config = self._reload_config({'EXTERNAL_FANS': mapping})
+        assert config.EXTERNAL_FANS == mapping
