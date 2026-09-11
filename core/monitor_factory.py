@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 
 from .amd import AMDCollector, discover_amd_devices
+from .config import EXTERNAL_FANS
+from .external_fans import ExternalFanReader, create_external_fan_reader
 from .monitor import GPUMonitor
 
 logger = logging.getLogger(__name__)
@@ -15,9 +17,15 @@ logger = logging.getLogger(__name__)
 class MonitorComposition:
     """Expose one monitor interface for any detected GPU vendors."""
 
-    def __init__(self, nvidia_monitor: GPUMonitor | None, amd_collector: AMDCollector | None):
+    def __init__(
+        self,
+        nvidia_monitor: GPUMonitor | None,
+        amd_collector: AMDCollector | None,
+        external_fans: ExternalFanReader | None = None,
+    ):
         self.nvidia = nvidia_monitor
         self.amd = amd_collector
+        self.external_fans = external_fans or ExternalFanReader()
         self.running = False
         self.use_smi = getattr(nvidia_monitor, "use_smi", {}) or {}
         self._amd_data: dict[str, dict] = {}
@@ -36,6 +44,7 @@ class MonitorComposition:
         if self.amd is not None:
             await self._refresh_amd()
             self._merge_amd_data(gpu_payloads)
+        self.external_fans.apply(gpu_payloads)
         return gpu_payloads
 
     def _merge_amd_data(self, gpu_payloads: dict[str, dict]) -> None:
@@ -118,4 +127,4 @@ def create_monitor(sysfs_root: str | Path = "/sys/class/drm") -> MonitorComposit
     amd = AMDCollector(devices) if devices else None
     if not devices:
         logger.info("No AMD GPUs detected")
-    return MonitorComposition(nvidia, amd)
+    return MonitorComposition(nvidia, amd, create_external_fan_reader(EXTERNAL_FANS))

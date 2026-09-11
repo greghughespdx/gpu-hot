@@ -26,3 +26,10 @@ MODE = os.getenv('GPU_HOT_MODE', 'default')
 NODE_NAME = os.getenv('NODE_NAME') or socket.gethostname()
 # NODE_URLS: comma-separated URLs for hub mode (e.g., http://node1:1312,http://node2:1312)
 NODE_URLS = [url.strip() for url in os.getenv('NODE_URLS', '').split(',') if url.strip()]
+
+# External Fans (optional, off by default)
+# Maps a GPU's PCI address to a fan channel on a separate controller, for
+# passive cards that report no fan of their own. JSON object, for example:
+#   EXTERNAL_FANS='{"0000:19:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 1}}'
+# See "External fans for passive cards" in the README.
+EXTERNAL_FANS = os.getenv('EXTERNAL_FANS', '')
