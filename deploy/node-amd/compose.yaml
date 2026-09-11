@@ -1,0 +1,6 @@
+services:
+  gpu-hot:
+    image: ${GPU_HOT_IMAGE:?GPU_HOT_IMAGE must name the loaded immutable image}
+    environment:
+      NODE_NAME: ${NODE_NAME:?NODE_NAME must identify this node}
+      EXTERNAL_FANS: ${EXTERNAL_FANS:-}
