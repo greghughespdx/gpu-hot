@@ -35,6 +35,22 @@ function hasMetric(gpuInfo, key) {
     return value !== null && value !== undefined && value !== 'N/A' && value !== 'Unknown' && value !== '';
 }
 
+// Helper: tachometer reading for the fan cell, when a fan controller reports one.
+// Passive cards have no fan of their own, so this comes from the external fan
+// mapping rather than the GPU driver, and is absent whenever it is not configured.
+function formatFanRpm(gpuInfo) {
+    return hasMetric(gpuInfo, 'fan_rpm') ? `${Math.round(gpuInfo.fan_rpm)} RPM` : '';
+}
+
+// Helper: show or hide a fan cell's tachometer sub-value
+function setFanRpm(elementId, gpuInfo) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    const text = formatFanRpm(gpuInfo);
+    element.textContent = text;
+    element.hidden = !text;
+}
+
 // Helper: bullet bar CSS class based on thresholds
 function bulletClass(value, warnThreshold, dangerThreshold) {
     if (value >= dangerThreshold) return 'danger';
@@ -120,6 +136,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     const powerPercent = (power_draw / power_limit) * 100;
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
+    const fan_rpm = formatFanRpm(gpuInfo);
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
 
     // Build secondary info items
@@ -232,6 +249,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                             <span class="metric-unit">%</span>
                         </div>
                         <span class="metric-label">FAN</span>
+                        <span class="metric-sub" id="sgo-fan-rpm-${gpuId}"${fan_rpm ? '' : ' hidden'}>${fan_rpm}</span>
                         <div class="bullet-bar"><div class="bullet-fill" data-metric="fan" id="sgo-fan-bar-${gpuId}" style="width:${fan_speed}%"></div></div>
                     </div>
                 </div>
@@ -271,6 +289,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (memEl) { memEl.textContent = formatMemory(memory_used); memEl.className = `metric-num ${bulletClass(memPercent, 85, 95)}`; }
         if (powerEl) { powerEl.textContent = power_draw.toFixed(0); powerEl.className = `metric-num ${bulletClass(powerPercent, 80, 95)}`; }
         if (fanEl) fanEl.textContent = fan_speed;
+        setFanRpm(`sgo-fan-rpm-${gpuId}`, gpuInfo);
 
         const memUnitEl = document.getElementById(`sgo-mem-unit-${gpuId}`);
         if (memUnitEl) memUnitEl.textContent = formatMemoryUnit(memory_used);
@@ -334,6 +353,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
 // ============================================
 
 function createGPUCard(gpuId, gpuInfo) {
+    const fan_rpm = formatFanRpm(gpuInfo);
     const memory_used = getMetricValue(gpuInfo, 'memory_used', 0);
     const memory_total = getMetricValue(gpuInfo, 'memory_total', 1);
     const power_draw = getMetricValue(gpuInfo, 'power_draw', 0);
@@ -668,6 +688,7 @@ function createGPUCard(gpuId, gpuInfo) {
                             <span class="metric-unit">%</span>
                         </div>
                         <span class="metric-label">FAN</span>
+                        <span class="metric-sub" id="fan-rpm-${gpuId}"${fan_rpm ? '' : ' hidden'}>${fan_rpm}</span>
                         <div class="bullet-bar"><div class="bullet-fill" data-metric="fan" id="fan-bar-${gpuId}" style="width:${fan_speed}%"></div></div>
                     </div>
                 </div>
@@ -894,6 +915,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (powerEl) { powerEl.textContent = `${power_draw.toFixed(0)}`; powerEl.className = `metric-num ${bulletClass(powerPercent, 80, 95)}`; }
         if (fanEl) fanEl.textContent = `Fan ${fan_speed}%`;
         if (fanValEl) fanValEl.textContent = `${fan_speed}`;
+        setFanRpm(`fan-rpm-${gpuId}`, gpuInfo);
 
         const utilBar = document.getElementById(`util-bar-${gpuId}`);
         const tempBar = document.getElementById(`temp-bar-${gpuId}`);

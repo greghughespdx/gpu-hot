@@ -262,3 +262,61 @@ describe('createCompactOverviewCard', () => {
         expect(html).toContain("switchToView('gpu-2')");
     });
 });
+
+describe('formatFanRpm', () => {
+    it('formats a tachometer reading from an external fan controller', () => {
+        expect(formatFanRpm({ fan_rpm: 3705 })).toBe('3705 RPM');
+    });
+
+    it('rounds a fractional reading', () => {
+        expect(formatFanRpm({ fan_rpm: 3704.6 })).toBe('3705 RPM');
+    });
+
+    it('is empty when no fan controller is mapped', () => {
+        expect(formatFanRpm({ fan_speed: 65 })).toBe('');
+        expect(formatFanRpm({ fan_rpm: null })).toBe('');
+        expect(formatFanRpm({})).toBe('');
+    });
+});
+
+describe('fan RPM in the GPU card', () => {
+    beforeEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('renders the RPM sub-value when the payload has one', () => {
+        document.body.innerHTML = createGPUCard('0', {
+            name: 'Test GPU', fan_speed: 56.9, fan_rpm: 3705
+        });
+        const rpm = document.getElementById('fan-rpm-0');
+        expect(rpm.textContent).toBe('3705 RPM');
+        expect(rpm.hidden).toBe(false);
+    });
+
+    it('hides the RPM sub-value when the payload has none', () => {
+        document.body.innerHTML = createGPUCard('0', {
+            name: 'Test GPU', fan_speed: 65
+        });
+        const rpm = document.getElementById('fan-rpm-0');
+        expect(rpm.textContent).toBe('');
+        expect(rpm.hidden).toBe(true);
+    });
+
+    it('fills the RPM sub-value in on a later update', () => {
+        document.body.innerHTML = createGPUCard('0', { name: 'Test GPU', fan_speed: 65 });
+        updateGPUDisplay('0', { fan_speed: 56.9, fan_rpm: 3441 });
+        const rpm = document.getElementById('fan-rpm-0');
+        expect(rpm.textContent).toBe('3441 RPM');
+        expect(rpm.hidden).toBe(false);
+    });
+
+    it('clears the RPM sub-value when the reading goes away', () => {
+        document.body.innerHTML = createGPUCard('0', {
+            name: 'Test GPU', fan_speed: 56.9, fan_rpm: 3441
+        });
+        updateGPUDisplay('0', { fan_speed: 65 });
+        const rpm = document.getElementById('fan-rpm-0');
+        expect(rpm.textContent).toBe('');
+        expect(rpm.hidden).toBe(true);
+    });
+});

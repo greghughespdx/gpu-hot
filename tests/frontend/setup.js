@@ -86,6 +86,8 @@ for (const file of loadOrder) {
         if (typeof formatEnergy !== 'undefined') globalThis.formatEnergy = formatEnergy;
         if (typeof getMetricValue !== 'undefined') globalThis.getMetricValue = getMetricValue;
         if (typeof hasMetric !== 'undefined') globalThis.hasMetric = hasMetric;
+        if (typeof formatFanRpm !== 'undefined') globalThis.formatFanRpm = formatFanRpm;
+        if (typeof setFanRpm !== 'undefined') globalThis.setFanRpm = setFanRpm;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;
         if (typeof createCompactOverviewCard !== 'undefined') globalThis.createCompactOverviewCard = createCompactOverviewCard;
