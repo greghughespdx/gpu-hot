@@ -33,3 +33,4 @@ NODE_URLS = [url.strip() for url in os.getenv('NODE_URLS', '').split(',') if url
 #   EXTERNAL_FANS='{"0000:19:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 1}}'
 # See "External fans for passive cards" in the README.
 EXTERNAL_FANS = os.getenv('EXTERNAL_FANS', '')
+HUB_HEALTH_STALE_SECONDS = 30.0

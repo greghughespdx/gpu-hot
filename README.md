@@ -125,7 +125,8 @@ NVIDIA_SMI_INTERVAL=2.0        # Optional. nvidia-smi fallback polling interval 
 EXTERNAL_FANS={...}            # Optional. Fan channels for passive cards (default: off, see below)
 ```
 
-Polling is paused automatically when no clients are connected, so idle CPU usage stays near zero.
+Single-node polling pauses when no clients are connected. Hub mode keeps its node
+connections active so its health check can verify that node data remains fresh.
 
 **Backend (`core/config.py`):**
 ```python
@@ -197,6 +198,7 @@ No extra container configuration is needed: Docker already mounts the host's
 GET /              # Dashboard
 GET /api/gpu-data  # JSON metrics snapshot
 GET /api/version   # Version and update info
+GET /health        # Service health; hub mode also checks node-data freshness
 ```
 
 ### WebSocket

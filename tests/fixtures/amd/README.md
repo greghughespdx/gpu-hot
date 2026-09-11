@@ -2,8 +2,7 @@
 
 This fixture records a non-simultaneous sample from a dual-GPU Linux host at
 2026-09-04T03:57:10Z. The source files were read through a read-only SSH
-session from `/sys/class/drm/card1/device` and
-`/sys/class/drm/card2/device`.
+session from `/sys/class/drm/card1/device` and`/sys/class/drm/card2/device`.
 
 The two DRM device links resolved to PCI devices `0000:17:00.0` and
 `0000:23:00.0`, respectively. The fixture keeps the card and device names,
@@ -12,7 +11,6 @@ collector. The checked-in tree uses directories for device contents so it is
 portable across filesystems. Discovery tests separately exercise the relative
 `device -> ../../../0000:17:00.0` and `device -> ../../../0000:23:00.0`
 link behavior captured from the source host.
-
 No hwmon fan nodes were present on either recorded card.
 
 Commands used, all read-only:

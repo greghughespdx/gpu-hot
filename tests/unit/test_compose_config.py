@@ -13,6 +13,14 @@ def _service(compose_name):
     return compose["services"]["gpu-hot"]
 
 
+def test_base_compose_healthcheck_uses_node_freshness_endpoint():
+    service = _service("docker-compose.yml")
+
+    assert service["healthcheck"]["test"] == [
+        "CMD", "curl", "-f", "http://localhost:1312/health"
+    ]
+
+
 def test_base_amd_compose_needs_no_optional_device_or_rocm_path():
     service = _service("docker-compose.amd.yml")
 

@@ -94,3 +94,4 @@ class TestConfig:
         mapping = '{"0000:19:00.0": {"name": "arctic_fan", "channel": 1}}'
         config = self._reload_config({'EXTERNAL_FANS': mapping})
         assert config.EXTERNAL_FANS == mapping
+        assert config.HUB_HEALTH_STALE_SECONDS == 30.0
