@@ -22,6 +22,7 @@ class MonitorComposition:
         self.use_smi = getattr(nvidia_monitor, "use_smi", {}) or {}
         self._amd_data: dict[str, dict] = {}
         self._amd_processes: list[dict] = []
+        self._amd_id_map: dict[str, str] = {}
         self._amd_collection_lock = asyncio.Lock()
         self._amd_task: asyncio.Task | None = None
 
@@ -34,8 +35,23 @@ class MonitorComposition:
                 logger.error("NVIDIA collection failed: %s", error)
         if self.amd is not None:
             await self._refresh_amd()
-            gpu_payloads.update(self._amd_data)
+            self._merge_amd_data(gpu_payloads)
         return gpu_payloads
+
+    def _merge_amd_data(self, gpu_payloads: dict[str, dict]) -> None:
+        """Keep bare numeric IDs unique when both vendors share a host."""
+        used_ids = set(gpu_payloads)
+        next_id = max((int(gpu_id) for gpu_id in used_ids if gpu_id.isdigit()), default=-1) + 1
+        id_map: dict[str, str] = {}
+        for gpu_id, payload in self._amd_data.items():
+            merged_id = gpu_id
+            while merged_id in used_ids:
+                merged_id = str(next_id)
+                next_id += 1
+            used_ids.add(merged_id)
+            id_map[gpu_id] = merged_id
+            gpu_payloads[merged_id] = {**payload, "index": merged_id}
+        self._amd_id_map = id_map
 
     async def get_processes(self) -> list[dict]:
         process_records: list[dict] = []
@@ -46,7 +62,15 @@ class MonitorComposition:
                 logger.error("NVIDIA process collection failed: %s", error)
         if self.amd is not None:
             await self._await_amd()
-            process_records.extend(self._amd_processes)
+            process_records.extend(
+                {
+                    **process,
+                    "gpu_id": self._amd_id_map.get(
+                        process.get("gpu_id"), process.get("gpu_id")
+                    ),
+                }
+                for process in self._amd_processes
+            )
         return process_records
 
     async def _refresh_amd(self) -> None:

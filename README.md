@@ -83,9 +83,9 @@ the enrichment override only on a trusted host. The core sysfs metrics continue
 to work if the optional command is unavailable.
 
 For a hub node with no GPU, use the existing hub command with
-`GPU_HOT_MODE=hub` and `NODE_URLS` as shown below. A missing AMD fan value and
-the NVIDIA P-state value are not replaced with zero or `N/A`; those fields are
-hidden when the source does not provide them.
+`GPU_HOT_MODE=hub` and `NODE_URLS` as shown below. AMD devices use the same
+bare numeric GPU indices and payload shape as NVIDIA devices. The `vendor`
+field identifies which collector produced each record.
 
 **From source:**
 ```bash

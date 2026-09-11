@@ -303,16 +303,9 @@ class AMDCollector:
         self._fallback_names: dict[str, str] = {}
 
     @staticmethod
-    def _device_has_uuid(device: AMDDevice) -> bool:
-        return bool(device.uuid or _read_text(device.device_path / "unique_id"))
-
-    @classmethod
-    def _gpu_id_for_device(cls, device: AMDDevice) -> str:
-        if cls._device_has_uuid(device):
-            return f"amd-{device.index}"
-        if device.pci_bus_id:
-            return f"amd-{device.pci_bus_id}"
-        return f"amd-{device.index}"
+    def _gpu_id_for_device(device: AMDDevice) -> str:
+        """Use the same bare ordinal key shape as the NVML collector."""
+        return device.index
 
     @property
     def has_amd_smi(self) -> bool:

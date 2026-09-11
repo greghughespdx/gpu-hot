@@ -34,13 +34,14 @@ async def test_amd_only_monitor_works_without_nvml():
     data = await monitor.get_gpu_data()
     processes = await monitor.get_processes()
 
-    assert list(data) == ["amd-0", "amd-1"]
-    assert data["amd-0"]["vendor"] == "amd"
+    assert list(data) == ["0", "1"]
+    assert data["0"]["index"] == "0"
+    assert data["0"]["vendor"] == "amd"
     assert processes == []
 
 
 @pytest.mark.asyncio
-async def test_mixed_monitor_keeps_unique_gpu_and_process_ids():
+async def test_mixed_monitor_remaps_overlapping_ordinals_to_bare_indices():
     nvidia = StubNvidiaMonitor(
         True,
         {"0": {"vendor": "nvidia", "uuid": "GPU-one"}},
@@ -51,10 +52,16 @@ async def test_mixed_monitor_keeps_unique_gpu_and_process_ids():
     monitor = MonitorComposition(nvidia, amd)
 
     data = await monitor.get_gpu_data()
+    monitor._amd_processes = [{"gpu_id": "0", "gpu_uuid": "AMD-one"}]
     processes = await monitor.get_processes()
 
-    assert set(data) == {"0", "amd-0", "amd-1"}
-    assert {process["gpu_id"] for process in processes} == {"0"}
+    assert set(data) == {"0", "1", "2"}
+    assert data["0"]["vendor"] == "nvidia"
+    assert data["1"]["vendor"] == "amd"
+    assert data["1"]["index"] == "1"
+    assert data["2"]["vendor"] == "amd"
+    assert data["2"]["index"] == "2"
+    assert [process["gpu_id"] for process in processes] == ["0", "1"]
 
 
 @pytest.mark.asyncio

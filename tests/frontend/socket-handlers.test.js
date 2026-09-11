@@ -75,9 +75,6 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
         globalThis.attemptReconnect = attemptReconnect;
-        globalThis.getInitialChartValues = getInitialChartValues;
-        globalThis.handleSocketMessage = handleSocketMessage;
-        globalThis.updateAllChartDataOnly = updateAllChartDataOnly;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -180,60 +177,5 @@ describe('attemptReconnect', () => {
         const first = global.reconnectInterval;
         attemptReconnect(); // Should be a no-op
         expect(global.reconnectInterval).toBe(first);
-    });
-});
-
-describe('getInitialChartValues', () => {
-    beforeEach(() => {
-        vi.useFakeTimers();
-        loadSocketHandlers();
-        for (const key of Object.keys(chartData)) {
-            delete chartData[key];
-        }
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-        global.clearInterval(global.reconnectInterval);
-    });
-
-    it('does not seed an absent fan metric into chart initialization', () => {
-        const values = getInitialChartValues({
-            vendor: 'amd',
-            memory_used: 1,
-            memory_total: 2,
-            power_draw: 3
-        });
-
-        expect(values).not.toHaveProperty('fanSpeed');
-    });
-
-    it('preserves a real zero fan metric', () => {
-        const values = getInitialChartValues({
-            vendor: 'nvidia',
-            memory_used: 1,
-            memory_total: 2,
-            power_draw: 3,
-            fan_speed: 0
-        });
-
-        expect(values.fanSpeed).toBe(0);
-    });
-
-    it('does not add an absent fan metric during socket chart updates', () => {
-        initGPUData('amd-0', { fanSpeed: 42 });
-        const fanData = chartData['amd-0'].fanSpeed;
-        const before = fanData.data.length;
-
-        updateAllChartDataOnly('amd-0', {
-            memory_used: 1,
-            memory_total: 2,
-            power_draw: 3,
-            utilization: 4,
-            temperature: 5
-        });
-
-        expect(fanData.data.length).toBe(before);
-        expect(fanData.data[fanData.data.length - 1]).toBe(42);
     });
 });

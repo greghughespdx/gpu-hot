@@ -66,8 +66,9 @@ class TestAMDCollection:
     def test_fixture_values_and_units(self):
         data, processes = _collector().collect()
         assert processes == []
-        first = data["amd-0"]
-        second = data["amd-1"]
+        assert list(data) == ["0", "1"]
+        first = data["0"]
+        second = data["1"]
 
         assert first["vendor"] == "amd"
         assert first["name"] == "AMD RADEON PRO V620 Azure"
@@ -110,7 +111,7 @@ class TestAMDCollection:
         (device / "hwmon" / "hwmon0" / "power1_average").write_text("1000000\n")
         devices = [AMDDevice("0", device, device, uuid="id")]
         data, _ = AMDCollector(devices, amd_smi_path="").collect()
-        card = data["amd-0"]
+        card = data["0"]
         assert "utilization" not in card
         assert card["memory_free"] == pytest.approx(10 / 1024 ** 2)
         assert "temperature" not in card
@@ -135,16 +136,16 @@ class TestAMDCollection:
 
         data, _ = AMDCollector(devices, amd_smi_path="").collect()
 
-        assert data["amd-0"]["power_draw"] == expected_watts
+        assert data["0"]["power_draw"] == expected_watts
 
     def test_compat_fixture_uses_input_power_and_stable_pci_key_without_uuid(self):
         devices = discover_amd_devices(COMPAT_SYSFS_ROOT)
         data, _ = AMDCollector(devices, amd_smi_path="").collect()
 
-        assert list(data) == ["amd-0000:65:00.0"]
-        assert data["amd-0000:65:00.0"]["index"] == "0"
-        assert data["amd-0000:65:00.0"]["power_draw"] == 125
-        assert "uuid" not in data["amd-0000:65:00.0"]
+        assert list(data) == ["0"]
+        assert data["0"]["index"] == "0"
+        assert data["0"]["power_draw"] == 125
+        assert "uuid" not in data["0"]
 
     def test_active_dpm_is_fallback_when_frequency_is_missing(self, tmp_path):
         device = tmp_path / "device"
@@ -153,7 +154,7 @@ class TestAMDCollection:
         (device / "pp_dpm_sclk").write_text("0: 500Mhz\n1: 2520Mhz *\n2: 2570Mhz\n")
         devices = [AMDDevice("0", device, device, uuid="id")]
         data, _ = AMDCollector(devices, amd_smi_path="").collect()
-        assert data["amd-0"]["clock_graphics"] == 2520
+        assert data["0"]["clock_graphics"] == 2520
 
     def test_optional_amd_smi_process_and_throttle_mapping(self):
         list_payload = json.loads((FIXTURE_ROOT / "amd-smi-list.json").read_text())
@@ -181,11 +182,11 @@ class TestAMDCollection:
             ["metric", "--json"],
             ["static", "--asic", "--json"],
         ]
-        assert data["amd-0"]["name"] == "AMD RADEON PRO V620 Azure"
-        assert data["amd-0"]["throttle_reasons"] == "UNTHROTTLED"
+        assert data["0"]["name"] == "AMD RADEON PRO V620 Azure"
+        assert data["0"]["throttle_reasons"] == "UNTHROTTLED"
         assert processes[0]["pid"] == "18679"
         assert processes[0]["name"] == "llama-server"
-        assert processes[0]["gpu_id"] == "amd-0"
+        assert processes[0]["gpu_id"] == "0"
         assert processes[0]["gpu_uuid"] == "AMD-0ca417d32a15d25d"
         assert processes[0]["memory"] == pytest.approx(24285192000 / 1024 ** 2)
 
@@ -233,11 +234,11 @@ class TestAMDCollection:
             data, processes = collector.collect()
 
         assert {process["gpu_id"]: process["pid"] for process in processes} == {
-            "amd-0": "101",
-            "amd-1": "202",
+            "0": "101",
+            "1": "202",
         }
-        assert data["amd-0"]["throttle_reasons"] == "CARD-ONE"
-        assert data["amd-1"]["throttle_reasons"] == "CARD-TWO"
+        assert data["0"]["throttle_reasons"] == "CARD-ONE"
+        assert data["1"]["throttle_reasons"] == "CARD-TWO"
 
     def test_empty_product_name_uses_amd_smi_market_name(self, tmp_path):
         device = tmp_path / "device"
@@ -263,7 +264,7 @@ class TestAMDCollection:
         with patch("core.amd.subprocess.run", side_effect=result_for):
             data, _ = AMDCollector([amd_device], amd_smi_path="amd-smi").collect()
 
-        assert data["amd-0000:17:00.0"]["name"] == "AMD Radeon Pro V620"
+        assert data["0"]["name"] == "AMD Radeon Pro V620"
 
     def test_empty_product_name_uses_pci_ids_when_amd_smi_is_absent(
         self, tmp_path
@@ -285,7 +286,7 @@ class TestAMDCollection:
         with patch("core.amd.PCI_IDS_PATHS", (pci_ids,)):
             data, _ = AMDCollector([amd_device], amd_smi_path="").collect()
 
-        assert data["amd-0000:17:00.0"]["name"] == "Navi 21 [Radeon Pro V620]"
+        assert data["0"]["name"] == "Navi 21 [Radeon Pro V620]"
 
     def test_failed_amd_smi_list_omits_optional_enrichment(self):
         collector = AMDCollector(discover_amd_devices(SYSFS_ROOT), amd_smi_path="amd-smi")
@@ -295,8 +296,8 @@ class TestAMDCollection:
 
         assert [call.args[0][1:] for call in run.call_args_list] == [["list", "--json"]]
         assert processes == []
-        assert "throttle_reasons" not in data["amd-0"]
-        assert data["amd-0"]["memory_total"] > 0
+        assert "throttle_reasons" not in data["0"]
+        assert data["0"]["memory_total"] > 0
 
     def test_unknown_amd_smi_list_mapping_omits_optional_enrichment(self):
         collector = AMDCollector(discover_amd_devices(SYSFS_ROOT), amd_smi_path="amd-smi")
@@ -309,8 +310,8 @@ class TestAMDCollection:
 
         assert [call.args[0][1:] for call in run.call_args_list] == [["list", "--json"]]
         assert processes == []
-        assert "throttle_reasons" not in data["amd-0"]
-        assert data["amd-0"]["memory_total"] > 0
+        assert "throttle_reasons" not in data["0"]
+        assert data["0"]["memory_total"] > 0
 
     def test_absent_amd_smi_executes_no_subprocess(self):
         collector = AMDCollector(discover_amd_devices(SYSFS_ROOT), amd_smi_path="")
@@ -322,7 +323,7 @@ class TestAMDCollection:
         collector = AMDCollector(discover_amd_devices(SYSFS_ROOT), amd_smi_path="/usr/bin/amd-smi")
         with patch("core.amd.subprocess.run", side_effect=subprocess.TimeoutExpired("amd-smi", 5)):
             data, processes = collector.collect()
-        assert data["amd-0"]["memory_total"] > 0
+        assert data["0"]["memory_total"] > 0
         assert processes == []
 
     def test_oversized_amd_smi_output_keeps_core_metrics(self):
@@ -330,5 +331,5 @@ class TestAMDCollection:
         oversized_result = MagicMock(returncode=0, stdout="x" * (MAX_AMD_SMI_BYTES + 1))
         with patch("core.amd.subprocess.run", return_value=oversized_result):
             data, processes = collector.collect()
-        assert data["amd-0"]["memory_total"] > 0
+        assert data["0"]["memory_total"] > 0
         assert processes == []
