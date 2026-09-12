@@ -29,6 +29,11 @@ function panelMarkup() {
             <input type="checkbox" data-overview-setting="memory">
             <input type="checkbox" data-overview-setting="power">
             <input type="checkbox" data-overview-setting="chart">
+            <select id="settings-overview-chart-width">
+                <option value="auto">Automatic</option>
+                <option value="wide">Wide</option>
+                <option value="full">Full row</option>
+            </select>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -36,6 +41,11 @@ function panelMarkup() {
             <div id="connection-details">
                 <span id="connection-status">Connected</span>
                 <span id="version-current">v1.9.2</span>
+            </div>
+        </div>
+        <div class="overview-gpu-card">
+            <div class="overview-mini-chart" data-overview-metric="chart">
+                <canvas id="overview-chart-0"></canvas>
             </div>
         </div>
     `;
@@ -51,7 +61,11 @@ describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
-        document.documentElement.classList.remove('settings-connection-in-panel');
+        document.documentElement.classList.remove(
+            'settings-connection-in-panel',
+            'overview-chart-width-wide',
+            'overview-chart-width-full'
+        );
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -127,6 +141,34 @@ describe('settings storage', () => {
         expect(loadSettingsModule().settings).toEqual(defaults);
     });
 
+    it('keeps an allowlisted mini chart width and drops unsupported values', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'wide' }
+        }));
+        expect(loadSettingsModule().settings).toEqual({
+            ...defaults,
+            overviewMiniChartWidth: 'wide'
+        });
+
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'huge' }
+        }));
+        expect(loadSettingsModule().settings).toEqual(defaults);
+    });
+
+    it('applies a stored mini chart width while the head script is evaluated', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'wide' }
+        }));
+
+        loadSettingsModule();
+
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
+    });
+
     it('returns defaults when storage reads fail and reports write failures', () => {
         const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
             throw new Error('read failed');
@@ -158,7 +200,11 @@ describe('settings panel', () => {
     beforeEach(() => {
         localStorage.clear();
         panelMarkup();
-        document.documentElement.classList.remove('settings-connection-in-panel');
+        document.documentElement.classList.remove(
+            'settings-connection-in-panel',
+            'overview-chart-width-wide',
+            'overview-chart-width-full'
+        );
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -317,6 +363,45 @@ describe('settings panel', () => {
         expect(document.querySelectorAll('[data-overview-metric][hidden]')).toHaveLength(0);
         expect(document.querySelector('.overview-gpu-card').classList.contains('overview-chart-hidden'))
             .toBe(false);
+        expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
+        expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
+    });
+
+    it('persists a wider chart and asks the chart to resize', () => {
+        const resize = vi.fn();
+        const getChart = vi.fn(() => ({ resize }));
+        const originalGetChart = Chart.getChart;
+        Chart.getChart = getChart;
+        try {
+            const api = loadSettingsModule();
+            api.initSettingsPanel();
+            const select = document.getElementById('settings-overview-chart-width');
+
+            select.value = 'wide';
+            select.dispatchEvent(new Event('change'));
+
+            expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
+            expect(api.settings.overviewMiniChartWidth).toBe('wide');
+            expect(getChart).toHaveBeenCalledWith(document.getElementById('overview-chart-0'));
+            expect(resize).toHaveBeenCalledOnce();
+        } finally {
+            Chart.getChart = originalGetChart;
+        }
+    });
+
+    it('sanitizes an unsupported chart width from the live change path', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const select = document.getElementById('settings-overview-chart-width');
+
+        select.value = 'unsupported';
+        select.dispatchEvent(new Event('change'));
+
+        expect(select.value).toBe('auto');
+        expect(api.settings.overviewMiniChartWidth).toBeUndefined();
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+            .toEqual(defaults);
     });
 
     it('explains a reset failure and keeps the panel open', () => {
@@ -458,6 +543,14 @@ describe('settings page contract', () => {
         expect(new Set(metrics).size).toBe(5);
     });
 
+    it('offers the three mini chart widths once', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const select = parsed.getElementById('settings-overview-chart-width');
+
+        expect(Array.from(select.options).map(option => option.value))
+            .toEqual(['auto', 'wide', 'full']);
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -491,6 +584,18 @@ describe('settings page contract', () => {
         );
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 1fr;\s*\}/
+        );
+    });
+
+    it('defines wider and full-row chart layouts only above phone width', () => {
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 1201px\)[\s\S]*?overview-chart-width-wide[\s\S]*?180px 1fr 320px;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 1201px\)[\s\S]*?overview-chart-width-full[\s\S]*?180px 1fr;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-full \.overview-mini-chart \{[\s\S]*?grid-column: 1 \/ -1;/
         );
     });
 });

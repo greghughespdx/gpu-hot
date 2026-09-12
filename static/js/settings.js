@@ -19,11 +19,13 @@
     const DEFAULT_SETTINGS = Object.freeze(Object.fromEntries(
         OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
     ));
+    const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
     const ALLOWED_SETTINGS = Object.freeze({
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, value => typeof value === 'boolean'])
         ),
-        moveConnectionDetails: value => typeof value === 'boolean'
+        moveConnectionDetails: value => typeof value === 'boolean',
+        overviewMiniChartWidth: value => CHART_WIDTHS.includes(value)
     });
 
     function defaultSettings() {
@@ -120,6 +122,25 @@
         });
     }
 
+    function resizeOverviewMiniCharts(documentRef) {
+        if (!global.Chart || typeof global.Chart.getChart !== 'function') return;
+        documentRef.querySelectorAll('.overview-mini-chart canvas').forEach(canvas => {
+            const chart = global.Chart.getChart(canvas);
+            if (chart && typeof chart.resize === 'function') {
+                try { chart.resize(); } catch (error) { }
+            }
+        });
+    }
+
+    function applyOverviewMiniChartWidth(width, documentRef = global.document, resize = true) {
+        if (!documentRef) return;
+        const selected = CHART_WIDTHS.includes(width) ? width : 'auto';
+        const root = documentRef.documentElement;
+        root.classList.toggle('overview-chart-width-wide', selected === 'wide');
+        root.classList.toggle('overview-chart-width-full', selected === 'full');
+        if (resize) resizeOverviewMiniCharts(documentRef);
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -128,6 +149,7 @@
         const panel = documentRef.getElementById('settings-panel');
         const status = documentRef.getElementById('settings-status');
         const moveConnectionDetails = documentRef.getElementById('settings-move-connection-details');
+        const chartWidth = documentRef.getElementById('settings-overview-chart-width');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
@@ -149,6 +171,28 @@
             });
         });
         applyOverviewMetricVisibility(documentRef);
+
+        if (chartWidth) {
+            chartWidth.value = settings.overviewMiniChartWidth || 'auto';
+            chartWidth.addEventListener('change', () => {
+                const previous = settings.overviewMiniChartWidth || 'auto';
+                const nextSettings = sanitizeSettings({
+                    ...settings,
+                    overviewMiniChartWidth: chartWidth.value
+                });
+                const requested = nextSettings.overviewMiniChartWidth || 'auto';
+                if (!saveSettings(nextSettings)) {
+                    chartWidth.value = previous;
+                    status.textContent = 'This display change could not be saved. Try again.';
+                    return;
+                }
+                Object.keys(settings).forEach(key => delete settings[key]);
+                Object.assign(settings, nextSettings);
+                chartWidth.value = requested;
+                applyOverviewMiniChartWidth(requested, documentRef);
+                status.textContent = '';
+            });
+        }
 
         if (moveConnectionDetails) {
             moveConnectionDetails.checked = settings.moveConnectionDetails === true;
@@ -209,6 +253,8 @@
                 input.checked = isOverviewMetricVisible(input.dataset.overviewSetting);
             });
             applyOverviewMetricVisibility(documentRef);
+            if (chartWidth) chartWidth.value = 'auto';
+            applyOverviewMiniChartWidth('auto', documentRef);
             status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
@@ -249,6 +295,11 @@
     const settings = loadSettings();
     if (global.document) {
         applyConnectionDetailsLocation(settings.moveConnectionDetails === true, global.document);
+        applyOverviewMiniChartWidth(
+            settings.overviewMiniChartWidth || 'auto',
+            global.document,
+            false
+        );
     }
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
@@ -260,6 +311,7 @@
         applyConnectionDetailsLocation,
         isOverviewMetricVisible,
         applyOverviewMetricVisibility,
+        applyOverviewMiniChartWidth,
         initSettingsPanel
     });
 
