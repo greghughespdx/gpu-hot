@@ -374,6 +374,37 @@ describe('sidebar ordering', () => {
         vi.useRealTimers();
     });
 
+    it('does not move a captured bar button during repeated order updates', () => {
+        vi.useFakeTimers();
+        try {
+            const first = addOrderedGpu('node-a', '0');
+            const second = addOrderedGpu('node-a', '1');
+            const nav = document.getElementById('view-selector');
+            const append = vi.spyOn(nav, 'appendChild');
+            second.getBoundingClientRect = () => ({ top: 40, height: 40, left: 0, width: 40 });
+            document.elementFromPoint.mockReturnValue(second);
+
+            dispatchPointer(first, 'pointerdown', {
+                pointerId: 42, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+            });
+            dispatchPointer(first, 'pointermove', {
+                pointerId: 42, pointerType: 'mouse', clientX: 10, clientY: 30
+            });
+            const liveUpdate = setInterval(() => window.applySidebarOrder(document), 500);
+            vi.advanceTimersByTime(2000);
+            clearInterval(liveUpdate);
+
+            expect(append.mock.calls.some(([button]) => button === first)).toBe(false);
+            dispatchPointer(first, 'pointermove', {
+                pointerId: 42, pointerType: 'mouse', clientX: 10, clientY: 70
+            });
+            dispatchPointer(first, 'pointerup', { pointerId: 42, pointerType: 'mouse' });
+            expect(gpuButtonKeys()).toEqual([orderKey('node-a', '1'), orderKey('node-a', '0')]);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('does not reorder until the pointer crosses the movement threshold', () => {
         const first = addOrderedGpu('node-a', '0');
         const second = addOrderedGpu('node-a', '1');
@@ -604,6 +635,44 @@ describe('All page ordering', () => {
         ]);
         expect(gpuButtonKeys()).toEqual(dashboardKeys());
         expect(window.GPUHotSettings.settings.sidebarOrder).toEqual(dashboardKeys());
+    });
+
+    it('keeps a node grip attached through half-second live order updates', () => {
+        vi.useFakeTimers();
+        try {
+            const first = addDashboardNode('node-a', ['0']);
+            const second = addDashboardNode('node-b', ['0']);
+            const container = document.getElementById('overview-container');
+            const grip = first.querySelector('.dashboard-order-grip');
+            const append = vi.spyOn(container, 'appendChild');
+            second.getBoundingClientRect = () => ({ top: 100, height: 50, left: 0, width: 300 });
+            document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
+
+            dispatchPointer(grip, 'pointerdown', {
+                pointerId: 40, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+            });
+            dispatchPointer(grip, 'pointermove', {
+                pointerId: 40, pointerType: 'mouse', clientX: 10, clientY: 30
+            });
+            const liveUpdate = setInterval(() => {
+                // A hub payload can re-register an offline placeholder each tick.
+                window.registerDashboardNode(first, 'node-a');
+                first.dataset.liveMetric = String(Number(first.dataset.liveMetric || 0) + 1);
+            }, 500);
+            vi.advanceTimersByTime(2000);
+            clearInterval(liveUpdate);
+
+            expect(first.dataset.liveMetric).toBe('4');
+            expect(grip.isConnected).toBe(true);
+            expect(append.mock.calls.some(([node]) => node === first)).toBe(false);
+            dispatchPointer(grip, 'pointermove', {
+                pointerId: 40, pointerType: 'mouse', clientX: 10, clientY: 140
+            });
+            dispatchPointer(grip, 'pointerup', { pointerId: 40, pointerType: 'mouse' });
+            expect(dashboardKeys()).toEqual([orderKey('node-b', '0'), orderKey('node-a', '0')]);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('moves a GPU by touch only within its node', () => {

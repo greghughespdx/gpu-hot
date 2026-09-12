@@ -39,7 +39,7 @@ function sidebarButtons(nav) {
 
 function applySidebarOrder(documentRef = document) {
     const nav = documentRef.getElementById('view-selector');
-    if (!nav) return;
+    if (!nav || activeSidebarMove) return;
     const buttonsByKey = new Map(sidebarButtons(nav).map(button => [button.dataset.sidebarOrderKey, button]));
     const saved = savedSidebarOrder();
     const order = saved.length > 0 ? saved : defaultSidebarOrder;
@@ -121,6 +121,7 @@ function finishSidebarMove(nav, cancelled) {
     }
     button.classList.remove('sidebar-ordering');
     activeSidebarMove = null;
+    applySidebarOrder(nav.ownerDocument);
 }
 
 function beginSidebarMove(event, nav) {
@@ -222,6 +223,9 @@ function visibleDashboardOrder(documentRef = document) {
 }
 
 function applyDashboardOrder(documentRef = document) {
+    // Moving a captured element in the DOM releases pointer capture in browsers.
+    // Live payloads may register an offline placeholder on every update.
+    if (activeDashboardMove) return;
     const groups = dashboardGroups(documentRef);
     if (groups.length === 0) return;
     const saved = savedSidebarOrder();
@@ -372,6 +376,7 @@ function finishDashboardMove(documentRef, cancelled) {
     item.classList.remove('dashboard-ordering');
     container.closest('#overview-container')?.classList.remove('dashboard-ordering-active');
     activeDashboardMove = null;
+    applyDashboardOrder(documentRef);
 }
 
 function moveDashboardItemByKey(event, documentRef) {
