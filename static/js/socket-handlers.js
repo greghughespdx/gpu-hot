@@ -33,12 +33,8 @@ function createNodeGroup(container, groupKey, nodeName) {
 function bindOverviewGpuLabels(card, nodeName, gpuId, gpuInfo) {
     window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, gpuId);
     const title = card?.querySelector('.overview-gpu-name h2, .gpu-detail-title');
-    const model = card?.querySelector('.overview-gpu-name p, .gpu-detail-name');
-    const modelName = String(gpuInfo.name || 'Unknown');
     if (title) title.textContent = `GPU ${gpuId}`;
-    if (model) model.textContent = modelName;
     window.GPUHotSettings?.bindGpuLabel?.(title, nodeName, gpuId, `GPU ${gpuId}`);
-    window.GPUHotSettings?.bindGpuLabel?.(model, nodeName, gpuId, modelName);
 }
 
 function createWebSocketConnection() {

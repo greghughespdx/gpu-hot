@@ -45,6 +45,8 @@ function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo) {
         if (element.id) element.id = element.id.split(placeholder).join(String(gpuId));
         if (element.dataset.gpuId === placeholder) element.dataset.gpuId = String(gpuId);
     });
+    const title = card.querySelector('.gpu-detail-title, .overview-gpu-name h2');
+    if (title) title.textContent = `GPU ${gpuId}`;
     const model = card.querySelector('.gpu-detail-name, .overview-gpu-name p');
     if (model) model.textContent = String(gpuInfo.name || 'Unknown');
     card.removeAttribute('onclick');

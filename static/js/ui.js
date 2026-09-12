@@ -115,12 +115,6 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
             sourceGpuId,
             `GPU ${gpuId}`
         );
-        window.GPUHotSettings?.bindGpuLabel?.(
-            card.querySelector('.gpu-detail-name'),
-            nodeName,
-            sourceGpuId,
-            String(gpuInfo.name || 'Unknown')
-        );
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
     } else if (existingCard) {

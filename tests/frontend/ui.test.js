@@ -112,6 +112,9 @@ describe('ensureGPUTab', () => {
         expect(() => ensureGPUTab('0', { name: 'RTX 3090', utilization: 50 }, false))
             .not.toThrow();
         expect(document.querySelector('[data-view="gpu-0"]').textContent).toBe('0');
+        const card = document.getElementById('gpu-0');
+        expect(card.querySelector('.gpu-detail-title').textContent).toBe('GPU 0');
+        expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
     });
 
     it('keeps upstream defaults with the current settings module and no overrides', () => {
@@ -131,7 +134,7 @@ describe('ensureGPUTab', () => {
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
     });
 
-    it('uses one saved GPU override for navigation, heading, and model name', () => {
+    it('uses one saved GPU override for navigation and headings', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
             settings: {
@@ -153,7 +156,7 @@ describe('ensureGPUTab', () => {
         expect(button.textContent).toBe('Training card');
         expect(button.title).toBe('Training card');
         expect(card.querySelector('.gpu-detail-title').textContent).toBe('Training card');
-        expect(card.querySelector('.gpu-detail-name').textContent).toBe('Training card');
+        expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
     });
 
     it('builds a detailed card without parsing its identity or model as HTML', () => {
@@ -204,7 +207,7 @@ describe('ensureGPUTab', () => {
         expect(button.querySelector('img')).toBeNull();
         expect(title.textContent).toBe(customLabel);
         expect(title.querySelector('img')).toBeNull();
-        expect(model.textContent).toBe(customLabel);
+        expect(model.textContent).toBe('RTX 3090');
         expect(model.querySelector('img')).toBeNull();
         expect(button.dataset.view).toBe('gpu-node-a-0');
         expect(button.dataset.testIdentity).toBe(JSON.stringify(['node-a', '0']));

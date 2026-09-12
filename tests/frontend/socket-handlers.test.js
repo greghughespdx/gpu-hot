@@ -251,6 +251,7 @@ describe('safe node labels', () => {
         card.click();
 
         expect(card.dataset.gpuId).toBe(`${nodeName}-0`);
+        expect(card.hasAttribute('onclick')).toBe(false);
         expect(card.querySelector('.overview-gpu-name p').textContent).toBe(modelName);
         expect(card.querySelectorAll('img')).toHaveLength(0);
         expect(window.__nodeXss).toBeUndefined();
@@ -293,7 +294,7 @@ describe('safe node labels', () => {
             '<b>GPU label</b>', '<b>GPU label</b>'
         ]);
         expect(Array.from(models, model => model.textContent)).toEqual([
-            '<b>GPU label</b>', '<b>GPU label</b>'
+            'Test GPU', 'Test GPU'
         ]);
         expect(window.GPUHotSettings.registerGpuLabelTarget)
             .toHaveBeenCalledWith(nodeName, '0');
