@@ -200,6 +200,9 @@
             overlay.hidden = true;
             openButton.setAttribute('aria-expanded', 'false');
             openButton.focus();
+            if (settings.sidebarAutoHide === true && settings.sidebarPinned !== true) {
+                openButton.blur();
+            }
         }
 
         function openPanel() {

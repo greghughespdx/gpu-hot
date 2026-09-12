@@ -204,6 +204,35 @@ describe('settings panel', () => {
         expect(panel.hidden).toBe(true);
     });
 
+    it('releases sidebar focus after Escape when unpinned auto-hide is active', () => {
+        const openButton = document.getElementById('settings-open');
+        const panel = document.getElementById('settings-panel');
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const autoHide = document.getElementById('settings-sidebar-auto-hide');
+        const blur = vi.spyOn(openButton, 'blur');
+
+        autoHide.checked = true;
+        autoHide.dispatchEvent(new Event('change'));
+        openButton.click();
+        panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+        expect(panel.hidden).toBe(true);
+        expect(blur).toHaveBeenCalledOnce();
+        expect(document.activeElement).not.toBe(openButton);
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+        expect(source).toMatch(
+            /settings\.sidebarAutoHide === true && settings\.sidebarPinned !== true\) \{\s*openButton\.blur\(\);/
+        );
+        expect(layoutCss).toMatch(
+            /html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.sidebar \{[\s\S]*?translateX\(calc\(-100% \+ 8px\)\)/
+        );
+        expect(layoutCss).toMatch(
+            /html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main \{\s*margin-left: 8px;/
+        );
+    });
+
     it('keeps keyboard focus inside the open panel', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
