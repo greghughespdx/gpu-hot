@@ -214,7 +214,11 @@ class ExternalFanReader:
             return
         if payload.get("fan_speed") is not None and not source.override:
             return
-        payload.update(self._fan_fields(source, pci_address))
+        fields = self._fan_fields(source, pci_address)
+        if not fields:
+            return
+        payload.update(fields)
+        payload["fan_source"] = "external"
 
     def _fan_fields(self, source: ExternalFanSource, pci_address: str) -> dict[str, float]:
         directory = self._hwmon_directory(source)

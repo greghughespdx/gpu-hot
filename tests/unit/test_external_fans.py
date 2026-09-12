@@ -187,6 +187,7 @@ class TestResolution:
         reader.apply(payloads)
         assert payloads["0"]["fan_speed"] == CHANNEL_ONE_PERCENT
         assert payloads["0"]["fan_rpm"] == 3705
+        assert payloads["0"]["fan_source"] == "external"
 
     def test_resolves_by_explicit_path(self):
         reader = _reader(_config(path=str(CONTROLLER), channel=2))
@@ -202,6 +203,7 @@ class TestResolution:
             reader.apply(payloads)
         assert "fan_speed" not in payloads["0"]
         assert "fan_rpm" not in payloads["0"]
+        assert "fan_source" not in payloads["0"]
         assert "is not present" in caplog.text
 
     def test_missing_path_adds_nothing(self, tmp_path):
@@ -243,6 +245,7 @@ class TestResolution:
         reader.apply(payloads)
         assert "fan_speed" not in payloads["0"]
         assert payloads["0"]["fan_rpm"] == 4200
+        assert payloads["0"]["fan_source"] == "external"
 
     def test_absent_tachometer_keeps_percent(self, tmp_path):
         controller = tmp_path / "hwmon0"
@@ -254,6 +257,7 @@ class TestResolution:
         reader.apply(payloads)
         assert payloads["0"]["fan_speed"] == 100.0
         assert "fan_rpm" not in payloads["0"]
+        assert payloads["0"]["fan_source"] == "external"
 
     def test_name_resolution_is_reused_then_rechecked(self, tmp_path):
         controller = tmp_path / "hwmon0"
