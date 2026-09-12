@@ -50,7 +50,10 @@ function updateSidebarLabels() {
 }
 
 function keepSidebarButtonVisible(button) {
-    if (!button || typeof button.scrollIntoView !== 'function') return;
+    const phoneLayout = window.matchMedia(
+        '(max-width: 768px), (max-height: 480px) and (orientation: landscape)'
+    ).matches;
+    if (!phoneLayout || !button || typeof button.scrollIntoView !== 'function') return;
     button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 

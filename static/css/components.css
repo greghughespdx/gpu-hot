@@ -1116,9 +1116,6 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
 }
@@ -1393,7 +1390,7 @@ html.settings-connection-in-panel #dashboard-status-home {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 480px) and (orientation: landscape) {
     .drawer {
         width: 100%;
         max-width: 100vw;
@@ -1402,6 +1399,12 @@ html.settings-connection-in-panel #dashboard-status-home {
     .settings-panel {
         width: 100%;
         max-width: 100vw;
+    }
+
+    .settings-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .settings-connection-details .header-row {
@@ -1570,9 +1573,4 @@ html.settings-connection-in-panel #dashboard-status-home {
         overflow-wrap: anywhere;
     }
 
-    .overview-metrics {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: var(--space-md);
-    }
 }
