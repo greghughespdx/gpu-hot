@@ -1063,7 +1063,9 @@
     position: fixed;
     top: 0;
     right: 0;
-    bottom: 0;
+    bottom: auto;
+    height: 100vh;
+    height: 100dvh;
     z-index: 211;
     width: 420px;
     max-width: calc(100vw - var(--sidebar-width));
@@ -1114,6 +1116,11 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 .settings-connection-details[hidden] {
@@ -1539,5 +1546,33 @@ html.settings-connection-in-panel #dashboard-status-home {
     .process-pid,
     .process-pid-heading {
         display: none;
+    }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+    .settings-panel {
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    .overview-gpu-card,
+    html.overview-chart-width-wide .overview-gpu-card,
+    html.overview-chart-width-full .overview-gpu-card,
+    html .overview-gpu-card.overview-chart-hidden {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-md);
+        padding: var(--space-md) 0;
+    }
+
+    .overview-gpu-name p,
+    .overview-gpu-name p.gpu-uuid {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .overview-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: var(--space-md);
     }
 }

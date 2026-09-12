@@ -351,7 +351,7 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
    Responsive — Mobile
    ============================================ */
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 480px) and (orientation: landscape) {
     .sidebar {
         position: fixed;
         top: auto;
@@ -374,6 +374,10 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
     .sidebar-nav {
         flex-direction: row;
         gap: var(--space-xs);
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
     }
 
     .sidebar-btn {

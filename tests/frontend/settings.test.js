@@ -865,10 +865,37 @@ describe('settings page contract', () => {
     it('keeps left bar width and auto-hide effects out of the phone layout', () => {
         expect(layoutCss).toMatch(/\.sidebar \{[\s\S]*?width: var\(--sidebar-width\);/);
         expect(layoutCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
         );
         expect(layoutCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
+        );
+    });
+
+    it('makes every phone navigation button horizontally reachable', () => {
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-nav \{[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: hidden;/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-bottom \{[\s\S]*?flex-direction: row;/
+        );
+    });
+
+    it('keeps the settings body scrollable within the dynamic viewport', () => {
+        expect(componentsCss).toMatch(
+            /\.settings-panel \{[\s\S]*?height: 100vh;[\s\S]*?height: 100dvh;/
+        );
+        expect(componentsCss).toMatch(
+            /\.settings-body \{[\s\S]*?flex: 1;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/
+        );
+    });
+
+    it('stacks overview cards and wraps names in phone landscape', () => {
+        expect(componentsCss).toMatch(
+            /@media \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-card,[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-name p\.gpu-uuid \{[\s\S]*?overflow-wrap: anywhere;/
         );
     });
 });

@@ -49,6 +49,11 @@ function updateSidebarLabels() {
     });
 }
 
+function keepSidebarButtonVisible(button) {
+    if (!button || typeof button.scrollIntoView !== 'function') return;
+    button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
 // Toggle processes section
 function toggleProcesses() {
     const content = document.getElementById('processes-content');
@@ -67,12 +72,15 @@ function switchToView(viewName) {
     currentTab = viewName;
 
     // Update sidebar button states
+    let activeButton = null;
     document.querySelectorAll('.sidebar-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.view === viewName) {
             btn.classList.add('active');
+            activeButton = btn;
         }
     });
+    keepSidebarButtonVisible(activeButton);
 
     // Switch tab content
     document.querySelectorAll('.tab-content').forEach(content => {
