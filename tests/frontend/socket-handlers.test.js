@@ -75,6 +75,9 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
         globalThis.attemptReconnect = attemptReconnect;
+        globalThis.findDataElement = findDataElement;
+        globalThis.createNodeGroup = createNodeGroup;
+        globalThis.createClusterGPUCard = createClusterGPUCard;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -107,6 +110,51 @@ describe('createWebSocketConnection', () => {
             host: 'secure.example.com'
         });
         expect(instances[0].url).toBe('wss://secure.example.com/socket.io/');
+    });
+});
+
+describe('untrusted hub identity rendering', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        globalThis.switchToView = vi.fn();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+    });
+
+    it('renders node, GPU name, and UUID as text without inline handlers', () => {
+        loadSocketHandlers();
+        const hostile = '<img src=x onerror="window.__hubXss=1">';
+        const container = document.createElement('div');
+        const group = createNodeGroup(container, hostile, hostile);
+        const card = createClusterGPUCard(hostile, '0', {
+            name: hostile,
+            uuid: hostile,
+            utilization: 1,
+            temperature: 2,
+            memory_used: 3,
+            memory_total: 4,
+            power_draw: 5
+        });
+        group.querySelector('.node-grid').appendChild(card);
+
+        expect(container.querySelector('img')).toBeNull();
+        expect(group.querySelector('.node-label').textContent).toBe(hostile);
+        expect(card.querySelector('.overview-gpu-name p').textContent).toBe(hostile);
+        expect(card.querySelector('.gpu-uuid').textContent).toBe(hostile);
+        expect(card.hasAttribute('onclick')).toBe(false);
+        card.click();
+        expect(switchToView).toHaveBeenCalledWith(`gpu-${hostile}-0`);
+    });
+
+    it('finds a node whose name contains selector syntax', () => {
+        loadSocketHandlers();
+        const container = document.createElement('div');
+        const name = 'node"] .other';
+        const group = createNodeGroup(container, name, name);
+
+        expect(findDataElement(container, '.node-group', 'node', name)).toBe(group);
     });
 });
 
