@@ -571,7 +571,7 @@ describe('settings panel', () => {
 
         expect(document.getElementById('settings-status').textContent).toBe('Settings reset.');
         expect(document.getElementById('settings-panel').hidden).toBe(false);
-        expect(api.settings).toEqual({});
+        expect(api.settings).toEqual(defaults);
         expect(window.applySidebarOrder).toHaveBeenCalledOnce();
         expect(window.applyDashboardOrder).toHaveBeenCalledOnce();
     });

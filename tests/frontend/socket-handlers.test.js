@@ -340,14 +340,14 @@ describe('createClusterGPUCard metric settings', () => {
         window.GPUHotSettings = {
             isOverviewMetricVisible: metric => metric !== 'power'
         };
-        const html = createClusterGPUCard('node-a', '0', {
+        const card = createClusterGPUCard('node-a', '0', {
             name: 'GPU', utilization: 1, temperature: 2,
             memory_used: 3, memory_total: 4, power_draw: 5
         });
 
-        expect(html).toContain('data-overview-metric="power" hidden');
-        expect(html).not.toContain('data-overview-metric="temperature" hidden');
-        expect(html).not.toContain('overview-chart-hidden');
+        expect(card.querySelector('[data-overview-metric="power"]').hidden).toBe(true);
+        expect(card.querySelector('[data-overview-metric="temperature"]').hidden).toBe(false);
+        expect(card.classList.contains('overview-chart-hidden')).toBe(false);
     });
 });
 
@@ -365,6 +365,9 @@ describe('sidebar order identity', () => {
         global.registeredGPUs = new Set();
         global.currentTab = 'overview';
         window.GPUHotSettings = { settings: {}, saveSettings: vi.fn(() => true) };
+        global.updateOverviewCard = vi.fn();
+        global.initOverviewMiniChart = vi.fn();
+        global.initAggregateChart = vi.fn();
         window.initializeSidebarOrdering(document);
         pendingSocketUpdates.clear();
     });
@@ -522,6 +525,7 @@ describe('safe node labels', () => {
         vi.useFakeTimers();
         loadSocketHandlers();
         window.GPUHotSettings = {
+            isOverviewMetricVisible: () => true,
             registerNodeLabelTarget: vi.fn(),
             registerGpuLabelTarget: vi.fn(),
             bindNodeLabel: vi.fn((element, nodeName) => {

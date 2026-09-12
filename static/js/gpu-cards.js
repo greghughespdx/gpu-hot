@@ -108,7 +108,7 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
     const uuid = getMetricValue(gpuInfo, 'uuid', '');
     const uuidLine = (uuid && uuid !== 'N/A')
         ? `<p class="gpu-uuid" title="${uuid}">${uuid}</p>` : '';
-    const metricHidden = metric => window.GPUHotSettings?.isOverviewMetricVisible(metric) === false
+    const metricHidden = metric => window.GPUHotSettings?.isOverviewMetricVisible?.(metric) === false
         ? ' hidden' : '';
     const chartHidden = metricHidden('chart');
     const chartClass = chartHidden ? ' overview-chart-hidden' : '';

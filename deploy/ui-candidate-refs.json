@@ -39,6 +39,18 @@
     {
       "name": "theme engine",
       "commit": "5dcbdbfe301645acd1e1deb688455b245fc067b5"
+    },
+    {
+      "name": "node and GPU ordering",
+      "commit": "697f696af1d7b49d0199bef2fbaae98a9e6af179"
+    },
+    {
+      "name": "node and GPU label overrides",
+      "commit": "b8fade268ff6156ea23e4c1e7a445916db5d27d3"
+    },
+    {
+      "name": "phone layout",
+      "commit": "1ac654355fcbdc147b00871df077d00c33c783ac"
     }
   ],
   "upstream_review": {

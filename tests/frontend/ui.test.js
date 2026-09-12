@@ -183,6 +183,7 @@ describe('ensureGPUTab', () => {
         global.registeredGPUs = new Set();
         global.charts = {};
         global.currentTab = 'overview';
+        window.matchMedia = vi.fn(() => ({ matches: false }));
         window.GPUHotSettings = { settings: {}, saveSettings: vi.fn(() => true) };
         document.elementFromPoint = vi.fn(() => null);
         window.initializeSidebarOrdering(document);
@@ -190,7 +191,10 @@ describe('ensureGPUTab', () => {
             delete chartData[key];
         }
     });
-    afterEach(() => { vi.restoreAllMocks(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
 
     it('creates sidebar button on first call', () => {
         const gpuInfo = { name: 'RTX 3090', utilization: 50 };
@@ -277,9 +281,7 @@ describe('ensureGPUTab', () => {
         window.updateSidebarLabels();
 
         expect(button.textContent).toBe('Training card');
-        expect(bindGpuLabel).toHaveBeenNthCalledWith(
-            2, button, 'node-a', '1', 'RTX 4090'
-        );
+        expect(bindGpuLabel).toHaveBeenCalledWith(button, 'node-a', '1', 'RTX 4090');
         expect(button.dataset.gpuNode).toBe('node-a');
         expect(button.dataset.sourceGpuId).toBe('1');
     });
@@ -295,7 +297,10 @@ describe('sidebar ordering', () => {
         document.elementFromPoint = vi.fn(() => null);
         window.initializeSidebarOrdering(document);
     });
-    afterEach(() => { vi.restoreAllMocks(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
 
     it.each(['mouse', 'touch'])('reorders with %s pointer input and persists the stable identities', pointerType => {
         const first = addOrderedGpu('node-a', '0');
@@ -315,6 +320,58 @@ describe('sidebar ordering', () => {
         expect(window.GPUHotSettings.settings.sidebarOrder).toEqual(gpuButtonKeys());
         first.click();
         expect(global.currentTab).toBe('overview');
+    });
+
+    it('lets a phone touch swipe scroll without starting a reorder', () => {
+        vi.useFakeTimers();
+        window.matchMedia.mockReturnValue({ matches: true });
+        const first = addOrderedGpu('node-a', '0');
+        addOrderedGpu('node-a', '1');
+
+        dispatchPointer(first, 'pointerdown', {
+            pointerId: 41, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
+        });
+        const move = dispatchPointer(first, 'pointermove', {
+            pointerId: 41, pointerType: 'touch', clientX: 30, clientY: 10
+        });
+        vi.advanceTimersByTime(300);
+
+        expect(move.defaultPrevented).toBe(false);
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        vi.useRealTimers();
+    });
+
+    it('reorders a phone bar only after a touch is held for 300 ms', () => {
+        vi.useFakeTimers();
+        window.matchMedia.mockReturnValue({ matches: true });
+        const nav = document.getElementById('view-selector');
+        nav.style.flexDirection = 'row';
+        const first = addOrderedGpu('node-a', '0');
+        const second = addOrderedGpu('node-a', '1');
+        first.setPointerCapture = vi.fn();
+        second.getBoundingClientRect = () => ({ top: 0, height: 40, left: 40, width: 40 });
+        document.elementFromPoint.mockReturnValue(second);
+
+        dispatchPointer(first, 'pointerdown', {
+            pointerId: 42, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
+        });
+        vi.advanceTimersByTime(299);
+        expect(first.setPointerCapture).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(first.setPointerCapture).toHaveBeenCalledWith(42);
+        const touchMove = new Event('touchmove', { bubbles: true, cancelable: true });
+        first.dispatchEvent(touchMove);
+        expect(touchMove.defaultPrevented).toBe(true);
+        const move = dispatchPointer(first, 'pointermove', {
+            pointerId: 42, pointerType: 'touch', clientX: 75, clientY: 10
+        });
+        dispatchPointer(first, 'pointerup', { pointerId: 42, pointerType: 'touch' });
+
+        expect(move.defaultPrevented).toBe(true);
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '1'), orderKey('node-a', '0')]);
+        expect(window.GPUHotSettings.settings.sidebarOrder).toEqual(gpuButtonKeys());
+        vi.useRealTimers();
     });
 
     it('does not reorder until the pointer crosses the movement threshold', () => {
@@ -759,6 +816,18 @@ describe('ordering interaction styles', () => {
         layoutStyles.remove();
         componentStyles.remove();
     });
+});
+
+describe('label override integration', () => {
+    beforeEach(() => {
+        setupDOM();
+        localStorage.clear();
+        global.registeredGPUs = new Set();
+        global.charts = {};
+        global.currentTab = 'overview';
+        for (const key of Object.keys(chartData)) delete chartData[key];
+    });
+    afterEach(() => { vi.restoreAllMocks(); });
 
     it('keeps default labels with an older settings module', () => {
         window.GPUHotSettings = { settings: {} };

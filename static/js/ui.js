@@ -8,7 +8,9 @@ let currentTab = 'overview';
 let registeredGPUs = new Set();
 let hasAutoSwitched = false;
 const SIDEBAR_MOVE_THRESHOLD = 8;
+const PHONE_SIDEBAR_LONG_PRESS_MS = 300;
 const defaultSidebarOrder = [];
+let defaultSidebarNav = null;
 let activeSidebarMove = null;
 let suppressedSidebarClickKey = null;
 let activeDashboardMove = null;
@@ -48,6 +50,10 @@ function applySidebarOrder(documentRef = document) {
 }
 
 function registerSidebarOrder(button, nodeName, gpuId) {
+    if (defaultSidebarNav !== button.parentElement) {
+        defaultSidebarOrder.length = 0;
+        defaultSidebarNav = button.parentElement;
+    }
     const key = sidebarOrderKey(nodeName, gpuId);
     button.dataset.sidebarOrderKey = key;
     button.dataset.orderNode = String(nodeName);
@@ -96,6 +102,9 @@ function moveSidebarButton(button, target, pointerEvent, nav) {
 function finishSidebarMove(nav, cancelled) {
     if (!activeSidebarMove) return;
     const { button, initialOrder, moved } = activeSidebarMove;
+    if (activeSidebarMove.longPressTimer !== null) {
+        clearTimeout(activeSidebarMove.longPressTimer);
+    }
     if (cancelled) restoreVisibleSidebarOrder(nav, initialOrder);
     else if (moved) {
         const finalOrder = sidebarButtons(nav).map(entry => entry.dataset.sidebarOrderKey);
@@ -118,15 +127,31 @@ function beginSidebarMove(event, nav) {
     if (event.isPrimary === false) return;
     const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
     if (!button || (event.button !== undefined && event.button !== 0)) return;
-    activeSidebarMove = {
+    const waitsForLongPress = event.pointerType === 'touch'
+        && window.matchMedia?.(
+            '(max-width: 768px), (max-height: 480px) and (orientation: landscape)'
+        ).matches;
+    const move = {
         button,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         moved: false,
+        ready: !waitsForLongPress,
+        longPressTimer: null,
         initialOrder: sidebarButtons(nav).map(entry => entry.dataset.sidebarOrderKey)
     };
-    if (typeof button.setPointerCapture === 'function') button.setPointerCapture(event.pointerId);
+    activeSidebarMove = move;
+    if (waitsForLongPress) {
+        move.longPressTimer = setTimeout(() => {
+            if (activeSidebarMove !== move) return;
+            move.ready = true;
+            move.longPressTimer = null;
+            if (typeof button.setPointerCapture === 'function') button.setPointerCapture(event.pointerId);
+        }, PHONE_SIDEBAR_LONG_PRESS_MS);
+    } else if (typeof button.setPointerCapture === 'function') {
+        button.setPointerCapture(event.pointerId);
+    }
 }
 
 function continueSidebarMove(event, nav, documentRef) {
@@ -135,6 +160,15 @@ function continueSidebarMove(event, nav, documentRef) {
         event.clientX - activeSidebarMove.startX,
         event.clientY - activeSidebarMove.startY
     );
+    if (!activeSidebarMove.ready) {
+        if (distance >= SIDEBAR_MOVE_THRESHOLD) {
+            if (activeSidebarMove.longPressTimer !== null) {
+                clearTimeout(activeSidebarMove.longPressTimer);
+            }
+            activeSidebarMove = null;
+        }
+        return;
+    }
     if (!activeSidebarMove.moved && distance < SIDEBAR_MOVE_THRESHOLD) return;
     activeSidebarMove.moved = true;
     activeSidebarMove.button.classList.add('sidebar-ordering');
@@ -379,6 +413,9 @@ function initializeSidebarOrdering(documentRef = document) {
     nav.addEventListener('pointercancel', event => {
         if (activeSidebarMove?.pointerId === event.pointerId) finishSidebarMove(nav, true);
     });
+    nav.addEventListener('touchmove', event => {
+        if (activeSidebarMove?.ready) event.preventDefault();
+    }, { passive: false });
     nav.addEventListener('click', suppressSidebarClick, true);
     nav.addEventListener('keydown', event => moveSidebarButtonByKey(event, nav));
 }

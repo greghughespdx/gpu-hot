@@ -1121,9 +1121,6 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
 }
 
 .settings-group h3 {
@@ -1155,7 +1152,7 @@
     padding: var(--space-sm);
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
-    background: var(--bg-base);
+    background: var(--bg-primary);
     color: var(--text-primary);
     font: inherit;
 }
@@ -1450,6 +1447,8 @@ html.settings-connection-in-panel #dashboard-status-home {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
     }
 
     .settings-connection-details .header-row {

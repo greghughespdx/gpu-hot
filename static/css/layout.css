@@ -406,6 +406,10 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
         width: 40px;
     }
 
+    .sidebar-btn[data-sidebar-order-key] {
+        touch-action: pan-x;
+    }
+
     .sidebar-bottom {
         flex-direction: row;
         margin-top: 0;
