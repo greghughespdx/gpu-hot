@@ -1588,6 +1588,13 @@ html.settings-connection-in-panel #dashboard-status-home {
         mask-image: none;
     }
 
+    html.overview-chart-width-behind .overview-gpu-name,
+    html.overview-chart-width-behind .overview-metrics {
+        grid-column: auto;
+        grid-row: auto;
+        z-index: auto;
+    }
+
     .metrics-grid,
     .metrics-grid--primary {
         grid-template-columns: repeat(2, 1fr);
