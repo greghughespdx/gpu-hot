@@ -31,6 +31,7 @@ describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
+        delete window.applySidebarOrder;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -75,11 +76,26 @@ describe('settings storage', () => {
 
     it('stores only allowlisted settings in a versioned envelope', () => {
         const api = loadSettingsModule();
-        expect(api.saveSettings({ unknown: 'value' })).toBe(true);
+        const order = [JSON.stringify(['node-a', '0']), JSON.stringify(['node-b', '1'])];
+        expect(api.saveSettings({ sidebarOrder: order, unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: { sidebarOrder: order }
         });
+    });
+
+    it.each([
+        ['a non-array', 'node-a-0'],
+        ['a duplicate key', [JSON.stringify(['node-a', '0']), JSON.stringify(['node-a', '0'])]],
+        ['a malformed key', ['node-a-0']],
+        ['an empty identity part', [JSON.stringify(['', '0'])]]
+    ])('drops %s from the saved order', (_label, sidebarOrder) => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarOrder }
+        }));
+
+        expect(loadSettingsModule().settings).toEqual({});
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -113,6 +129,7 @@ describe('settings panel', () => {
     beforeEach(() => {
         localStorage.clear();
         panelMarkup();
+        delete window.applySidebarOrder;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -178,6 +195,11 @@ describe('settings panel', () => {
     });
 
     it('shows whether reset succeeded without closing the panel', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarOrder: [JSON.stringify(['node-a', '0'])] }
+        }));
+        window.applySidebarOrder = vi.fn();
         const api = loadSettingsModule();
         api.initSettingsPanel();
         document.getElementById('settings-open').click();
@@ -185,6 +207,8 @@ describe('settings panel', () => {
 
         expect(document.getElementById('settings-status').textContent).toBe('Settings reset.');
         expect(document.getElementById('settings-panel').hidden).toBe(false);
+        expect(api.settings).toEqual({});
+        expect(window.applySidebarOrder).toHaveBeenCalledOnce();
     });
 
     it('explains a reset failure and keeps the panel open', () => {

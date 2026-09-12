@@ -7,6 +7,171 @@
 let currentTab = 'overview';
 let registeredGPUs = new Set();
 let hasAutoSwitched = false;
+const SIDEBAR_MOVE_THRESHOLD = 8;
+const defaultSidebarOrder = [];
+let activeSidebarMove = null;
+let suppressedSidebarClickKey = null;
+
+function sidebarOrderKey(nodeName, gpuId) {
+    return JSON.stringify([String(nodeName), String(gpuId)]);
+}
+
+function savedSidebarOrder() {
+    const order = window.GPUHotSettings?.settings?.sidebarOrder;
+    return Array.isArray(order) ? order : [];
+}
+
+function saveSidebarOrder(order) {
+    const api = window.GPUHotSettings;
+    if (!api || !api.saveSettings({ ...api.settings, sidebarOrder: order })) return false;
+    api.settings.sidebarOrder = [...order];
+    return true;
+}
+
+function sidebarButtons(nav) {
+    return Array.from(nav.querySelectorAll('.sidebar-btn[data-sidebar-order-key]'));
+}
+
+function applySidebarOrder(documentRef = document) {
+    const nav = documentRef.getElementById('view-selector');
+    if (!nav) return;
+    const buttonsByKey = new Map(sidebarButtons(nav).map(button => [button.dataset.sidebarOrderKey, button]));
+    const saved = savedSidebarOrder();
+    const order = saved.length > 0 ? saved : defaultSidebarOrder;
+    order.forEach(key => {
+        const button = buttonsByKey.get(key);
+        if (button) nav.appendChild(button);
+    });
+}
+
+function registerSidebarOrder(button, nodeName, gpuId) {
+    const key = sidebarOrderKey(nodeName, gpuId);
+    button.dataset.sidebarOrderKey = key;
+    button.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight');
+    if (!defaultSidebarOrder.includes(key)) defaultSidebarOrder.push(key);
+    const saved = savedSidebarOrder();
+    if (saved.length > 0 && !saved.includes(key)) saveSidebarOrder([...saved, key]);
+    applySidebarOrder(button.ownerDocument);
+}
+
+function mergedSidebarOrder(visibleOrder) {
+    const visibleKeys = new Set(visibleOrder);
+    const merged = [];
+    let visibleIndex = 0;
+    savedSidebarOrder().forEach(key => {
+        merged.push(visibleKeys.has(key) ? visibleOrder[visibleIndex++] : key);
+    });
+    return merged.concat(visibleOrder.slice(visibleIndex));
+}
+
+function persistVisibleSidebarOrder(nav) {
+    const visibleOrder = sidebarButtons(nav).map(button => button.dataset.sidebarOrderKey);
+    return saveSidebarOrder(mergedSidebarOrder(visibleOrder));
+}
+
+function restoreVisibleSidebarOrder(nav, order) {
+    const buttonsByKey = new Map(sidebarButtons(nav).map(button => [button.dataset.sidebarOrderKey, button]));
+    order.forEach(key => {
+        const button = buttonsByKey.get(key);
+        if (button) nav.appendChild(button);
+    });
+}
+
+function moveSidebarButton(button, target, pointerEvent, nav) {
+    if (!target || target === button) return;
+    const targetBox = target.getBoundingClientRect();
+    const horizontal = getComputedStyle(nav).flexDirection === 'row';
+    const coordinate = horizontal ? pointerEvent.clientX : pointerEvent.clientY;
+    const midpoint = horizontal
+        ? targetBox.left + targetBox.width / 2
+        : targetBox.top + targetBox.height / 2;
+    nav.insertBefore(button, coordinate < midpoint ? target : target.nextSibling);
+}
+
+function finishSidebarMove(nav, cancelled) {
+    if (!activeSidebarMove) return;
+    const { button, initialOrder, moved } = activeSidebarMove;
+    if (cancelled) restoreVisibleSidebarOrder(nav, initialOrder);
+    else if (moved && !persistVisibleSidebarOrder(nav)) {
+        restoreVisibleSidebarOrder(nav, initialOrder);
+    }
+    if (moved && !cancelled) {
+        suppressedSidebarClickKey = button.dataset.sidebarOrderKey;
+        setTimeout(() => { suppressedSidebarClickKey = null; }, 0);
+    }
+    button.classList.remove('sidebar-ordering');
+    button.removeAttribute('aria-grabbed');
+    activeSidebarMove = null;
+}
+
+function beginSidebarMove(event, nav) {
+    const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
+    if (!button || (event.button !== undefined && event.button !== 0)) return;
+    activeSidebarMove = {
+        button,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        initialOrder: sidebarButtons(nav).map(entry => entry.dataset.sidebarOrderKey)
+    };
+    if (typeof button.setPointerCapture === 'function') button.setPointerCapture(event.pointerId);
+}
+
+function continueSidebarMove(event, nav, documentRef) {
+    if (!activeSidebarMove || event.pointerId !== activeSidebarMove.pointerId) return;
+    const distance = Math.hypot(
+        event.clientX - activeSidebarMove.startX,
+        event.clientY - activeSidebarMove.startY
+    );
+    if (!activeSidebarMove.moved && distance < SIDEBAR_MOVE_THRESHOLD) return;
+    activeSidebarMove.moved = true;
+    activeSidebarMove.button.classList.add('sidebar-ordering');
+    activeSidebarMove.button.setAttribute('aria-grabbed', 'true');
+    const target = documentRef.elementFromPoint(event.clientX, event.clientY)
+        ?.closest('.sidebar-btn[data-sidebar-order-key]');
+    moveSidebarButton(activeSidebarMove.button, target, event, nav);
+    event.preventDefault();
+}
+
+function suppressSidebarClick(event) {
+    const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
+    if (!button || button.dataset.sidebarOrderKey !== suppressedSidebarClickKey) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressedSidebarClickKey = null;
+}
+
+function moveSidebarButtonByKey(event, nav) {
+    if (!event.altKey || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
+    if (!button) return;
+    const buttons = sidebarButtons(nav);
+    const offset = ['ArrowUp', 'ArrowLeft'].includes(event.key) ? -1 : 1;
+    const target = buttons[buttons.indexOf(button) + offset];
+    if (!target) return;
+    const initialOrder = buttons.map(entry => entry.dataset.sidebarOrderKey);
+    nav.insertBefore(button, offset < 0 ? target : target.nextSibling);
+    if (!persistVisibleSidebarOrder(nav)) restoreVisibleSidebarOrder(nav, initialOrder);
+    button.focus();
+    event.preventDefault();
+}
+
+function initializeSidebarOrdering(documentRef = document) {
+    const nav = documentRef.getElementById('view-selector');
+    if (!nav || nav.dataset.sidebarOrderingInitialized === 'true') return;
+    nav.dataset.sidebarOrderingInitialized = 'true';
+    nav.addEventListener('pointerdown', event => beginSidebarMove(event, nav));
+    nav.addEventListener('pointermove', event => continueSidebarMove(event, nav, documentRef));
+    nav.addEventListener('pointerup', event => {
+        if (activeSidebarMove?.pointerId === event.pointerId) finishSidebarMove(nav, false);
+    });
+    nav.addEventListener('pointercancel', event => {
+        if (activeSidebarMove?.pointerId === event.pointerId) finishSidebarMove(nav, true);
+    });
+    nav.addEventListener('click', suppressSidebarClick, true);
+    nav.addEventListener('keydown', event => moveSidebarButtonByKey(event, nav));
+}
 
 // Toggle processes section
 function toggleProcesses() {
@@ -65,7 +230,15 @@ function switchToView(viewName) {
 }
 
 // Create or update GPU tab
-function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
+function ensureGPUTab(gpuId, gpuInfo, options = {}) {
+    const normalizedOptions = typeof options === 'boolean'
+        ? { shouldUpdateDOM: options }
+        : options;
+    const {
+        shouldUpdateDOM = true,
+        nodeName = '_local',
+        sourceGpuId = gpuId
+    } = normalizedOptions;
     if (!registeredGPUs.has(gpuId)) {
         // Add sidebar button
         const viewSelector = document.getElementById('view-selector');
@@ -78,6 +251,7 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
+        registerSidebarOrder(btn, nodeName, sourceGpuId);
 
         // Create tab content
         const tabContent = document.createElement('div');
@@ -138,3 +312,6 @@ function autoSwitchSingleGPU(gpuCount, gpuIds) {
 }
 
 window.switchToView = switchToView;
+window.applySidebarOrder = applySidebarOrder;
+window.initializeSidebarOrdering = initializeSidebarOrdering;
+initializeSidebarOrdering();

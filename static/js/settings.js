@@ -10,7 +10,30 @@
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
     const DEFAULT_SETTINGS = Object.freeze({});
-    const ALLOWED_SETTINGS = Object.freeze({});
+    const MAX_SIDEBAR_ORDER_ENTRIES = 512;
+    const MAX_SIDEBAR_ORDER_KEY_LENGTH = 1024;
+
+    function isSidebarOrderKey(candidate) {
+        if (typeof candidate !== 'string' || candidate.length > MAX_SIDEBAR_ORDER_KEY_LENGTH) return false;
+        try {
+            const parts = JSON.parse(candidate);
+            return Array.isArray(parts) && parts.length === 2
+                && parts.every(part => typeof part === 'string' && part.length > 0);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function isSidebarOrder(candidate) {
+        return Array.isArray(candidate)
+            && candidate.length <= MAX_SIDEBAR_ORDER_ENTRIES
+            && new Set(candidate).size === candidate.length
+            && candidate.every(isSidebarOrderKey);
+    }
+
+    const ALLOWED_SETTINGS = Object.freeze({
+        sidebarOrder: isSidebarOrder
+    });
 
     function defaultSettings() {
         return { ...DEFAULT_SETTINGS };
@@ -112,9 +135,13 @@
         closeButton.addEventListener('click', closePanel);
         overlay.addEventListener('click', closePanel);
         resetButton.addEventListener('click', () => {
-            status.textContent = resetSettings()
-                ? 'Settings reset.'
-                : 'Settings could not be reset. Try again.';
+            if (!resetSettings()) {
+                status.textContent = 'Settings could not be reset. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(key => delete settings[key]);
+            if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
+            status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
             if (!isOpen()) return;

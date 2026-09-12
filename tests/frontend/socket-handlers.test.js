@@ -74,7 +74,11 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketOpen = handleSocketOpen;
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
+        globalThis.handleSocketMessage = handleSocketMessage;
         globalThis.attemptReconnect = attemptReconnect;
+        globalThis.handleClusterData = handleClusterData;
+        globalThis.processBatchedUpdates = processBatchedUpdates;
+        globalThis.pendingSocketUpdates = pendingUpdates;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -177,5 +181,108 @@ describe('attemptReconnect', () => {
         const first = global.reconnectInterval;
         attemptReconnect(); // Should be a no-op
         expect(global.reconnectInterval).toBe(first);
+    });
+});
+
+describe('sidebar order identity', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        loadSocketHandlers();
+        document.body.innerHTML = `
+            <div id="view-selector">
+                <button class="sidebar-btn active" data-view="overview">Overview</button>
+            </div>
+            <div id="tab-overview" class="tab-content active"></div>
+            <div id="overview-container"></div>
+        `;
+        global.registeredGPUs = new Set();
+        global.currentTab = 'overview';
+        window.GPUHotSettings = { settings: {}, saveSettings: vi.fn(() => true) };
+        window.initializeSidebarOrdering(document);
+        pendingSocketUpdates.clear();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+        vi.restoreAllMocks();
+    });
+
+    it('passes the node name and source GPU id to the sidebar button', () => {
+        pendingSocketUpdates.set('node-a-0', {
+            gpuInfo: { name: 'Test GPU' },
+            systemInfo: null,
+            sourceKey: 'node-a',
+            nodeName: 'node-a',
+            sourceGpuId: '0',
+            shouldUpdateDOM: false,
+            now: Date.now()
+        });
+
+        processBatchedUpdates();
+
+        const button = document.querySelector('[data-view="gpu-node-a-0"]');
+        expect(button.dataset.sidebarOrderKey).toBe(JSON.stringify(['node-a', '0']));
+    });
+
+    it('keeps the source identity when cluster data is queued for rendering', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        document.body.innerHTML = '<div id="overview-container"><div class="loading"></div></div>';
+        try {
+            handleClusterData({
+                mode: 'hub',
+                nodes: {
+                    'node-a': {
+                        status: 'online',
+                        gpus: {
+                            0: {
+                                name: 'Test GPU', utilization: 25, temperature: 40,
+                                memory_used: 10, memory_total: 100, power_draw: 20,
+                                fan_speed: 30, clock_graphics: 100, clock_sm: 100,
+                                clock_memory: 100, power_limit: 200
+                            }
+                        },
+                        system: {},
+                        processes: []
+                    }
+                }
+            });
+
+            expect(pendingSocketUpdates.get('node-a-0')).toMatchObject({
+                nodeName: 'node-a',
+                sourceGpuId: '0'
+            });
+        } finally {
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
+    });
+
+    it('keeps the node name and bare GPU id from a single-node payload', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        try {
+            handleSocketMessage({
+                data: JSON.stringify({
+                    node_name: 'node-a',
+                    gpus: {
+                        0: {
+                            name: 'Test GPU', utilization: 25, temperature: 40,
+                            memory_used: 10, memory_total: 100, power_draw: 20,
+                            fan_speed: 30, clock_graphics: 100, clock_sm: 100,
+                            clock_memory: 100, power_limit: 200
+                        }
+                    },
+                    system: {},
+                    processes: []
+                })
+            });
+
+            expect(pendingSocketUpdates.get('0')).toMatchObject({
+                nodeName: 'node-a',
+                sourceGpuId: '0'
+            });
+        } finally {
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
     });
 });
