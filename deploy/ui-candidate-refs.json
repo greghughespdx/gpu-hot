@@ -63,6 +63,10 @@
     {
       "name": "Behind metrics mini chart",
       "commit": "e6a5e3a7e3533df20cc3579e4a143608c4bf8ad2"
+    },
+    {
+      "name": "All page extra metrics",
+      "commit": "5fdc808af4b38ca2fd512050adc040e71b2d5018"
     }
   ],
   "upstream_review": {
