@@ -219,6 +219,8 @@ function handleSocketMessage(event) {
             gpuInfo,
             systemInfo: data.system,
             sourceKey: '_local',
+            nodeName: data.node_name || 'GPU Server',
+            sourceGpuId: gpuId,
             shouldUpdateDOM,
             now
         });
@@ -333,7 +335,15 @@ function processBatchedUpdates() {
             lastDOMUpdate.system = update.now;
         } else {
             // GPU updates
-            const { gpuInfo, systemInfo, sourceKey, shouldUpdateDOM, now } = update;
+            const {
+                gpuInfo,
+                systemInfo,
+                sourceKey,
+                nodeName,
+                sourceGpuId,
+                shouldUpdateDOM,
+                now
+            } = update;
 
             // Update overview card (always for charts, conditionally for text)
             updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM);
@@ -345,7 +355,11 @@ function processBatchedUpdates() {
             // Invisible tabs = zero wasted processing
             const isDetailTabVisible = currentTab === `gpu-${gpuId}`;
             if (isDetailTabVisible || !registeredGPUs.has(gpuId)) {
-                ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM && isDetailTabVisible);
+                ensureGPUTab(gpuId, gpuInfo, {
+                    shouldUpdateDOM: shouldUpdateDOM && isDetailTabVisible,
+                    nodeName,
+                    sourceGpuId
+                });
             }
 
             // Update per-GPU system charts
@@ -544,6 +558,7 @@ function handleClusterData(data) {
                     gpuInfo,
                     systemInfo: nodeData.system || {},
                     sourceKey: nodeName,
+                    sourceGpuId: gpuId,
                     shouldUpdateDOM,
                     now,
                     nodeName

@@ -25,11 +25,27 @@ function sidebarLabel(gpuId, gpuInfo) {
     return index;
 }
 
+function applySidebarButtonLabel(button, gpuId, gpuInfo, nodeName, sourceGpuId) {
+    const fallback = sidebarLabel(gpuId, gpuInfo);
+    button.textContent = fallback;
+    window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, sourceGpuId);
+    window.GPUHotSettings?.bindGpuLabel?.(
+        button,
+        nodeName,
+        sourceGpuId,
+        fallback
+    );
+}
+
 function updateSidebarLabels() {
     document.querySelectorAll('.sidebar-btn[data-gpu-id]').forEach(button => {
-        button.textContent = sidebarLabel(button.dataset.gpuId, {
-            name: button.dataset.gpuName
-        });
+        applySidebarButtonLabel(
+            button,
+            button.dataset.gpuId,
+            { name: button.dataset.gpuName },
+            button.dataset.gpuNode,
+            button.dataset.sourceGpuId
+        );
     });
 }
 
@@ -94,7 +110,15 @@ function switchToView(viewName) {
 }
 
 // Create or update GPU tab
-function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
+function ensureGPUTab(gpuId, gpuInfo, options = {}) {
+    const normalizedOptions = typeof options === 'boolean'
+        ? { shouldUpdateDOM: options }
+        : options;
+    const {
+        shouldUpdateDOM = true,
+        nodeName = '_local',
+        sourceGpuId = gpuId
+    } = normalizedOptions;
     if (!registeredGPUs.has(gpuId)) {
         // Add sidebar button
         const viewSelector = document.getElementById('view-selector');
@@ -103,7 +127,9 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         btn.dataset.view = `gpu-${gpuId}`;
         btn.dataset.gpuId = String(gpuId);
         btn.dataset.gpuName = String(gpuInfo?.name || '');
-        btn.textContent = sidebarLabel(gpuId, gpuInfo);
+        btn.dataset.gpuNode = String(nodeName);
+        btn.dataset.sourceGpuId = String(sourceGpuId);
+        applySidebarButtonLabel(btn, gpuId, gpuInfo, nodeName, sourceGpuId);
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
