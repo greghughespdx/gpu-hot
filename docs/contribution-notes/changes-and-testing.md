@@ -89,11 +89,14 @@ to answer a health check before anyone opens a browser.
   tachometer sub-value under the fan reading when one is present.
 - `core/config.py` and `README.md`: the `EXTERNAL_FANS` variable and its
   documentation.
+- `docker-compose.yml` and `docker-compose.amd.yml`: one added line each,
+  passing `EXTERNAL_FANS` from the host environment into the container, empty
+  by default; `tests/unit/test_compose_config.py` asserts both.
 
-Totals against PR A: 38 files, 1272 added and 13 removed lines, of which 24 are
-fixture files with 53 added lines; the 14 source, test and documentation files
-account for 1219 added lines. Against the stacked branch's base, upstream main
-including PR A: 92 files, 2910 added and 22 removed lines.
+Totals against PR A: 41 files, 1309 added and 14 removed lines, of which 24 are
+fixture files with 53 added lines; the 17 source, test, compose and
+documentation files account for 1256 added lines. Against the stacked branch's
+base, upstream main including PR A: 93 files, 2946 added and 22 removed lines.
 
 Deliberately not changed: the mapping is off unless `EXTERNAL_FANS` is set, a
 card that reports its own fan keeps it unless the entry sets `override`, and no
@@ -110,7 +113,7 @@ Run through the repository's own Docker test runner, `./run_tests.sh`, per
 | upstream main (baseline) | 136 passed, 0 failed | 158 passed, 4 failed |
 | PR A | 164 passed, 0 failed | 158 passed, 4 failed |
 | PR B | 144 passed, 0 failed | 158 passed, 4 failed |
-| PR C (stacked on A) | 246 passed, 0 failed | 165 passed, 4 failed |
+| PR C (stacked on A) | 248 passed, 0 failed | 165 passed, 4 failed |
 
 No branch introduces a test failure.
 
