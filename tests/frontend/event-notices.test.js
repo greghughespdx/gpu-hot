@@ -138,9 +138,38 @@ describe('event notices', () => {
         expect(document.getElementById('event-notices').hidden).toBe(false);
     });
 
+    it.each([0, 1, 5])(
+        'does not report configured URL placeholders as offline after %i live payloads',
+        tickCount => {
+            const api = loadNotices({ noticeNodeOffline: true });
+            window.GPUHotSettings.nodeDisplayLabel = (node, fallback) =>
+                node === 'inf1' ? 'Inference 1' : fallback;
+            const payload = hub({
+                'http://192.0.2.1:1312': { status: 'offline', gpus: {} },
+                inf1: online({ '0': {} })
+            });
+
+            for (let tick = 0; tick < tickCount; tick += 1) api.processPayload(payload);
+
+            expect(api.notices).toEqual([]);
+            expect(document.querySelectorAll('.event-notice')).toHaveLength(0);
+            expect(document.getElementById('event-notices').hidden).toBe(true);
+
+            if (tickCount > 0) {
+                api.processPayload(hub({ inf1: { status: 'offline', gpus: {} } }));
+                expect(api.notices).toHaveLength(1);
+                expect(document.querySelector('.event-notice').textContent).toContain('Inference 1');
+                expect(document.querySelector('.event-notice').textContent).not.toContain('192.0.2.1');
+            }
+        }
+    );
+
     it('keeps missing and offline events independently opt-in', () => {
         const api = loadNotices({ noticeGpuMissing: true });
-        api.processPayload(hub({ node: online({ '0': {}, '1': {} }) }));
+        api.processPayload(hub({
+            node: online({ '0': {}, '1': {} }),
+            offline: online({})
+        }));
         api.processPayload(hub({ node: online({ '0': {} }), offline: { status: 'offline' } }));
 
         expect(api.notices).toHaveLength(1);
@@ -265,6 +294,7 @@ describe('event notices', () => {
 
     it('keeps a dismissed active event hidden until it clears and recurs', () => {
         const api = loadNotices({ noticeNodeOffline: true });
+        api.processPayload(hub({ node: online({}) }));
         api.processPayload(hub({ node: { status: 'offline' } }));
         const firstId = api.notices[0].id;
         api.dismissNotice(firstId);
@@ -280,6 +310,7 @@ describe('event notices', () => {
 
     it('evaluates the latest state immediately when an option is enabled', () => {
         const api = loadNotices();
+        api.processPayload(hub({ node: online({}) }));
         api.processPayload(hub({ node: { status: 'offline' } }));
         window.GPUHotSettings.settings.noticeNodeOffline = true;
         api.settingsChanged();
@@ -289,6 +320,7 @@ describe('event notices', () => {
     it('clears all visible history without recreating an active event on the next frame', () => {
         const api = loadNotices({ noticeNodeOffline: true });
         const payload = hub({ node: { status: 'offline' } });
+        api.processPayload(hub({ node: online({}) }));
         api.processPayload(payload);
         document.getElementById('event-notices-clear').click();
         api.processPayload(payload);
@@ -354,12 +386,17 @@ describe('event notices', () => {
 
     it('does not churn notices when more active events exist than the history cap', () => {
         const api = loadNotices({ noticeNodeOffline: true });
+        const onlineNodes = Object.fromEntries(Array.from(
+            { length: 101 },
+            (_value, index) => [`node${index}`, online({})]
+        ));
         const nodes = Object.fromEntries(Array.from(
             { length: 101 },
             (_value, index) => [`node${index}`, { status: 'offline' }]
         ));
         const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
+        api.processPayload(hub(onlineNodes));
         api.processPayload(hub(nodes));
         expect(api.notices).toHaveLength(100);
         expect(setItem).toHaveBeenCalledTimes(1);
@@ -388,6 +425,7 @@ describe('event notices', () => {
 
     it('contains quota failures and keeps live rendering available', () => {
         const api = loadNotices({ noticeNodeOffline: true });
+        api.processPayload(hub({ node: online({}) }));
         vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
             throw new DOMException('quota');
         });
@@ -397,6 +435,7 @@ describe('event notices', () => {
 
     it('keeps focus on the same notice action when another notice arrives', () => {
         const api = loadNotices({ noticeNodeOffline: true });
+        api.processPayload(hub({ first: online({}), second: online({}) }));
         api.processPayload(hub({ first: { status: 'offline' } }));
         const firstButton = document.querySelector('.event-notice-dismiss');
         firstButton.focus();
