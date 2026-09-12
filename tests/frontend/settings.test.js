@@ -199,6 +199,44 @@ describe('settings storage', () => {
         expect(settingsChanged).toHaveBeenCalled();
     });
 
+    it('resets the composed notice, star, and Behind metrics settings together', () => {
+        panelMarkup();
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                noticeGpuThrottle: true,
+                noticeGpuMissing: true,
+                noticeNodeOffline: true,
+                noticeExternalFanStopped: true,
+                showStarPrompt: false,
+                overviewMiniChartWidth: 'behind',
+                overviewMiniChartBehindDim: 75
+            }
+        }));
+        localStorage.setItem('gpu-hot.notices.v1', 'saved history');
+        localStorage.setItem('gpuHotStarPromptDismissed', 'true');
+        const settingsChanged = vi.fn();
+        const setStarPromptEnabled = vi.fn();
+        window.GPUHotNotices = { settingsChanged };
+        window.setStarPromptEnabled = setStarPromptEnabled;
+        const api = loadSettingsModule();
+
+        document.getElementById('settings-reset').click();
+
+        expect(api.settings).toEqual(defaults);
+        expect(Array.from(document.querySelectorAll('[data-notice-setting]'))
+            .every(input => input.checked === false)).toBe(true);
+        expect(document.getElementById('settings-show-star-prompt').checked).toBe(true);
+        expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
+        expect(document.getElementById('settings-overview-chart-behind-dim').value).toBe('30');
+        expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(false);
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
+        expect(localStorage.getItem('gpu-hot.notices.v1')).toBe('saved history');
+        expect(localStorage.getItem('gpuHotStarPromptDismissed')).toBe('true');
+        expect(settingsChanged).toHaveBeenCalledOnce();
+        expect(setStarPromptEnabled).toHaveBeenCalledWith(true);
+    });
+
     it('keeps only boolean metric choices and fills missing defaults', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,

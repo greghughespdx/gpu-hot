@@ -51,6 +51,18 @@
     {
       "name": "phone layout",
       "commit": "1ac654355fcbdc147b00871df077d00c33c783ac"
+    },
+    {
+      "name": "event notices",
+      "commit": "e0debb8438f30992f3b48010fa7063bdbd252cc2"
+    },
+    {
+      "name": "Star prompt option",
+      "commit": "0c3cc5f0010b31e0154a578231bf9fc2a4cb86b0"
+    },
+    {
+      "name": "Behind metrics mini chart",
+      "commit": "e6a5e3a7e3533df20cc3579e4a143608c4bf8ad2"
     }
   ],
   "upstream_review": {
