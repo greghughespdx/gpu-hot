@@ -254,7 +254,7 @@ describe('settings panel', () => {
         expect(window.updateSidebarLabels).toHaveBeenCalledOnce();
     });
 
-    it('auto-hides only when enabled and lets the panel pin it open', () => {
+    it('clears the pin when auto-hide is turned off and starts fresh when re-enabled', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
         const autoHide = document.getElementById('settings-sidebar-auto-hide');
@@ -269,6 +269,34 @@ describe('settings panel', () => {
         pinned.checked = true;
         pinned.dispatchEvent(new Event('change'));
         expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+
+        autoHide.checked = false;
+        autoHide.dispatchEvent(new Event('change'));
+        expect(pinned.checked).toBe(false);
+        expect(pinned.disabled).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+        expect(api.settings.sidebarPinned).toBe(false);
+
+        autoHide.checked = true;
+        autoHide.dispatchEvent(new Event('change'));
+        expect(pinned.checked).toBe(false);
+        expect(pinned.disabled).toBe(false);
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+    });
+
+    it('does not apply a stored pin when auto-hide is off', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarAutoHide: false, sidebarPinned: true }
+        }));
+        const api = loadSettingsModule();
+
+        api.initSettingsPanel();
+
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+        expect(document.getElementById('settings-sidebar-pinned').checked).toBe(false);
+        expect(document.getElementById('settings-sidebar-pinned').disabled).toBe(true);
     });
 
     it('restores the default bar after reset', () => {
@@ -380,6 +408,12 @@ describe('settings page contract', () => {
         );
         expect(layoutCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.sidebar \{[\s\S]*?transform: none !important;/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
         );
     });
 });

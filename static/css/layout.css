@@ -376,6 +376,10 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
         gap: var(--space-xs);
     }
 
+    .sidebar-btn {
+        width: 40px;
+    }
+
     .sidebar-bottom {
         flex-direction: row;
         margin-top: 0;
@@ -384,6 +388,7 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
         gap: var(--space-sm);
     }
 
+    html.sidebar-auto-hide:not(.sidebar-pinned) .main,
     .main {
         margin-left: 0;
         margin-bottom: 48px;

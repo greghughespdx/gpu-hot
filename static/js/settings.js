@@ -94,7 +94,10 @@
             root.style.removeProperty('--sidebar-width');
         }
         root.classList.toggle('sidebar-auto-hide', settings.sidebarAutoHide === true);
-        root.classList.toggle('sidebar-pinned', settings.sidebarPinned === true);
+        root.classList.toggle(
+            'sidebar-pinned',
+            settings.sidebarAutoHide === true && settings.sidebarPinned === true
+        );
         if (typeof global.updateSidebarLabels === 'function') {
             global.updateSidebarLabels();
         }
@@ -120,13 +123,14 @@
             if (labelSelect) labelSelect.value = settings.sidebarLabel || 'index';
             if (autoHide) autoHide.checked = settings.sidebarAutoHide === true;
             if (pinned) {
-                pinned.checked = settings.sidebarPinned === true;
+                pinned.checked = settings.sidebarAutoHide === true
+                    && settings.sidebarPinned === true;
                 pinned.disabled = settings.sidebarAutoHide !== true;
             }
         }
 
-        function saveSidebarSetting(key, value, control, previousValue) {
-            const nextSettings = { ...settings, [key]: value };
+        function saveSidebarSetting({ key, value, control, previousValue, relatedSettings = {} }) {
+            const nextSettings = { ...settings, [key]: value, ...relatedSettings };
             if (!saveSettings(nextSettings)) {
                 if (control.type === 'checkbox') control.checked = previousValue;
                 else control.value = previousValue;
@@ -142,36 +146,43 @@
 
         if (widthSelect) {
             widthSelect.addEventListener('change', () => {
-                saveSidebarSetting(
-                    'sidebarWidth',
-                    widthSelect.value,
-                    widthSelect,
-                    settings.sidebarWidth || 'standard'
-                );
+                saveSidebarSetting({
+                    key: 'sidebarWidth',
+                    value: widthSelect.value,
+                    control: widthSelect,
+                    previousValue: settings.sidebarWidth || 'standard'
+                });
             });
         }
         if (labelSelect) {
             labelSelect.addEventListener('change', () => {
-                saveSidebarSetting(
-                    'sidebarLabel',
-                    labelSelect.value,
-                    labelSelect,
-                    settings.sidebarLabel || 'index'
-                );
+                saveSidebarSetting({
+                    key: 'sidebarLabel',
+                    value: labelSelect.value,
+                    control: labelSelect,
+                    previousValue: settings.sidebarLabel || 'index'
+                });
             });
         }
         if (autoHide) {
             autoHide.addEventListener('change', () => {
-                saveSidebarSetting(
-                    'sidebarAutoHide', autoHide.checked, autoHide, settings.sidebarAutoHide === true
-                );
+                saveSidebarSetting({
+                    key: 'sidebarAutoHide',
+                    value: autoHide.checked,
+                    control: autoHide,
+                    previousValue: settings.sidebarAutoHide === true,
+                    relatedSettings: autoHide.checked ? {} : { sidebarPinned: false }
+                });
             });
         }
         if (pinned) {
             pinned.addEventListener('change', () => {
-                saveSidebarSetting(
-                    'sidebarPinned', pinned.checked, pinned, settings.sidebarPinned === true
-                );
+                saveSidebarSetting({
+                    key: 'sidebarPinned',
+                    value: pinned.checked,
+                    control: pinned,
+                    previousValue: settings.sidebarPinned === true
+                });
             });
         }
         syncSidebarControls();
