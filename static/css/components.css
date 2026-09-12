@@ -1670,6 +1670,8 @@ html.settings-connection-in-panel #dashboard-status-home {
     html.overview-chart-width-behind .overview-mini-chart {
         grid-column: 1;
         grid-row: auto;
+        z-index: auto;
+        pointer-events: auto;
         -webkit-mask-image: none;
         mask-image: none;
     }

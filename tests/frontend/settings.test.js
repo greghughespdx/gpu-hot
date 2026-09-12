@@ -1393,7 +1393,7 @@ describe('settings page contract', () => {
             /data-overview-visible-metrics="0"[\s\S]*?\.overview-mini-chart \{[\s\S]*?grid-column: 3;[\s\S]*?mask-image: none;/
         );
         expect(componentsCss).toMatch(
-            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[\s\S]*?grid-column: 1;[\s\S]*?mask-image: none;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[^}]*grid-column: 1;[^}]*grid-row: auto;[^}]*z-index: auto;[^}]*pointer-events: auto;[^}]*mask-image: none;/
         );
         expect(componentsCss).toMatch(
             /overview-chart-width-behind \.overview-gpu-name,\s*html\.overview-chart-width-behind \.overview-metrics \{[^}]*grid-column: auto;[^}]*grid-row: auto;[^}]*z-index: auto;[^}]*\}/
