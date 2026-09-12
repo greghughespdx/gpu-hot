@@ -905,6 +905,21 @@ describe('settings page contract', () => {
         expect(landscapeBlock).not.toContain('repeat(4, minmax(0, 1fr))');
     });
 
+    it('keeps the system readouts inside the phone bar and reserves the same viewport space', () => {
+        const responsiveBlock = layoutCss.match(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+        const componentBlock = componentsCss.match(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+
+        expect(responsiveBlock).toContain('--phone-sidebar-height: 56px');
+        expect(responsiveBlock).toMatch(/\.sidebar \{[\s\S]*?height: var\(--phone-sidebar-height\);/);
+        expect(responsiveBlock).toMatch(/\.main \{[\s\S]*?margin-bottom: var\(--phone-sidebar-height\);/);
+        expect(componentBlock).toMatch(/\.system-info \{[\s\S]*?max-height: 100%;/);
+        expect(componentBlock).toMatch(/\.system-metric \{[\s\S]*?max-height: 100%;/);
+    });
+
     it('stacks overview cards and wraps names in phone landscape', () => {
         expect(componentsCss).toMatch(
             /@media \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-card,[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/
