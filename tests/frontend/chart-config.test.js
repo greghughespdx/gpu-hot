@@ -52,6 +52,12 @@ describe('CSS color tokens', () => {
         document.documentElement.style.removeProperty('--neutral-rgb');
     });
 
+    it('returns explicit fallbacks when a color token is missing', () => {
+        expect(readColorToken('--missing-color', '#123456')).toBe('#123456');
+        expect(colorTokenWithAlpha('--missing-color', 0.5, '#123456')).toBe('#123456');
+        expect(colorTokenWithAlpha('--missing-color', 0.5)).toBe('transparent');
+    });
+
     it('refreshes a chart config from computed tokens before drawing', () => {
         document.documentElement.style.setProperty('--neutral-rgb', '9, 8, 7');
 

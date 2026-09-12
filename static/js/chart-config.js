@@ -3,12 +3,14 @@
  * Grayscale sparklines, no fills, no color except alerts
  */
 
-function readColorToken(tokenName) {
-    return getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim();
+function readColorToken(tokenName, fallback = '') {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim();
+    return value || fallback;
 }
 
-function colorTokenWithAlpha(tokenName, alpha) {
-    return `rgba(${readColorToken(tokenName)}, ${alpha})`;
+function colorTokenWithAlpha(tokenName, alpha, fallback = 'transparent') {
+    const value = readColorToken(tokenName);
+    return value ? `rgba(${value}, ${alpha})` : fallback;
 }
 
 // Sparkline palette — monochromatic
