@@ -42,7 +42,7 @@
     },
     {
       "name": "node and GPU ordering",
-      "commit": "697f696af1d7b49d0199bef2fbaae98a9e6af179"
+      "commit": "807cca1d72106b6b6cb08239cb5f5fb0faf00244"
     },
     {
       "name": "node and GPU label overrides",
@@ -54,7 +54,7 @@
     },
     {
       "name": "event notices",
-      "commit": "9b11fdd4173c292cb70fcb630683f843a2ba3174"
+      "commit": "7f5b1cbf49f2456c88372a070804e064bf08758b"
     },
     {
       "name": "Star prompt option",
@@ -63,6 +63,10 @@
     {
       "name": "Behind metrics mini chart",
       "commit": "e6a5e3a7e3533df20cc3579e4a143608c4bf8ad2"
+    },
+    {
+      "name": "Behind metrics fade lead-in",
+      "commit": "aab300c53e10aca52dd3dd14f655ec0521928fcf"
     },
     {
       "name": "All page extra metrics",
@@ -74,7 +78,7 @@
     }
   ],
   "upstream_review": {
-    "checked_at": "2026-09-12T08:53:40Z",
+    "checked_at": "2026-09-12T22:58:28Z",
     "latest_commit": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
     "relevant_issue": 26,
     "relevant_open_pull_requests": [74, 75]

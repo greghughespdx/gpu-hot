@@ -14,6 +14,7 @@ import vm from 'vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcPath = join(__dirname, '../../static/js/socket-handlers.js');
 const sourceCode = readFileSync(srcPath, 'utf-8');
+const settingsSource = readFileSync(join(__dirname, '../../static/js/settings.js'), 'utf-8');
 const defaultSwitchToView = globalThis.switchToView;
 
 function loadSocketHandlers(locationOverride) {
@@ -698,5 +699,39 @@ describe('safe node labels', () => {
             .toHaveBeenCalledWith('GPU Server', '1');
         expect(window.GPUHotSettings.registerNodeLabelTarget)
             .not.toHaveBeenCalledWith('_local');
+    });
+});
+
+describe('composed node labels and ordering', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        localStorage.clear();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+        delete window.GPUHotSettings;
+    });
+
+    it('keeps the node ordering grip through initial binding and a label edit', () => {
+        loadSocketHandlers();
+        vm.runInThisContext(settingsSource, { filename: 'settings.js' });
+        const container = document.createElement('div');
+        container.id = 'overview-container';
+        document.body.appendChild(container);
+
+        const group = createNodeGroup(container, 'node-a', 'node-a');
+        const grip = group.querySelector(':scope > .dashboard-order-grip');
+        expect(grip).not.toBeNull();
+        expect(group.querySelector('.node-label').textContent).toBe('node-a');
+
+        window.GPUHotSettings.settings.labelOverrides = [
+            { kind: 'node', node: 'node-a', label: 'Renamed node' }
+        ];
+        window.GPUHotSettings.applyDisplayLabels(document);
+
+        expect(group.querySelector('.node-label').textContent).toBe('Renamed node');
+        expect(group.querySelector(':scope > .dashboard-order-grip')).toBe(grip);
+        expect(group.querySelectorAll(':scope > .dashboard-order-grip')).toHaveLength(1);
     });
 });
