@@ -52,6 +52,7 @@ describe('ensureGPUTab', () => {
         setupDOM();
         global.registeredGPUs = new Set();
         global.charts = {};
+        delete window.GPUHotSettings;
         for (const key of Object.keys(chartData)) {
             delete chartData[key];
         }
@@ -89,6 +90,46 @@ describe('ensureGPUTab', () => {
 
         const btn = document.querySelector('[data-view="gpu-server-2-0"]');
         expect(btn.textContent).toBe('0');
+    });
+
+    it('keeps default labels with an older settings module', () => {
+        window.GPUHotSettings = { settings: {} };
+
+        expect(() => ensureGPUTab('0', { name: 'RTX 3090', utilization: 50 }, false))
+            .not.toThrow();
+        expect(document.querySelector('[data-view="gpu-0"]').textContent).toBe('0');
+    });
+
+    it('renders a custom GPU label as text while keeping its stable identity', () => {
+        const calls = [];
+        const customLabel = '<img src=x onerror=alert(1)>';
+        window.GPUHotSettings = {
+            registerGpuLabelTarget(nodeName, gpuId) {
+                calls.push([nodeName, String(gpuId)]);
+            },
+            bindGpuLabel(element, nodeName, gpuId, _fallback, output = 'text') {
+                if (output === 'text' || output === 'both') element.textContent = customLabel;
+                if (output === 'title' || output === 'both') element.title = customLabel;
+                element.dataset.testIdentity = JSON.stringify([nodeName, String(gpuId)]);
+            }
+        };
+
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false,
+            nodeName: 'node-a',
+            sourceGpuId: '0'
+        });
+
+        const button = document.querySelector('[data-view="gpu-node-a-0"]');
+        const title = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
+        expect(button.textContent).toBe(customLabel);
+        expect(button.title).toBe(customLabel);
+        expect(button.querySelector('img')).toBeNull();
+        expect(title.textContent).toBe(customLabel);
+        expect(title.querySelector('img')).toBeNull();
+        expect(button.dataset.view).toBe('gpu-node-a-0');
+        expect(button.dataset.testIdentity).toBe(JSON.stringify(['node-a', '0']));
+        expect(calls).toEqual([['node-a', '0']]);
     });
 });
 

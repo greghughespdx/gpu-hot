@@ -15,6 +15,7 @@ function panelMarkup() {
         <div id="settings-overlay" hidden></div>
         <aside id="settings-panel" hidden inert aria-hidden="true">
             <button id="settings-close">Close</button>
+            <div id="settings-label-list"></div>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -75,11 +76,49 @@ describe('settings storage', () => {
 
     it('stores only allowlisted settings in a versioned envelope', () => {
         const api = loadSettingsModule();
-        expect(api.saveSettings({ unknown: 'value' })).toBe(true);
+        const labels = [
+            { kind: 'node', node: 'node-a', label: 'Render box' },
+            { kind: 'gpu', node: 'node-a', gpu: '0', label: 'Primary GPU' }
+        ];
+        expect(api.saveSettings({ labelOverrides: labels, unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: { labelOverrides: labels }
         });
+    });
+
+    it.each([
+        ['duplicate identities', [
+            { kind: 'node', node: 'node-a', label: 'One' },
+            { kind: 'node', node: 'node-a', label: 'Two' }
+        ]],
+        ['an empty identity', [{ kind: 'gpu', node: 'node-a', gpu: '', label: 'GPU' }]],
+        ['an overlong identity', [{ kind: 'node', node: 'n'.repeat(257), label: 'Node' }]],
+        ['an overlong label', [{ kind: 'node', node: 'node-a', label: 'x'.repeat(81) }]],
+        ['an invalid kind', [{ kind: 'system', node: 'node-a', label: 'System' }]]
+    ])('drops label overrides with %s', (_label, labelOverrides) => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { labelOverrides }
+        }));
+        expect(loadSettingsModule().settings).toEqual({});
+    });
+
+    it('bounds the number of stored label overrides', () => {
+        const makeLabels = count => Array.from({ length: count }, (_, index) => ({
+            kind: 'gpu', node: 'node-a', gpu: String(index), label: `GPU ${index}`
+        }));
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { labelOverrides: makeLabels(512) }
+        }));
+        expect(loadSettingsModule().settings.labelOverrides).toHaveLength(512);
+
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { labelOverrides: makeLabels(513) }
+        }));
+        expect(loadSettingsModule().settings).toEqual({});
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -185,6 +224,123 @@ describe('settings panel', () => {
 
         expect(document.getElementById('settings-status').textContent).toBe('Settings reset.');
         expect(document.getElementById('settings-panel').hidden).toBe(false);
+    });
+
+    it('renders connected label fields as text and allows duplicate display labels', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const nodeOutput = document.createElement('span');
+        const gpuOutput = document.createElement('span');
+        const secondGpuOutput = document.createElement('span');
+        document.body.append(nodeOutput, gpuOutput, secondGpuOutput);
+        const unsafeNode = '<img src=x onerror=alert(1)>';
+
+        api.registerNodeLabelTarget(unsafeNode);
+        api.registerGpuLabelTarget(unsafeNode, '0');
+        api.registerGpuLabelTarget(unsafeNode, '1');
+        api.bindNodeLabel(nodeOutput, unsafeNode);
+        api.bindGpuLabel(gpuOutput, unsafeNode, '0');
+        api.bindGpuLabel(secondGpuOutput, unsafeNode, '1');
+        const inputs = document.querySelectorAll('#settings-label-list input');
+
+        expect(inputs).toHaveLength(3);
+        expect(document.querySelector('#settings-label-list img')).toBeNull();
+        expect(document.getElementById('settings-label-list').textContent).toContain(unsafeNode);
+        inputs[0].value = 'Shared label';
+        inputs[0].dispatchEvent(new Event('change'));
+        inputs[1].value = 'Shared label';
+        inputs[1].dispatchEvent(new Event('change'));
+        inputs[2].value = 'Shared label';
+        inputs[2].dispatchEvent(new Event('change'));
+
+        expect(nodeOutput.textContent).toBe('Shared label');
+        expect(gpuOutput.textContent).toBe('Shared label');
+        expect(secondGpuOutput.textContent).toBe('Shared label');
+        expect(new Set([
+            nodeOutput.dataset.displayLabelKey,
+            gpuOutput.dataset.displayLabelKey,
+            secondGpuOutput.dataset.displayLabelKey
+        ])).toHaveProperty('size', 3);
+        expect(api.settings.labelOverrides).toHaveLength(3);
+    });
+
+    it('does not replace an active field when the same GPU is reported again', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        api.registerGpuLabelTarget('node-a', '0');
+        const input = document.querySelector('#settings-label-list input');
+        input.value = 'Typing now';
+
+        api.registerGpuLabelTarget('node-a', '0');
+
+        expect(document.querySelector('#settings-label-list input')).toBe(input);
+        expect(input.value).toBe('Typing now');
+    });
+
+    it('renders a stored label as text on its first binding', () => {
+        const unsafeLabel = '<img src=x onerror=alert(1)>';
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                labelOverrides: [{ kind: 'node', node: 'node-a', label: unsafeLabel }]
+            }
+        }));
+        const api = loadSettingsModule();
+        const output = document.createElement('span');
+        document.body.appendChild(output);
+
+        api.bindNodeLabel(output, 'node-a');
+
+        expect(output.textContent).toBe(unsafeLabel);
+        expect(output.querySelector('img')).toBeNull();
+    });
+
+    it('restores default labels on blank input and reset', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const output = document.createElement('span');
+        document.body.appendChild(output);
+        api.registerGpuLabelTarget('node-a', '0');
+        api.bindGpuLabel(output, 'node-a', '0');
+        let input = document.querySelector('#settings-label-list input');
+
+        input.value = 'Training GPU';
+        input.dispatchEvent(new Event('change'));
+        expect(output.textContent).toBe('Training GPU');
+        input.value = '   ';
+        input.dispatchEvent(new Event('change'));
+        expect(output.textContent).toBe('GPU 0');
+
+        input = document.querySelector('#settings-label-list input');
+        input.value = 'Training GPU';
+        input.dispatchEvent(new Event('change'));
+        document.getElementById('settings-reset').click();
+        expect(output.textContent).toBe('GPU 0');
+        expect(api.settings).toEqual({});
+        expect(document.querySelector('#settings-label-list input').value).toBe('');
+    });
+
+    it('keeps the prior label when storage rejects a change', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const output = document.createElement('span');
+        document.body.appendChild(output);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(output, 'node-a');
+        const input = document.querySelector('#settings-label-list input');
+        input.value = 'Existing label';
+        input.dispatchEvent(new Event('change'));
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+
+        input.value = 'New label';
+        input.dispatchEvent(new Event('change'));
+
+        expect(output.textContent).toBe('Existing label');
+        expect(input.value).toBe('Existing label');
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('Labels could not be saved. Try again.');
     });
 
     it('explains a reset failure and keeps the panel open', () => {

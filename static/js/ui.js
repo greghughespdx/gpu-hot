@@ -65,7 +65,15 @@ function switchToView(viewName) {
 }
 
 // Create or update GPU tab
-function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
+function ensureGPUTab(gpuId, gpuInfo, options = {}) {
+    const normalizedOptions = typeof options === 'boolean'
+        ? { shouldUpdateDOM: options }
+        : options;
+    const {
+        shouldUpdateDOM = true,
+        nodeName = '_local',
+        sourceGpuId = gpuId
+    } = normalizedOptions;
     if (!registeredGPUs.has(gpuId)) {
         // Add sidebar button
         const viewSelector = document.getElementById('view-selector');
@@ -78,6 +86,8 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
+        window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, sourceGpuId);
+        window.GPUHotSettings?.bindGpuLabel?.(btn, nodeName, sourceGpuId, `GPU ${sourceGpuId}`, 'both');
 
         // Create tab content
         const tabContent = document.createElement('div');
@@ -95,6 +105,11 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
 
     if (!existingCard && detailedContainer) {
         detailedContainer.innerHTML = createGPUCard(gpuId, gpuInfo);
+        window.GPUHotSettings?.bindGpuLabel?.(
+            detailedContainer.querySelector('.gpu-detail-title'),
+            nodeName,
+            sourceGpuId
+        );
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
     } else if (existingCard) {

@@ -9,6 +9,33 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 2000; // Start with 2 seconds
 
+function findDataElement(container, selector, dataKey, value) {
+    return Array.from(container.querySelectorAll(selector))
+        .find(element => element.dataset[dataKey] === String(value)) || null;
+}
+
+function createNodeGroup(container, groupKey, nodeName) {
+    const group = document.createElement('div');
+    group.className = 'node-group';
+    group.dataset.node = String(groupKey);
+    const label = document.createElement('div');
+    label.className = 'node-label';
+    label.textContent = String(nodeName);
+    const grid = document.createElement('div');
+    grid.className = 'node-grid';
+    group.append(label, grid);
+    container.appendChild(group);
+    window.GPUHotSettings?.registerNodeLabelTarget?.(nodeName);
+    window.GPUHotSettings?.bindNodeLabel?.(label, nodeName);
+    return group;
+}
+
+function bindOverviewGpuLabel(card, nodeName, gpuId) {
+    window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, gpuId);
+    const title = card?.querySelector('.overview-gpu-name h2, .gpu-detail-title');
+    window.GPUHotSettings?.bindGpuLabel?.(title, nodeName, gpuId);
+}
+
 function createWebSocketConnection() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(protocol + '//' + window.location.host + '/socket.io/');
@@ -163,6 +190,8 @@ function handleSocketMessage(event) {
 
     const gpuCount = Object.keys(data.gpus).length;
     const now = Date.now();
+    const localNodeName = data.node_name || '_local';
+    window.GPUHotSettings?.registerNodeLabelTarget?.(localNodeName);
 
     // Performance: Skip ALL DOM updates during active scrolling
     if (isScrolling) {
@@ -195,6 +224,8 @@ function handleSocketMessage(event) {
     // Process each GPU - queue updates for batched rendering
     Object.keys(data.gpus).forEach(gpuId => {
         const gpuInfo = data.gpus[gpuId];
+        const nodeName = localNodeName;
+        window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, gpuId);
 
         // Initialize chart data structures if first time seeing this GPU
         if (!chartData[gpuId]) {
@@ -219,6 +250,8 @@ function handleSocketMessage(event) {
             gpuInfo,
             systemInfo: data.system,
             sourceKey: '_local',
+            nodeName,
+            sourceGpuId: gpuId,
             shouldUpdateDOM,
             now
         });
@@ -231,17 +264,14 @@ function handleSocketMessage(event) {
                 let nodeGrid = overviewContainer.querySelector('.node-grid');
                 if (!nodeGrid) {
                     const hostname = data.node_name || 'GPU Server';
-                    overviewContainer.insertAdjacentHTML('beforeend', `
-                        <div class="node-group" data-node="_local">
-                            <div class="node-label">${hostname}</div>
-                            <div class="node-grid"></div>
-                        </div>
-                    `);
-                    nodeGrid = overviewContainer.querySelector('.node-grid');
+                    nodeGrid = createNodeGroup(overviewContainer, '_local', hostname)
+                        .querySelector('.node-grid');
                 }
                 nodeGrid.insertAdjacentHTML('beforeend', createCompactOverviewCard(gpuId, gpuInfo));
+                bindOverviewGpuLabel(nodeGrid.lastElementChild, nodeName, gpuId);
             } else {
                 overviewContainer.insertAdjacentHTML('beforeend', createEnhancedOverviewCard(gpuId, gpuInfo));
+                bindOverviewGpuLabel(overviewContainer.lastElementChild, nodeName, gpuId);
                 // Auto-expand processes for single GPU
                 setTimeout(() => {
                     const content = document.getElementById('processes-content');
@@ -316,7 +346,7 @@ function processBatchedUpdates() {
             lastDOMUpdate.system = update.now;
         } else {
             // GPU updates
-            const { gpuInfo, systemInfo, sourceKey, shouldUpdateDOM, now } = update;
+            const { gpuInfo, systemInfo, sourceKey, nodeName, sourceGpuId, shouldUpdateDOM, now } = update;
 
             // Update overview card (always for charts, conditionally for text)
             updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM);
@@ -328,7 +358,11 @@ function processBatchedUpdates() {
             // Invisible tabs = zero wasted processing
             const isDetailTabVisible = currentTab === `gpu-${gpuId}`;
             if (isDetailTabVisible || !registeredGPUs.has(gpuId)) {
-                ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM && isDetailTabVisible);
+                ensureGPUTab(gpuId, gpuInfo, {
+                    shouldUpdateDOM: shouldUpdateDOM && isDetailTabVisible,
+                    nodeName: nodeName || '_local',
+                    sourceGpuId: sourceGpuId ?? gpuId
+                });
             }
 
             // Update per-GPU system charts
@@ -488,15 +522,9 @@ function handleClusterData(data) {
     // Render GPUs grouped by node (minimal grouping)
     Object.entries(data.nodes).forEach(([nodeName, nodeData]) => {
         // Get or create node group container
-        let nodeGroup = overviewContainer.querySelector(`[data-node="${nodeName}"]`);
+        let nodeGroup = findDataElement(overviewContainer, '.node-group', 'node', nodeName);
         if (!nodeGroup) {
-            overviewContainer.insertAdjacentHTML('beforeend', `
-                <div class="node-group" data-node="${nodeName}">
-                    <div class="node-label">${nodeName}</div>
-                    <div class="node-grid"></div>
-                </div>
-            `);
-            nodeGroup = overviewContainer.querySelector(`[data-node="${nodeName}"]`);
+            nodeGroup = createNodeGroup(overviewContainer, nodeName, nodeName);
         }
 
         const nodeGrid = nodeGroup.querySelector('.node-grid');
@@ -527,15 +555,17 @@ function handleClusterData(data) {
                     gpuInfo,
                     systemInfo: nodeData.system || {},
                     sourceKey: nodeName,
+                    sourceGpuId: gpuId,
                     shouldUpdateDOM,
                     now,
                     nodeName
                 });
 
                 // Create card if doesn't exist
-                const existingCard = nodeGrid.querySelector(`[data-gpu-id="${fullGpuId}"]`);
+                const existingCard = findDataElement(nodeGrid, '[data-gpu-id]', 'gpuId', fullGpuId);
                 if (!existingCard) {
                     nodeGrid.insertAdjacentHTML('beforeend', createClusterGPUCard(nodeName, gpuId, gpuInfo));
+                    bindOverviewGpuLabel(nodeGrid.lastElementChild, nodeName, gpuId);
                     initOverviewMiniChart(fullGpuId, gpuInfo.utilization);
                     lastDOMUpdate[fullGpuId] = now;
                 }
