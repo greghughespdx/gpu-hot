@@ -8,6 +8,7 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
 const template = readFileSync(join(testDir, '../../templates/index.html'), 'utf8');
 const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
+const layoutCss = readFileSync(join(testDir, '../../static/css/layout.css'), 'utf8');
 const defaults = {
     'overview.utilization': true,
     'overview.temperature': true,
@@ -34,6 +35,18 @@ function panelMarkup() {
                 <option value="wide">Wide</option>
                 <option value="full">Full row</option>
             </select>
+            <select id="settings-sidebar-width">
+                <option value="standard">Standard</option>
+                <option value="comfortable">Comfortable</option>
+                <option value="wide">Wide</option>
+            </select>
+            <select id="settings-sidebar-label">
+                <option value="index">Index</option>
+                <option value="node-index">Node and index</option>
+                <option value="short-name">Short name</option>
+            </select>
+            <input id="settings-sidebar-auto-hide" type="checkbox">
+            <input id="settings-sidebar-pinned" type="checkbox">
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -66,6 +79,8 @@ describe('settings storage', () => {
             'overview-chart-width-wide',
             'overview-chart-width-full'
         );
+        document.documentElement.style.removeProperty('--sidebar-width');
+        delete window.updateSidebarLabels;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -169,6 +184,31 @@ describe('settings storage', () => {
         expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
     });
 
+    it('validates and applies stored left bar settings before the page is ready', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                sidebarWidth: 'comfortable',
+                sidebarLabel: 'node-index',
+                sidebarAutoHide: true,
+                sidebarPinned: true
+            }
+        }));
+
+        const api = loadSettingsModule();
+
+        expect(api.settings).toEqual({
+            ...defaults,
+            sidebarWidth: 'comfortable',
+            sidebarLabel: 'node-index',
+            sidebarAutoHide: true,
+            sidebarPinned: true
+        });
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('72px');
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+    });
+
     it('returns defaults when storage reads fail and reports write failures', () => {
         const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
             throw new Error('read failed');
@@ -205,6 +245,8 @@ describe('settings panel', () => {
             'overview-chart-width-wide',
             'overview-chart-width-full'
         );
+        document.documentElement.style.removeProperty('--sidebar-width');
+        delete window.updateSidebarLabels;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -404,6 +446,56 @@ describe('settings panel', () => {
             .toEqual(defaults);
     });
 
+    it('applies left bar settings and clears a pin when auto-hide is turned off', () => {
+        const api = loadSettingsModule();
+        window.updateSidebarLabels = vi.fn();
+        api.initSettingsPanel();
+        const width = document.getElementById('settings-sidebar-width');
+        const autoHide = document.getElementById('settings-sidebar-auto-hide');
+        const pinned = document.getElementById('settings-sidebar-pinned');
+
+        width.value = 'wide';
+        width.dispatchEvent(new Event('change'));
+        autoHide.checked = true;
+        autoHide.dispatchEvent(new Event('change'));
+        pinned.checked = true;
+        pinned.dispatchEvent(new Event('change'));
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('96px');
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+
+        autoHide.checked = false;
+        autoHide.dispatchEvent(new Event('change'));
+        expect(pinned.checked).toBe(false);
+        expect(pinned.disabled).toBe(true);
+        expect(api.settings.sidebarPinned).toBe(false);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+    });
+
+    it.each(['auto', 'wide', 'full'])(
+        'keeps the mini chart column removed at %s width when the chart is hidden',
+        width => {
+            localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+                version: 1,
+                settings: {
+                    'overview.chart': false,
+                    overviewMiniChartWidth: width,
+                    sidebarWidth: 'wide'
+                }
+            }));
+            const api = loadSettingsModule();
+
+            api.initSettingsPanel();
+
+            expect(document.querySelector('.overview-gpu-card').classList)
+                .toContain('overview-chart-hidden');
+            expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('96px');
+            expect(document.documentElement.classList.contains('overview-chart-width-wide'))
+                .toBe(width === 'wide');
+            expect(document.documentElement.classList.contains('overview-chart-width-full'))
+                .toBe(width === 'full');
+        }
+    );
+
     it('explains a reset failure and keeps the panel open', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -551,6 +643,16 @@ describe('settings page contract', () => {
             .toEqual(['auto', 'wide', 'full']);
     });
 
+    it('offers every left bar option inside settings', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        expect(Array.from(parsed.getElementById('settings-sidebar-width').options)
+            .map(option => option.value)).toEqual(['standard', 'comfortable', 'wide']);
+        expect(Array.from(parsed.getElementById('settings-sidebar-label').options)
+            .map(option => option.value)).toEqual(['index', 'node-index', 'short-name']);
+        expect(parsed.getElementById('settings-sidebar-auto-hide')).not.toBeNull();
+        expect(parsed.getElementById('settings-sidebar-pinned')).not.toBeNull();
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -596,6 +698,22 @@ describe('settings page contract', () => {
         );
         expect(componentsCss).toMatch(
             /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-full \.overview-mini-chart \{[\s\S]*?grid-column: 1 \/ -1;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 1201px\)[\s\S]*?html \.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 180px 1fr;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\) and \(max-width: 1200px\)[\s\S]*?html \.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 140px 1fr;/
+        );
+    });
+
+    it('keeps left bar width and auto-hide effects out of the phone layout', () => {
+        expect(layoutCss).toMatch(/\.sidebar \{[\s\S]*?width: var\(--sidebar-width\);/);
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
         );
     });
 });

@@ -172,6 +172,33 @@
                     <option value="full">Full row</option>
                 </select>
             </label>
+            <fieldset class="settings-group">
+                <legend>Left bar</legend>
+                <label class="settings-field" for="settings-sidebar-width">
+                    <span>Width</span>
+                    <select id="settings-sidebar-width">
+                        <option value="standard">Standard</option>
+                        <option value="comfortable">Comfortable</option>
+                        <option value="wide">Wide</option>
+                    </select>
+                </label>
+                <label class="settings-field" for="settings-sidebar-label">
+                    <span>GPU labels</span>
+                    <select id="settings-sidebar-label">
+                        <option value="index">Index</option>
+                        <option value="node-index">Node and index</option>
+                        <option value="short-name">Short name</option>
+                    </select>
+                </label>
+                <label class="settings-option">
+                    <input id="settings-sidebar-auto-hide" type="checkbox">
+                    <span>Hide when not in use</span>
+                </label>
+                <label class="settings-option">
+                    <input id="settings-sidebar-pinned" type="checkbox">
+                    <span>Keep open</span>
+                </label>
+            </fieldset>
             <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
             <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>

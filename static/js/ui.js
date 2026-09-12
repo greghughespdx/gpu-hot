@@ -8,6 +8,31 @@ let currentTab = 'overview';
 let registeredGPUs = new Set();
 let hasAutoSwitched = false;
 
+function sidebarLabel(gpuId, gpuInfo) {
+    const parts = String(gpuId).split('-');
+    const index = parts.pop();
+    const scheme = window.GPUHotSettings?.settings?.sidebarLabel || 'index';
+    if (scheme === 'node-index' && parts.length > 0) {
+        return `${parts.join('-')} ${index}`;
+    }
+    if (scheme === 'short-name') {
+        const shortName = String(gpuInfo?.name || '')
+            .replace(/\b(?:NVIDIA|AMD|GeForce|Radeon|Graphics|GPU|Pro)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (shortName) return shortName;
+    }
+    return index;
+}
+
+function updateSidebarLabels() {
+    document.querySelectorAll('.sidebar-btn[data-gpu-id]').forEach(button => {
+        button.textContent = sidebarLabel(button.dataset.gpuId, {
+            name: button.dataset.gpuName
+        });
+    });
+}
+
 // Toggle processes section
 function toggleProcesses() {
     const content = document.getElementById('processes-content');
@@ -76,9 +101,9 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         const btn = document.createElement('button');
         btn.className = 'sidebar-btn';
         btn.dataset.view = `gpu-${gpuId}`;
-        // For cluster IDs like "gpu-server-2-0", show only the last segment
-        const parts = String(gpuId).split('-');
-        btn.textContent = parts.length > 1 ? parts[parts.length - 1] : gpuId;
+        btn.dataset.gpuId = String(gpuId);
+        btn.dataset.gpuName = String(gpuInfo?.name || '');
+        btn.textContent = sidebarLabel(gpuId, gpuInfo);
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
@@ -142,3 +167,4 @@ function autoSwitchSingleGPU(gpuCount, gpuIds) {
 }
 
 window.switchToView = switchToView;
+window.updateSidebarLabels = updateSidebarLabels;

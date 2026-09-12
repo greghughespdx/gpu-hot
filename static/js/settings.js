@@ -20,12 +20,22 @@
         OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
     ));
     const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
+    const SIDEBAR_WIDTHS = Object.freeze({
+        standard: null,
+        comfortable: '72px',
+        wide: '96px'
+    });
+    const SIDEBAR_LABELS = Object.freeze(['index', 'node-index', 'short-name']);
     const ALLOWED_SETTINGS = Object.freeze({
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, value => typeof value === 'boolean'])
         ),
         moveConnectionDetails: value => typeof value === 'boolean',
-        overviewMiniChartWidth: value => CHART_WIDTHS.includes(value)
+        overviewMiniChartWidth: value => CHART_WIDTHS.includes(value),
+        sidebarWidth: value => Object.prototype.hasOwnProperty.call(SIDEBAR_WIDTHS, value),
+        sidebarLabel: value => SIDEBAR_LABELS.includes(value),
+        sidebarAutoHide: value => typeof value === 'boolean',
+        sidebarPinned: value => typeof value === 'boolean'
     });
 
     function defaultSettings() {
@@ -141,6 +151,20 @@
         if (resize) resizeOverviewMiniCharts(documentRef);
     }
 
+    function applySidebarSettings(documentRef = global.document) {
+        if (!documentRef) return;
+        const root = documentRef.documentElement;
+        const width = SIDEBAR_WIDTHS[settings.sidebarWidth || 'standard'];
+        if (width) root.style.setProperty('--sidebar-width', width);
+        else root.style.removeProperty('--sidebar-width');
+        root.classList.toggle('sidebar-auto-hide', settings.sidebarAutoHide === true);
+        root.classList.toggle(
+            'sidebar-pinned',
+            settings.sidebarAutoHide === true && settings.sidebarPinned === true
+        );
+        if (typeof global.updateSidebarLabels === 'function') global.updateSidebarLabels();
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -150,9 +174,75 @@
         const status = documentRef.getElementById('settings-status');
         const moveConnectionDetails = documentRef.getElementById('settings-move-connection-details');
         const chartWidth = documentRef.getElementById('settings-overview-chart-width');
+        const widthSelect = documentRef.getElementById('settings-sidebar-width');
+        const labelSelect = documentRef.getElementById('settings-sidebar-label');
+        const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
+        const pinned = documentRef.getElementById('settings-sidebar-pinned');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+
+        function syncSidebarControls() {
+            if (widthSelect) widthSelect.value = settings.sidebarWidth || 'standard';
+            if (labelSelect) labelSelect.value = settings.sidebarLabel || 'index';
+            if (autoHide) autoHide.checked = settings.sidebarAutoHide === true;
+            if (pinned) {
+                pinned.checked = settings.sidebarAutoHide === true
+                    && settings.sidebarPinned === true;
+                pinned.disabled = settings.sidebarAutoHide !== true;
+            }
+        }
+
+        function saveSidebarSetting({ key, value, control, previousValue, relatedSettings = {} }) {
+            const nextSettings = { ...settings, [key]: value, ...relatedSettings };
+            if (!saveSettings(nextSettings)) {
+                if (control.type === 'checkbox') control.checked = previousValue;
+                else control.value = previousValue;
+                status.textContent = 'This display change could not be saved. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(existingKey => delete settings[existingKey]);
+            Object.assign(settings, sanitizeSettings(nextSettings));
+            syncSidebarControls();
+            applySidebarSettings(documentRef);
+            status.textContent = '';
+        }
+
+        if (widthSelect) {
+            widthSelect.addEventListener('change', () => saveSidebarSetting({
+                key: 'sidebarWidth',
+                value: widthSelect.value,
+                control: widthSelect,
+                previousValue: settings.sidebarWidth || 'standard'
+            }));
+        }
+        if (labelSelect) {
+            labelSelect.addEventListener('change', () => saveSidebarSetting({
+                key: 'sidebarLabel',
+                value: labelSelect.value,
+                control: labelSelect,
+                previousValue: settings.sidebarLabel || 'index'
+            }));
+        }
+        if (autoHide) {
+            autoHide.addEventListener('change', () => saveSidebarSetting({
+                key: 'sidebarAutoHide',
+                value: autoHide.checked,
+                control: autoHide,
+                previousValue: settings.sidebarAutoHide === true,
+                relatedSettings: autoHide.checked ? {} : { sidebarPinned: false }
+            }));
+        }
+        if (pinned) {
+            pinned.addEventListener('change', () => saveSidebarSetting({
+                key: 'sidebarPinned',
+                value: pinned.checked,
+                control: pinned,
+                previousValue: settings.sidebarPinned === true
+            }));
+        }
+        syncSidebarControls();
+        applySidebarSettings(documentRef);
         const metricInputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
         metricInputs.forEach(input => {
             const metric = input.dataset.overviewSetting;
@@ -255,6 +345,8 @@
             applyOverviewMetricVisibility(documentRef);
             if (chartWidth) chartWidth.value = 'auto';
             applyOverviewMiniChartWidth('auto', documentRef);
+            syncSidebarControls();
+            applySidebarSettings(documentRef);
             status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
@@ -300,6 +392,7 @@
             global.document,
             false
         );
+        applySidebarSettings(global.document);
     }
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
@@ -312,6 +405,7 @@
         isOverviewMetricVisible,
         applyOverviewMetricVisibility,
         applyOverviewMiniChartWidth,
+        applySidebarSettings,
         initSettingsPanel
     });
 
