@@ -281,7 +281,42 @@
 
 .node-group[data-layout-kind="node"]>.node-label,
 .overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
+    position: relative;
+}
+
+.dashboard-order-grip {
+    position: absolute;
+    top: 0;
+    left: -18px;
+    width: 12px;
+    height: 18px;
+    color: var(--text-tertiary);
+    background: radial-gradient(circle, currentColor 1.2px, transparent 1.4px) 0 0 / 6px 6px;
+    cursor: grab;
     touch-action: none;
+    user-select: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.node-label:hover>.dashboard-order-grip,
+.overview-gpu-name:hover>.dashboard-order-grip,
+.dashboard-order-grip:hover {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (hover: none) {
+    .node-group[data-layout-kind="node"]>.node-label,
+    .overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
+        padding-left: 18px;
+    }
+
+    .dashboard-order-grip {
+        left: 0;
+        opacity: 1;
+        pointer-events: auto;
+    }
 }
 
 .dashboard-ordering {
