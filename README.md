@@ -146,11 +146,15 @@ the mapping is keyed by PCI address and applied after the vendor collector.
 The value is a JSON object of PCI address to fan source:
 
 ```bash
-EXTERNAL_FANS='{
+export EXTERNAL_FANS='{
   "0000:19:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 1},
   "0000:67:00.0": {"source": "hwmon", "name": "arctic_fan", "channel": 2}
 }'
 ```
+
+The NVIDIA and base AMD Compose files pass this exported value into the
+container. With `docker run`, add `-e EXTERNAL_FANS="$EXTERNAL_FANS"` to the
+command.
 
 | Field | Meaning |
 |---|---|
@@ -185,8 +189,8 @@ grep . /sys/class/hwmon/hwmonN/fan*_input /sys/class/hwmon/hwmonN/pwm*
 
 and the PCI address of each card with `ls -l /sys/class/drm/card*/device`.
 
-No extra container configuration is needed: Docker already mounts the host's
-`/sys` read-only, so `/sys/class/hwmon` is visible inside the container.
+No extra device or mount configuration is needed: Docker already mounts the
+host's `/sys` read-only, so `/sys/class/hwmon` is visible inside the container.
 
 ---
 

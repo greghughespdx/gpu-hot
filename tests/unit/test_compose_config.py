@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -24,6 +25,13 @@ def test_base_amd_compose_needs_no_optional_device_or_rocm_path():
     assert service["init"] is True
     assert service["pid"] == "host"
     assert service["environment"]["NODE_NAME"] == "${NODE_NAME:-gpu-hot-node}"
+
+
+@pytest.mark.parametrize("compose_name", ["docker-compose.yml", "docker-compose.amd.yml"])
+def test_compose_file_passes_external_fan_mapping_to_the_container(compose_name):
+    service = _service(compose_name)
+
+    assert service["environment"]["EXTERNAL_FANS"] == "${EXTERNAL_FANS:-}"
 
 
 def test_amd_smi_override_mounts_rocm_read_only_and_adds_devices():
