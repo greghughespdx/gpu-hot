@@ -292,6 +292,63 @@ describe('sidebar order identity', () => {
         }
     });
 
+    it('does not move a captured node during half-second hub updates', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        window.initializeDashboardOrdering(document);
+        const gpu = {
+            name: 'Test GPU', utilization: 25, temperature: 40,
+            memory_used: 10, memory_total: 100, power_draw: 20,
+            fan_speed: 30, clock_graphics: 100, clock_sm: 100,
+            clock_memory: 100, power_limit: 200
+        };
+        const payload = {
+            mode: 'hub',
+            nodes: {
+                'node-a': { status: 'online', gpus: { 0: { ...gpu } }, system: {}, processes: [] },
+                'node-b': { status: 'online', gpus: { 0: { ...gpu } }, system: {}, processes: [] },
+                'http://offline-node:1312': { status: 'offline', gpus: {} }
+            }
+        };
+        const pointer = (target, type, properties) => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.entries(properties).forEach(([key, value]) => {
+                Object.defineProperty(event, key, { value });
+            });
+            target.dispatchEvent(event);
+        };
+        try {
+            vi.stubGlobal('initAggregateChart', vi.fn());
+            handleClusterData(payload);
+            const container = document.getElementById('overview-container');
+            const first = container.querySelector('[data-node="node-a"]');
+            const grip = first.querySelector('.dashboard-order-grip');
+            const second = container.querySelector('[data-node="node-b"]');
+            const append = vi.spyOn(container, 'appendChild');
+            document.elementFromPoint = vi.fn(() => second.querySelector('.node-label'));
+            second.getBoundingClientRect = () => ({ top: 100, height: 50, left: 0, width: 300 });
+
+            pointer(grip, 'pointerdown', { pointerId: 41, button: 0, clientX: 10, clientY: 10 });
+            pointer(grip, 'pointermove', { pointerId: 41, clientX: 10, clientY: 30 });
+            const interval = setInterval(() => {
+                payload.nodes['node-a'].gpus[0].utilization += 1;
+                handleClusterData(payload);
+            }, 500);
+            vi.advanceTimersByTime(2000);
+            clearInterval(interval);
+
+            expect(payload.nodes['node-a'].gpus[0].utilization).toBe(29);
+            expect(grip.isConnected).toBe(true);
+            expect(append.mock.calls.some(([node]) => node === first)).toBe(false);
+            pointer(grip, 'pointermove', { pointerId: 41, clientX: 10, clientY: 140 });
+            pointer(grip, 'pointerup', { pointerId: 41 });
+            expect(container.querySelectorAll('[data-layout-kind="node"]')[1]).toBe(first);
+        } finally {
+            vi.unstubAllGlobals();
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
+    });
+
     it('keeps the node name and bare GPU id from a single-node payload', () => {
         const originalAnimationFrame = global.requestAnimationFrame;
         global.requestAnimationFrame = vi.fn();
