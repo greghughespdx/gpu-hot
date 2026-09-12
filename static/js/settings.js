@@ -76,6 +76,10 @@
     }
 
     function applyConnectionDetailsLocation(moveToSettings, documentRef) {
+        documentRef.documentElement.classList.toggle(
+            'settings-connection-in-panel',
+            moveToSettings
+        );
         const dashboardHome = documentRef.getElementById('dashboard-status-home');
         const settingsHome = documentRef.getElementById('settings-connection-details');
         const details = documentRef.getElementById('connection-details');
@@ -166,7 +170,15 @@
 
             const focusable = Array.from(panel.querySelectorAll(
                 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-            )).filter(element => !element.hidden);
+            )).filter(element => {
+                for (let current = element; current && panel.contains(current); current = current.parentElement) {
+                    const style = global.getComputedStyle(current);
+                    if (current.hidden || style.display === 'none' || style.visibility === 'hidden') {
+                        return false;
+                    }
+                }
+                return true;
+            });
             if (focusable.length === 0) return;
             const first = focusable[0];
             const last = focusable[focusable.length - 1];
@@ -183,6 +195,9 @@
     }
 
     const settings = loadSettings();
+    if (global.document) {
+        applyConnectionDetailsLocation(settings.moveConnectionDetails === true, global.document);
+    }
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
         STORAGE_VERSION,

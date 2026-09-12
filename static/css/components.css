@@ -1065,6 +1065,10 @@
     display: none;
 }
 
+html.settings-connection-in-panel #dashboard-status-home {
+    display: none;
+}
+
 .settings-connection-details .header-row {
     min-height: 24px;
     flex-wrap: wrap;

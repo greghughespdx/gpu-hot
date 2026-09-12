@@ -39,6 +39,7 @@ describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
+        document.documentElement.classList.remove('settings-connection-in-panel');
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -129,6 +130,7 @@ describe('settings panel', () => {
     beforeEach(() => {
         localStorage.clear();
         panelMarkup();
+        document.documentElement.classList.remove('settings-connection-in-panel');
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -191,6 +193,25 @@ describe('settings panel', () => {
             key: 'Tab', shiftKey: true, bubbles: true
         }));
         expect(document.activeElement).toBe(resetButton);
+    });
+
+    it('skips controls hidden by CSS when wrapping keyboard focus', () => {
+        const hiddenLink = document.createElement('a');
+        hiddenLink.href = '#';
+        hiddenLink.style.display = 'none';
+        hiddenLink.textContent = 'Hidden update';
+        document.getElementById('settings-panel').appendChild(hiddenLink);
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        document.getElementById('settings-open').click();
+        const closeButton = document.getElementById('settings-close');
+
+        closeButton.focus();
+        closeButton.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Tab', shiftKey: true, bubbles: true
+        }));
+
+        expect(document.activeElement).toBe(document.getElementById('settings-reset'));
     });
 
     it('shows whether reset succeeded without closing the panel', () => {
@@ -266,6 +287,19 @@ describe('settings panel', () => {
         expect(localStorage.getItem(api.STORAGE_KEY)).toBeNull();
     });
 
+    it('hides the dashboard location at module evaluation when relocation is stored', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { moveConnectionDetails: true }
+        }));
+        document.body.innerHTML = '';
+
+        loadSettingsModule();
+
+        expect(document.documentElement.classList.contains('settings-connection-in-panel'))
+            .toBe(true);
+    });
+
     it('keeps the current location when the option cannot be saved', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -335,6 +369,12 @@ describe('settings page contract', () => {
     it('keeps relocated connection details within the phone-width panel', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-connection-details \.header-row \{[\s\S]*?width: 100%;/
+        );
+    });
+
+    it('hides the original connection location before it can paint', () => {
+        expect(componentsCss).toMatch(
+            /html\.settings-connection-in-panel #dashboard-status-home \{\s*display: none;\s*\}/
         );
     });
 });
