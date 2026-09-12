@@ -30,7 +30,15 @@
     },
     {
       "name": "left bar controls",
-      "commit": "d508941ee36107838416f12fe86d0201e44a137e"
+      "commit": "ee2c026ff2c659ba0ec3332595686fb925d57bc8"
+    },
+    {
+      "name": "color token cleanup",
+      "commit": "9da48d874dc70d211280e9c4339a99f17abaa495"
+    },
+    {
+      "name": "theme engine",
+      "commit": "5dcbdbfe301645acd1e1deb688455b245fc067b5"
     }
   ],
   "upstream_review": {
