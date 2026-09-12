@@ -43,6 +43,10 @@ function switchToView(viewName) {
 
     targetContent.classList.add('active');
 
+    if (typeof renderProcessesForView === 'function') {
+        renderProcessesForView(viewName);
+    }
+
     // Chart resize for visible tab
     if (viewName.startsWith('gpu-')) {
         const gpuId = viewName.replace('gpu-', '');

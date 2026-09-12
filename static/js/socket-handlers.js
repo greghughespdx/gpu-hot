@@ -277,7 +277,7 @@ function handleSocketMessage(event) {
     // Queue system updates (processes/CPU/RAM) for batching
     if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
         pendingUpdates.set('_system', {
-            processes: data.processes,
+            processes: processRowsForNode(data.processes, data.node_name || 'This system', ''),
             system: data.system,
             now
         });
@@ -292,6 +292,23 @@ function handleSocketMessage(event) {
 
     // Auto-switch to single GPU view if only 1 GPU detected (first time only)
     autoSwitchSingleGPU(gpuCount, Object.keys(data.gpus));
+}
+
+function processRowsForNode(processes, nodeName, gpuKeyPrefix) {
+    if (!Array.isArray(processes)) return [];
+
+    return processes.map(process => ({
+        ...process,
+        node_name: nodeName,
+        gpu_key: `${gpuKeyPrefix}${String(process.gpu_id)}`
+    }));
+}
+
+function getClusterProcesses(nodes) {
+    return Object.entries(nodes).flatMap(([nodeName, nodeData]) => {
+        if (nodeData.status !== 'online') return [];
+        return processRowsForNode(nodeData.processes, nodeName, `${nodeName}-`);
+    });
 }
 
 /**
@@ -312,7 +329,7 @@ function processBatchedUpdates() {
         } else if (gpuId === '_system') {
             // System updates (CPU, RAM, processes)
             updateProcesses(update.processes);
-            updateSystemInfo(update.system);
+            if (update.system) updateSystemInfo(update.system);
             lastDOMUpdate.system = update.now;
         } else {
             // GPU updates
@@ -585,16 +602,13 @@ function handleClusterData(data) {
         aggregateCardInjected = false;
     }
 
-    // Update processes and system info (use first online node)
     const firstOnlineNode = Object.values(data.nodes).find(n => n.status === 'online');
-    if (firstOnlineNode) {
-        if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
-            pendingUpdates.set('_system', {
-                processes: firstOnlineNode.processes || [],
-                system: firstOnlineNode.system || {},
-                now
-            });
-        }
+    if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
+        pendingUpdates.set('_system', {
+            processes: getClusterProcesses(data.nodes),
+            system: firstOnlineNode ? firstOnlineNode.system : null,
+            now
+        });
     }
 
     // Schedule batched render

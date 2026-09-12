@@ -183,21 +183,51 @@ describe('updateProcesses', () => {
         `;
     });
 
-    it('renders processes', () => {
+    it('renders processes with their system names', () => {
         const processes = [
-            { name: 'python3', pid: '1234', memory: 4096, gpu_id: '0' },
-            { name: 'blender', pid: '5678', memory: 2048, gpu_id: '0' }
+            { name: 'python3', pid: '1234', memory: 4096, gpu_id: '0', node_name: 'render-1', gpu_key: 'render-1-0' },
+            { name: 'blender', pid: '5678', memory: 2048, gpu_id: '0', node_name: 'render-2', gpu_key: 'render-2-0' }
         ];
         updateProcesses(processes);
         const container = document.getElementById('processes-container');
-        expect(container.innerHTML).toContain('python3');
-        expect(container.innerHTML).toContain('blender');
+        expect([...container.querySelectorAll('.process-name')].map(el => el.textContent)).toEqual(['python3', 'blender']);
+        expect([...container.querySelectorAll('.process-system')].map(el => el.textContent)).toEqual(['render-1', 'render-2']);
     });
 
     it('handles empty process list', () => {
         updateProcesses([]);
         const container = document.getElementById('processes-container');
-        expect(container.innerHTML).toContain('No active GPU processes');
+        expect(container.textContent).toContain('No active GPU processes');
+    });
+
+    it('treats process and system names as text', () => {
+        updateProcesses([{
+            name: '<img src=x onerror=alert(1)>',
+            pid: '1234',
+            memory: 512,
+            gpu_id: '0',
+            node_name: '<b>render-1</b>',
+            gpu_key: 'render-1-0'
+        }]);
+
+        const container = document.getElementById('processes-container');
+        expect(container.querySelector('img')).toBeNull();
+        expect(container.querySelector('b')).toBeNull();
+        expect(container.querySelector('.process-name').textContent).toBe('<img src=x onerror=alert(1)>');
+        expect(container.querySelector('.process-system').textContent).toBe('<b>render-1</b>');
+    });
+
+    it('filters a GPU page by both system and GPU id', () => {
+        updateProcesses([
+            { name: 'same-system-other-gpu', pid: '1', memory: 100, node_name: 'render-1', gpu_key: 'render-1-1' },
+            { name: 'selected', pid: '2', memory: 200, node_name: 'render-1', gpu_key: 'render-1-0' },
+            { name: 'same-gpu-other-system', pid: '3', memory: 300, node_name: 'render-2', gpu_key: 'render-2-0' }
+        ]);
+
+        renderProcessesForView('gpu-render-1-0');
+
+        expect([...document.querySelectorAll('.process-name')].map(el => el.textContent)).toEqual(['selected']);
+        expect(document.getElementById('process-count').textContent).toBe('1');
     });
 });
 

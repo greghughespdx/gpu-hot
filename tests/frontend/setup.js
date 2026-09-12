@@ -96,6 +96,8 @@ for (const file of loadOrder) {
         if (typeof updateGPUDisplay !== 'undefined') globalThis.updateGPUDisplay = updateGPUDisplay;
         if (typeof updateEnhancedOverviewCard !== 'undefined') globalThis.updateEnhancedOverviewCard = updateEnhancedOverviewCard;
         if (typeof updateProcesses !== 'undefined') globalThis.updateProcesses = updateProcesses;
+        if (typeof renderProcessesForView !== 'undefined') globalThis.renderProcessesForView = renderProcessesForView;
+        if (typeof processesForView !== 'undefined') globalThis.processesForView = processesForView;
         if (typeof switchToView !== 'undefined') globalThis.switchToView = switchToView;
         if (typeof ensureGPUTab !== 'undefined') globalThis.ensureGPUTab = ensureGPUTab;
         if (typeof removeGPUTab !== 'undefined') globalThis.removeGPUTab = removeGPUTab;

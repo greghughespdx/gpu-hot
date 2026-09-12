@@ -74,7 +74,10 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketOpen = handleSocketOpen;
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
+        globalThis.handleSocketMessage = handleSocketMessage;
         globalThis.attemptReconnect = attemptReconnect;
+        globalThis.getClusterProcesses = getClusterProcesses;
+        globalThis.handleClusterData = handleClusterData;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -107,6 +110,129 @@ describe('createWebSocketConnection', () => {
             host: 'secure.example.com'
         });
         expect(instances[0].url).toBe('wss://secure.example.com/socket.io/');
+    });
+});
+
+describe('getClusterProcesses', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+    });
+
+    it('keeps one row per system and GPU binding', () => {
+        loadSocketHandlers();
+        const nodes = {
+            'render-1': {
+                status: 'online',
+                processes: [
+                    { name: 'worker', pid: '77', memory: 100, gpu_id: '0' },
+                    { name: 'worker', pid: '77', memory: 120, gpu_id: '1' }
+                ]
+            },
+            'render-2': {
+                status: 'online',
+                processes: [{ name: 'worker', pid: '77', memory: 200, gpu_id: '0' }]
+            }
+        };
+
+        expect(getClusterProcesses(nodes)).toEqual([
+            { name: 'worker', pid: '77', memory: 100, gpu_id: '0', node_name: 'render-1', gpu_key: 'render-1-0' },
+            { name: 'worker', pid: '77', memory: 120, gpu_id: '1', node_name: 'render-1', gpu_key: 'render-1-1' },
+            { name: 'worker', pid: '77', memory: 200, gpu_id: '0', node_name: 'render-2', gpu_key: 'render-2-0' }
+        ]);
+    });
+
+    it('ignores offline nodes and accepts empty or missing process arrays', () => {
+        loadSocketHandlers();
+        expect(getClusterProcesses({
+            offline: { status: 'offline', processes: [{ pid: '1', gpu_id: '0' }] },
+            empty: { status: 'online', processes: [] },
+            missing: { status: 'online' }
+        })).toEqual([]);
+    });
+
+    it('clears stale process rows when every node is offline', () => {
+        loadSocketHandlers();
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="overview-container"></div>
+            <div id="processes-container"></div>
+            <span id="process-count"></span>
+        `);
+        global.currentTab = 'overview';
+        updateProcesses([{
+            name: 'stale', pid: '1', memory: 100,
+            node_name: 'render-1', gpu_key: 'render-1-0'
+        }]);
+
+        handleClusterData({
+            nodes: {
+                'render-1': { status: 'offline', processes: [{ pid: '1', gpu_id: '0' }] }
+            }
+        });
+        vi.advanceTimersByTime(1);
+
+        expect(document.querySelectorAll('.process-item')).toHaveLength(0);
+        expect(document.getElementById('process-count').textContent).toBe('0');
+    });
+});
+
+describe('handleSocketMessage', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+        vi.restoreAllMocks();
+        delete globalThis.initOverviewMiniChart;
+        delete globalThis.updateOverviewCard;
+        delete globalThis.updateGPUSystemCharts;
+    });
+
+    it('binds single-node processes to the payload node and bare GPU id', () => {
+        loadSocketHandlers();
+        document.body.insertAdjacentHTML('beforeend', '<div id="overview-container"></div>');
+
+        const animationFrames = [];
+        vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(callback => {
+            animationFrames.push(callback);
+            return animationFrames.length;
+        });
+        vi.spyOn(globalThis, 'createEnhancedOverviewCard').mockReturnValue(
+            '<div data-gpu-id="0"></div>'
+        );
+        globalThis.initOverviewMiniChart = vi.fn();
+        globalThis.updateOverviewCard = vi.fn();
+        vi.spyOn(globalThis, 'ensureGPUTab').mockImplementation(() => {});
+        globalThis.updateGPUSystemCharts = vi.fn();
+        vi.spyOn(globalThis, 'autoSwitchSingleGPU').mockImplementation(() => {});
+        const updateProcessesSpy = vi.spyOn(globalThis, 'updateProcesses')
+            .mockImplementation(() => {});
+
+        handleSocketMessage({
+            data: JSON.stringify({
+                node_name: 'render-1',
+                gpus: {
+                    '0': {
+                        utilization: 25,
+                        temperature: 50,
+                        memory_used: 100,
+                        memory_total: 1000,
+                        power_draw: 40
+                    }
+                },
+                processes: [{ name: 'worker', pid: '77', memory: 100, gpu_id: '0' }]
+            })
+        });
+        animationFrames.shift()();
+
+        expect(updateProcessesSpy).toHaveBeenCalledWith([{
+            name: 'worker',
+            pid: '77',
+            memory: 100,
+            gpu_id: '0',
+            node_name: 'render-1',
+            gpu_key: '0'
+        }]);
     });
 });
 

@@ -15,6 +15,8 @@ function setupDOM() {
         <div id="tab-overview" class="tab-content active">
             <div id="overview-grid"></div>
         </div>
+        <div id="processes-container"></div>
+        <span id="process-count"></span>
     `;
 }
 
@@ -22,6 +24,7 @@ describe('switchToView', () => {
     beforeEach(() => {
         setupDOM();
         global.currentTab = 'overview';
+        updateProcesses([]);
     });
 
     it('updates currentTab', () => {
@@ -44,6 +47,21 @@ describe('switchToView', () => {
         const tab = document.getElementById('tab-overview');
         switchToView('overview');
         expect(tab.classList.contains('active')).toBe(true);
+    });
+
+    it('updates the process list when a GPU view is selected', () => {
+        const tab = document.createElement('div');
+        tab.id = 'tab-gpu-render-1-0';
+        tab.className = 'tab-content';
+        document.body.appendChild(tab);
+        updateProcesses([
+            { name: 'selected', pid: '1', memory: 100, node_name: 'render-1', gpu_key: 'render-1-0' },
+            { name: 'other', pid: '2', memory: 100, node_name: 'render-2', gpu_key: 'render-2-0' }
+        ]);
+
+        switchToView('gpu-render-1-0');
+
+        expect([...document.querySelectorAll('.process-name')].map(el => el.textContent)).toEqual(['selected']);
     });
 });
 
