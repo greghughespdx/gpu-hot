@@ -355,6 +355,14 @@
             field.append(caption, input);
             list.appendChild(field);
         });
+        updateSettingsPanelOverflow(documentRef);
+    }
+
+    function updateSettingsPanelOverflow(documentRef = global.document) {
+        const panel = documentRef?.getElementById('settings-panel');
+        if (!panel || panel.hidden) return;
+        panel.classList.remove('settings-overflow');
+        panel.classList.toggle('settings-overflow', panel.scrollHeight > panel.clientHeight);
     }
 
     function registerNodeLabelTarget(nodeName, fallback = String(nodeName)) {
@@ -561,6 +569,7 @@
             panel.setAttribute('aria-hidden', 'false');
             overlay.hidden = false;
             openButton.setAttribute('aria-expanded', 'true');
+            updateSettingsPanelOverflow(documentRef);
             closeButton.focus();
             documentRef.addEventListener('focusin', handleDocumentFocus);
         }
@@ -664,6 +673,7 @@
         applyDisplayLabels,
         bindGpuLabel,
         bindNodeLabel,
+        updateSettingsPanelOverflow,
         initSettingsPanel,
         registerGpuLabelTarget,
         registerNodeLabelTarget

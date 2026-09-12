@@ -1123,6 +1123,12 @@
     color: var(--text-secondary);
 }
 
+.settings-panel.settings-overflow .settings-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 .settings-group h3 {
     margin: 0 0 var(--space-xs);
     color: var(--text-primary);

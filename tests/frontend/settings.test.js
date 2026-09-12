@@ -558,6 +558,34 @@ describe('settings panel', () => {
         expect(document.activeElement).toBe(openButton);
     });
 
+    it('removes both document-level modal handlers when the panel closes', () => {
+        const remove = vi.spyOn(document, 'removeEventListener');
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        document.getElementById('settings-open').click();
+
+        document.getElementById('settings-close').click();
+
+        expect(remove).toHaveBeenCalledWith('keydown', expect.any(Function));
+        expect(remove).toHaveBeenCalledWith('focusin', expect.any(Function));
+    });
+
+    it('enables desktop body scrolling only when panel content exceeds the viewport', () => {
+        const panel = document.getElementById('settings-panel');
+        let scrollHeight = 1292;
+        Object.defineProperty(panel, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+        Object.defineProperty(panel, 'clientHeight', { configurable: true, get: () => 900 });
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        document.getElementById('settings-open').click();
+        expect(panel.classList.contains('settings-overflow')).toBe(true);
+
+        scrollHeight = 800;
+        api.updateSettingsPanelOverflow(document);
+        expect(panel.classList.contains('settings-overflow')).toBe(false);
+    });
+
     it('skips controls hidden by CSS when wrapping keyboard focus', () => {
         const hiddenLink = document.createElement('a');
         hiddenLink.href = '#';
