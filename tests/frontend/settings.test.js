@@ -361,7 +361,7 @@ describe('settings panel', () => {
         expect(document.getElementById('connection-status').textContent).toBe('Reconnecting...');
         expect(document.getElementById('version-current').textContent).toBe('v2.0.0');
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
-            .toEqual({ moveConnectionDetails: true });
+            .toEqual({ ...defaults, moveConnectionDetails: true });
     });
 
     it('applies a stored relocation and reset restores the default location', () => {
