@@ -1,15 +1,18 @@
 {
   "version": 1,
   "upstream_base": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
-  "composed_base_commit": "86f6e647bbddad5053fbb6c69850d330ad1a67d1",
   "source_refs": [
     {
-      "name": "pr/external-fans",
+      "name": "external fan collector stack",
       "commit": "c701359295a516e0a3f79f1ccf8e3db5e936155a"
     },
     {
-      "name": "deploy/mc-ai506-hub",
+      "name": "node aware hub health composition",
       "commit": "86f6e647bbddad5053fbb6c69850d330ad1a67d1"
+    },
+    {
+      "name": "generic deployment overlays",
+      "commit": "bdad0555048e1249378d3335d53b4d163a1360a7"
     }
   ],
   "upstream_review": {
