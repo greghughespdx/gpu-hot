@@ -1000,6 +1000,10 @@
     background: rgba(0, 0, 0, 0.6);
 }
 
+.settings-panel[hidden] {
+    display: none;
+}
+
 .settings-panel {
     position: fixed;
     top: 0;

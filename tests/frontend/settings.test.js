@@ -54,6 +54,12 @@ describe('settings storage', () => {
         expect(localStorage.getItem('gpu-hot.settings.v1')).toBe(future);
     });
 
+    it('retains the explicit newer-version guard', () => {
+        expect(source).toMatch(
+            /if \(raw\.version > STORAGE_VERSION\) return null;/
+        );
+    });
+
     it('migrates the version zero envelope and drops unknown settings', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 0,
@@ -117,7 +123,8 @@ describe('settings panel', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
 
-        openButton.focus();
+        document.body.focus();
+        expect(document.activeElement).toBe(document.body);
         openButton.click();
         expect(panel.hidden).toBe(false);
         expect(panel.hasAttribute('inert')).toBe(false);
@@ -221,6 +228,12 @@ describe('settings page contract', () => {
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
+        );
+    });
+
+    it('keeps the hidden panel out of layout', () => {
+        expect(componentsCss).toMatch(
+            /\.settings-panel\[hidden\] \{\s*display: none;\s*\}/
         );
     });
 });

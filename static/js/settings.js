@@ -84,8 +84,6 @@
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
 
-        let previousFocus = null;
-
         function isOpen() {
             return !panel.hidden;
         }
@@ -97,12 +95,11 @@
             panel.setAttribute('aria-hidden', 'true');
             overlay.hidden = true;
             openButton.setAttribute('aria-expanded', 'false');
-            if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+            openButton.focus();
         }
 
         function openPanel() {
             if (isOpen()) return;
-            previousFocus = documentRef.activeElement;
             panel.hidden = false;
             panel.removeAttribute('inert');
             panel.setAttribute('aria-hidden', 'false');
