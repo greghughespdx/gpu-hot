@@ -54,7 +54,7 @@ function handleSocketClose() {
     const statusEl = document.getElementById('connection-status');
     if (statusEl) {
         statusEl.textContent = 'Reconnecting...';
-        statusEl.style.color = '#f5a623';
+        statusEl.style.color = readColorToken('--warning');
         const dot = document.getElementById('status-dot');
         if (dot) dot.classList.remove('connected');
     }
@@ -68,7 +68,7 @@ function handleSocketError(error) {
     const statusEl = document.getElementById('connection-status');
     if (statusEl) {
         statusEl.textContent = 'Error';
-        statusEl.style.color = '#f44';
+        statusEl.style.color = readColorToken('--danger');
     }
 }
 
@@ -82,7 +82,7 @@ function attemptReconnect() {
             const statusEl = document.getElementById('connection-status');
             if (statusEl) {
                 statusEl.textContent = 'Disconnected';
-                statusEl.style.color = '#f44';
+                statusEl.style.color = readColorToken('--danger');
                 statusEl.style.cursor = 'pointer';
                 statusEl.onclick = () => location.reload();
             }

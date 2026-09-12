@@ -145,6 +145,25 @@ describe('handleSocketClose', () => {
         handleSocketClose();
         const status = document.getElementById('connection-status');
         expect(status.textContent).toBe('Reconnecting...');
+        expect(status.style.color).toBe('rgb(245, 166, 35)');
+    });
+});
+
+describe('handleSocketError', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+    });
+
+    it('uses the danger token for the error state', () => {
+        loadSocketHandlers();
+
+        handleSocketError(new Error('test'));
+
+        const status = document.getElementById('connection-status');
+        expect(status.textContent).toBe('Error');
+        expect(status.style.color).toBe('rgb(255, 68, 68)');
     });
 });
 
@@ -168,6 +187,7 @@ describe('attemptReconnect', () => {
 
         const status = document.getElementById('connection-status');
         expect(status.textContent).toBe('Disconnected');
+        expect(status.style.color).toBe('rgb(255, 68, 68)');
     });
 
     it('does not duplicate reconnect intervals', () => {

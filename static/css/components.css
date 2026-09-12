@@ -20,7 +20,7 @@
 }
 
 .overview-gpu-card:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--neutral-rgb), 0.03);
     transform: translateX(2px);
 }
 
@@ -167,7 +167,7 @@
 }
 
 .single-gpu-overview:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--neutral-rgb), 0.03);
     transform: translateX(2px);
 }
 
@@ -275,7 +275,7 @@
 /* ---- Metrics Panel — subtle grouping container ---- */
 
 .metrics-panel {
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(var(--neutral-rgb), 0.015);
     border-radius: 8px;
     padding: var(--space-md) var(--space-lg);
     margin-bottom: var(--space-lg);
@@ -324,7 +324,7 @@
     font-size: 18px;
     font-weight: 600;
     letter-spacing: -0.5px;
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(var(--neutral-rgb), 0.75);
 }
 
 .metrics-grid--secondary .metric-unit {
@@ -615,11 +615,11 @@
 }
 
 .process-item:nth-child(even) {
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(var(--neutral-rgb), 0.015);
 }
 
 .process-item:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--neutral-rgb), 0.04);
 }
 
 .process-item:last-child {
@@ -722,7 +722,7 @@
 .system-sparklines-section {
     margin-top: var(--space-xl);
     padding-top: var(--space-lg);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid rgba(var(--neutral-rgb), 0.06);
 }
 
 .system-sparklines-label {
@@ -752,12 +752,12 @@
     top: var(--space-lg);
     width: 280px;
     background: var(--bg-elevated);
-    border: 1px solid rgba(255, 183, 77, 0.2);
-    border-left: 3px solid rgba(255, 183, 77, 0.6);
+    border: 1px solid rgba(var(--metric-temp), 0.2);
+    border-left: 3px solid rgba(var(--metric-temp), 0.6);
     border-radius: 8px;
     padding: var(--space-md);
     z-index: 1000;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 40px rgba(255, 183, 77, 0.06);
+    box-shadow: 0 4px 24px rgba(var(--shadow-rgb), 0.3), 0 0 40px rgba(var(--metric-temp), 0.06);
     animation: toast-slide-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
@@ -833,7 +833,7 @@
 
 .star-toast-progress-fill {
     height: 100%;
-    background: rgba(255, 183, 77, 0.5);
+    background: rgba(var(--metric-temp), 0.5);
     border-radius: 1.5px;
     transition: width 0.5s ease;
 }
@@ -845,14 +845,14 @@
 
 .star-toast-btn {
     width: 100%;
-    border: 1px solid rgba(255, 183, 77, 0.3);
+    border: 1px solid rgba(var(--metric-temp), 0.3);
     border-radius: 6px;
     padding: var(--space-sm) var(--space-md);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    background: rgba(255, 183, 77, 0.1);
-    color: rgba(255, 200, 100, 0.9);
+    background: rgba(var(--metric-temp), 0.1);
+    color: var(--toast-text);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -865,9 +865,9 @@
 }
 
 .star-toast-btn:hover {
-    background: rgba(255, 183, 77, 0.18);
-    color: rgba(255, 210, 130, 1);
-    border-color: rgba(255, 183, 77, 0.45);
+    background: rgba(var(--metric-temp), 0.18);
+    color: var(--toast-text-hover);
+    border-color: rgba(var(--metric-temp), 0.45);
 }
 
 /* ============================================
@@ -877,7 +877,7 @@
 .drawer-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(var(--shadow-rgb), 0.6);
     z-index: 200;
     opacity: 0;
     pointer-events: none;
@@ -910,7 +910,7 @@
     display: none;
     width: 32px;
     height: 4px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(var(--neutral-rgb), 0.15);
     border-radius: 2px;
     margin: var(--space-sm) auto 0;
     flex-shrink: 0;
@@ -1080,7 +1080,7 @@
     position: relative;
     margin-bottom: var(--space-md);
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(var(--neutral-rgb), 0.015);
     border-radius: 6px;
     padding: var(--space-md) var(--space-sm) var(--space-sm);
 }
@@ -1127,13 +1127,13 @@
 
 .drawer-companion-chip:hover {
     color: var(--text-secondary);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(var(--neutral-rgb), 0.15);
 }
 
 .drawer-companion-chip.active {
-    color: rgba(255, 170, 50, 0.80);
-    background: rgba(255, 170, 50, 0.12);
-    border-color: rgba(255, 170, 50, 0.35);
+    color: rgba(var(--companion-rgb), 0.80);
+    background: rgba(var(--companion-rgb), 0.12);
+    border-color: rgba(var(--companion-rgb), 0.35);
 }
 
 /* Dual-metric stats bar */
@@ -1162,7 +1162,7 @@
 }
 
 .drawer-stats-group.companion .drawer-stats-group-label {
-    color: rgba(255, 170, 50, 0.50);
+    color: rgba(var(--companion-rgb), 0.50);
 }
 
 .drawer-stats-row {
@@ -1202,7 +1202,7 @@
 }
 
 .drawer-stats-group.companion .drawer-stat-value {
-    color: rgba(255, 170, 50, 0.65);
+    color: rgba(var(--companion-rgb), 0.65);
 }
 
 /* Make sparklines clickable */
@@ -1211,7 +1211,7 @@
 }
 
 .sparkline-container[data-chart-type]:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--neutral-rgb), 0.02);
     border-radius: 4px;
 }
 

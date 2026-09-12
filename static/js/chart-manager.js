@@ -232,7 +232,7 @@ function initGPUCharts(gpuId) {
             try { charts[gpuId][type].destroy(); } catch (e) { }
         }
 
-        const config = JSON.parse(JSON.stringify(chartConfigs[type]));
+        const config = chartConfigWithCurrentColors(chartConfigs[type]);
         const typeData = chartData[gpuId][type];
 
         // Threshold-based segment coloring (orange above threshold)
@@ -297,8 +297,8 @@ function initGPUCharts(gpuId) {
         const rect = canvas.parentElement.getBoundingClientRect();
         const h = (rect.height > 0 ? rect.height : 90);
         const gradient = ctx.createLinearGradient(0, 0, 0, h);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+        gradient.addColorStop(0, colorTokenWithAlpha('--neutral-rgb', 0.06));
+        gradient.addColorStop(1, colorTokenWithAlpha('--neutral-rgb', 0));
         config.data.datasets[0].backgroundColor = gradient;
         config.data.datasets[0].fill = true;
 
@@ -330,8 +330,8 @@ function initOverviewMiniChart(gpuId, currentValue) {
     const miniRect = canvas.parentElement.getBoundingClientRect();
     const miniH = miniRect.height || 48;
     const miniGradient = ctxMini.createLinearGradient(0, 0, 0, miniH);
-    miniGradient.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
-    miniGradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+    miniGradient.addColorStop(0, colorTokenWithAlpha('--neutral-rgb', 0.08));
+    miniGradient.addColorStop(1, colorTokenWithAlpha('--neutral-rgb', 0));
 
     const config = {
         type: 'line',
@@ -339,7 +339,7 @@ function initOverviewMiniChart(gpuId, currentValue) {
             labels: chartData[gpuId].utilization.labels,
             datasets: [{
                 data: chartData[gpuId].utilization.data,
-                borderColor: 'rgba(255, 255, 255, 0.5)',
+                borderColor: colorTokenWithAlpha('--neutral-rgb', 0.5),
                 backgroundColor: miniGradient,
                 borderWidth: 1.5,
                 tension: 0.3,
@@ -444,7 +444,7 @@ function initSidebarCharts() {
                 labels: systemData.cpu.labels,
                 datasets: [{
                     data: systemData.cpu.data,
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderColor: colorTokenWithAlpha('--neutral-rgb', 0.5),
                     backgroundColor: 'transparent',
                     borderWidth: 1.5,
                     tension: 0.3,
@@ -463,7 +463,7 @@ function initSidebarCharts() {
                 labels: systemData.memory.labels,
                 datasets: [{
                     data: systemData.memory.data,
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderColor: colorTokenWithAlpha('--neutral-rgb', 0.5),
                     backgroundColor: 'transparent',
                     borderWidth: 1.5,
                     tension: 0.3,
