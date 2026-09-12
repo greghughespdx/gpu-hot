@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const layoutCss = readFileSync(join(testDir, '../../static/css/layout.css'), 'utf8');
+const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
 
 // Globals loaded by setup.js: switchToView, ensureGPUTab, removeGPUTab,
 // autoSwitchSingleGPU, currentTab, registeredGPUs, charts, chartData
@@ -593,14 +594,32 @@ describe('All page ordering', () => {
 
 describe('ordering interaction styles', () => {
     it('keeps resting cursors unchanged and shows grabbing only during a move', () => {
-        const grabTargets = layoutCss.match(
-            /\.node-group\[data-layout-kind="node"\][\s\S]*?\{([\s\S]*?)\}/
-        )?.[1];
-        const activeMove = layoutCss.match(/\.dashboard-ordering\s*\{([\s\S]*?)\}/)?.[1];
+        const layoutStyles = document.createElement('style');
+        const componentStyles = document.createElement('style');
+        layoutStyles.textContent = layoutCss;
+        componentStyles.textContent = componentsCss;
+        document.head.append(layoutStyles, componentStyles);
+        document.body.innerHTML = `
+            <section class="node-group">
+                <div class="node-label">Node</div>
+                <article class="overview-gpu-card">
+                    <div class="overview-gpu-name">GPU</div>
+                </article>
+            </section>
+        `;
+        const group = document.querySelector('.node-group');
+        const card = document.querySelector('.overview-gpu-card');
+        const name = document.querySelector('.overview-gpu-name');
 
-        expect(grabTargets).toContain('touch-action: none');
-        expect(grabTargets).not.toContain('cursor: grab');
-        expect(activeMove).toContain('cursor: grabbing');
+        expect(getComputedStyle(card).cursor).toBe('pointer');
+        group.classList.add('dashboard-ordering');
+        expect(getComputedStyle(card).cursor).toBe('grabbing');
+        group.classList.remove('dashboard-ordering');
+        card.classList.add('dashboard-ordering');
+        expect(getComputedStyle(card).cursor).toBe('grabbing');
+        expect(getComputedStyle(name).cursor).toBe('grabbing');
+        layoutStyles.remove();
+        componentStyles.remove();
     });
 });
 
