@@ -23,6 +23,14 @@
     {
       "name": "All page metric visibility",
       "commit": "97a9b691ec8df61f7453e8187d7fbf2fe827b74f"
+    },
+    {
+      "name": "mini chart width",
+      "commit": "f6ffdc3041ed3c6e1283755c871578f5a88d17d6"
+    },
+    {
+      "name": "left bar controls",
+      "commit": "d508941ee36107838416f12fe86d0201e44a137e"
     }
   ],
   "upstream_review": {
