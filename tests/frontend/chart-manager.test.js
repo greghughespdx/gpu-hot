@@ -65,6 +65,64 @@ describe('initGPUData', () => {
     });
 });
 
+describe('chart color tokens', () => {
+    beforeEach(() => {
+        for (const key of Object.keys(chartData)) delete chartData[key];
+        for (const key of Object.keys(charts)) delete charts[key];
+        for (const key of Object.keys(systemCharts)) delete systemCharts[key];
+        document.body.innerHTML = '<div><canvas id="chart-utilization-gpu0"></canvas></div>';
+    });
+
+    it('reads the current token values when a chart is initialized', () => {
+        document.documentElement.style.setProperty('--neutral-rgb', '9, 8, 7');
+        initGPUData('gpu0');
+
+        initGPUCharts('gpu0');
+
+        expect(charts.gpu0.utilization.data.datasets[0].borderColor)
+            .toBe('rgba(9, 8, 7, 0.6)');
+        document.documentElement.style.removeProperty('--neutral-rgb');
+    });
+
+    it('preserves the detailed chart gradient colors', () => {
+        initGPUData('gpu0');
+
+        initGPUCharts('gpu0');
+
+        expect(charts.gpu0.utilization.data.datasets[0].backgroundColor.stops).toEqual([
+            [0, 'rgba(255, 255, 255, 0.06)'],
+            [1, 'rgba(255, 255, 255, 0)']
+        ]);
+    });
+
+    it('preserves the overview chart stroke and gradient colors', () => {
+        document.body.innerHTML = '<div><canvas id="overview-chart-gpu0"></canvas></div>';
+
+        initOverviewMiniChart('gpu0', 50);
+
+        const dataset = charts.gpu0.overviewMini.data.datasets[0];
+        expect(dataset.borderColor).toBe('rgba(255, 255, 255, 0.5)');
+        expect(dataset.backgroundColor.stops).toEqual([
+            [0, 'rgba(255, 255, 255, 0.08)'],
+            [1, 'rgba(255, 255, 255, 0)']
+        ]);
+    });
+
+    it('preserves the sidebar chart stroke color', () => {
+        document.body.innerHTML = `
+            <canvas id="cpu-chart"></canvas>
+            <canvas id="memory-chart"></canvas>
+        `;
+
+        initSidebarCharts();
+
+        expect(systemCharts.cpu.data.datasets[0].borderColor)
+            .toBe('rgba(255, 255, 255, 0.5)');
+        expect(systemCharts.memory.data.datasets[0].borderColor)
+            .toBe('rgba(255, 255, 255, 0.5)');
+    });
+});
+
 describe('calculateStats', () => {
     it('computes correct stats', () => {
         const stats = calculateStats([10, 20, 30]);

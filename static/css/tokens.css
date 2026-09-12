@@ -13,6 +13,11 @@
     --text-primary: #eef0f4;
     --text-secondary: rgba(238, 240, 244, 0.72);
     --text-tertiary: rgba(238, 240, 244, 0.45);
+    --text-rgb: 238, 240, 244;
+
+    /* Neutral channels for opacity variants */
+    --neutral-rgb: 255, 255, 255;
+    --shadow-rgb: 0, 0, 0;
 
     /* Accent — Steel Blue at 20% opacity, for selection/active only */
     --accent: rgba(100, 160, 255, 0.18);
@@ -32,6 +37,12 @@
     --metric-clocks: 255, 213, 130;
     --metric-efficiency: 168, 216, 185;
     --metric-pcie: 176, 190, 210;
+    --metric-encoder-decoder: 0, 210, 190;
+
+    /* Correlation companion and toast accents */
+    --companion-rgb: 255, 170, 50;
+    --toast-text: rgba(255, 200, 100, 0.9);
+    --toast-text-hover: rgba(255, 210, 130, 1);
 
     /* Sparkline */
     --spark-stroke: rgba(238, 240, 244, 0.6);

@@ -10,6 +10,10 @@ import vm from 'vm';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcDir = join(__dirname, '../../static/js');
+const tokenCss = readFileSync(join(__dirname, '../../static/css/tokens.css'), 'utf-8');
+const tokenStyle = document.createElement('style');
+tokenStyle.textContent = tokenCss;
+document.head.appendChild(tokenStyle);
 
 // ---------------------------------------------------------------------------
 // Mock Chart.js
@@ -40,7 +44,12 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 function mockCanvas2DContext() {
     return {
         createLinearGradient() {
-            return { addColorStop() {} };
+            return {
+                stops: [],
+                addColorStop(offset, color) {
+                    this.stops.push([offset, color]);
+                }
+            };
         }
     };
 }
@@ -69,17 +78,24 @@ for (const file of loadOrder) {
         // Export all function declarations and variables to globalThis
         if (typeof SPARK !== 'undefined') globalThis.SPARK = SPARK;
         if (typeof SPARK_THRESHOLDS !== 'undefined') globalThis.SPARK_THRESHOLDS = SPARK_THRESHOLDS;
+        if (typeof METRIC_FILL_COLORS !== 'undefined') globalThis.METRIC_FILL_COLORS = METRIC_FILL_COLORS;
+        if (typeof readColorToken !== 'undefined') globalThis.readColorToken = readColorToken;
+        if (typeof colorTokenWithAlpha !== 'undefined') globalThis.colorTokenWithAlpha = colorTokenWithAlpha;
+        if (typeof chartConfigWithCurrentColors !== 'undefined') globalThis.chartConfigWithCurrentColors = chartConfigWithCurrentColors;
         if (typeof getBaseChartOptions !== 'undefined') globalThis.getBaseChartOptions = getBaseChartOptions;
         if (typeof createLineChartConfig !== 'undefined') globalThis.createLineChartConfig = createLineChartConfig;
         if (typeof createMultiLineChartConfig !== 'undefined') globalThis.createMultiLineChartConfig = createMultiLineChartConfig;
         if (typeof chartConfigs !== 'undefined') globalThis.chartConfigs = chartConfigs;
         if (typeof charts !== 'undefined') globalThis.charts = charts;
         if (typeof chartData !== 'undefined') globalThis.chartData = chartData;
+        if (typeof systemCharts !== 'undefined') globalThis.systemCharts = systemCharts;
         if (typeof initGPUData !== 'undefined') globalThis.initGPUData = initGPUData;
         if (typeof calculateStats !== 'undefined') globalThis.calculateStats = calculateStats;
         if (typeof updateChart !== 'undefined') globalThis.updateChart = updateChart;
         if (typeof updateChartStats !== 'undefined') globalThis.updateChartStats = updateChartStats;
         if (typeof initGPUCharts !== 'undefined') globalThis.initGPUCharts = initGPUCharts;
+        if (typeof initOverviewMiniChart !== 'undefined') globalThis.initOverviewMiniChart = initOverviewMiniChart;
+        if (typeof initSidebarCharts !== 'undefined') globalThis.initSidebarCharts = initSidebarCharts;
         if (typeof isMobile !== 'undefined') globalThis.isMobile = isMobile;
         if (typeof formatMemory !== 'undefined') globalThis.formatMemory = formatMemory;
         if (typeof formatMemoryUnit !== 'undefined') globalThis.formatMemoryUnit = formatMemoryUnit;

@@ -3,15 +3,25 @@
  * Grayscale sparklines, no fills, no color except alerts
  */
 
+function readColorToken(tokenName, fallback = '') {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim();
+    return value || fallback;
+}
+
+function colorTokenWithAlpha(tokenName, alpha, fallback = 'transparent') {
+    const value = readColorToken(tokenName);
+    return value ? `rgba(${value}, ${alpha})` : fallback;
+}
+
 // Sparkline palette — monochromatic
 const SPARK = {
-    stroke: 'rgba(255, 255, 255, 0.6)',
-    strokeLight: 'rgba(255, 255, 255, 0.35)',
-    strokeDim: 'rgba(255, 255, 255, 0.2)',
-    grid: 'rgba(255, 255, 255, 0.04)',
-    tick: 'rgba(255, 255, 255, 0.4)',
-    tooltipBg: '#171b22',
-    warning: '#f5a623',
+    get stroke() { return colorTokenWithAlpha('--neutral-rgb', 0.6); },
+    get strokeLight() { return colorTokenWithAlpha('--neutral-rgb', 0.35); },
+    get strokeDim() { return colorTokenWithAlpha('--neutral-rgb', 0.2); },
+    get grid() { return colorTokenWithAlpha('--neutral-rgb', 0.04); },
+    get tick() { return colorTokenWithAlpha('--neutral-rgb', 0.4); },
+    get tooltipBg() { return readColorToken('--bg-surface'); },
+    get warning() { return readColorToken('--warning'); },
 };
 
 // Sparkline warning thresholds — line turns orange above these values
@@ -68,8 +78,8 @@ function getBaseChartOptions() {
             },
             tooltip: {
                 backgroundColor: SPARK.tooltipBg,
-                titleColor: '#eef0f4',
-                bodyColor: 'rgba(238, 240, 244, 0.7)',
+                titleColor: readColorToken('--text-primary'),
+                bodyColor: colorTokenWithAlpha('--text-rgb', 0.7),
                 borderWidth: 0,
                 cornerRadius: 4,
                 displayColors: false,
@@ -83,22 +93,22 @@ function getBaseChartOptions() {
 
 // Metric identity RGB values for gradient fills
 const METRIC_FILL_COLORS = {
-    utilization: '130, 177, 255',
-    temperature: '255, 183, 77',
-    memory: '100, 210, 255',
-    power: '134, 239, 172',
-    fanSpeed: '186, 147, 216',
-    clocks: '255, 213, 130',
-    efficiency: '168, 216, 185',
-    pcie: '176, 190, 210',
-    appclocks: '255, 213, 130',
-    encoderDecoder: '0, 210, 190',
-    systemCpu: '255, 255, 255',
-    systemMemory: '255, 255, 255',
-    systemSwap: '255, 255, 255',
-    systemNetIo: '255, 255, 255',
-    systemDiskIo: '255, 255, 255',
-    systemLoadAvg: '255, 255, 255',
+    get utilization() { return readColorToken('--metric-util'); },
+    get temperature() { return readColorToken('--metric-temp'); },
+    get memory() { return readColorToken('--metric-mem'); },
+    get power() { return readColorToken('--metric-power'); },
+    get fanSpeed() { return readColorToken('--metric-fan'); },
+    get clocks() { return readColorToken('--metric-clocks'); },
+    get efficiency() { return readColorToken('--metric-efficiency'); },
+    get pcie() { return readColorToken('--metric-pcie'); },
+    get appclocks() { return readColorToken('--metric-clocks'); },
+    get encoderDecoder() { return readColorToken('--metric-encoder-decoder'); },
+    get systemCpu() { return readColorToken('--neutral-rgb'); },
+    get systemMemory() { return readColorToken('--neutral-rgb'); },
+    get systemSwap() { return readColorToken('--neutral-rgb'); },
+    get systemNetIo() { return readColorToken('--neutral-rgb'); },
+    get systemDiskIo() { return readColorToken('--neutral-rgb'); },
+    get systemLoadAvg() { return readColorToken('--neutral-rgb'); },
 };
 
 // Single-line sparkline config
@@ -165,7 +175,12 @@ function createMultiLineChartConfig(options) {
     } = options;
 
     // Grayscale tones for multi-line differentiation
-    const grayTones = [SPARK.stroke, SPARK.strokeLight, SPARK.strokeDim, 'rgba(255,255,255,0.1)'];
+    const grayTones = [
+        SPARK.stroke,
+        SPARK.strokeLight,
+        SPARK.strokeDim,
+        colorTokenWithAlpha('--neutral-rgb', 0.1)
+    ];
 
     const config = {
         type: 'line',
@@ -198,7 +213,7 @@ function createMultiLineChartConfig(options) {
         config.options.plugins.legend.position = 'top';
         config.options.plugins.legend.align = 'end';
         config.options.plugins.legend.labels = {
-            color: 'rgba(255, 255, 255, 0.5)',
+            color: colorTokenWithAlpha('--neutral-rgb', 0.5),
             font: { size: 10 },
             boxWidth: 8,
             boxHeight: 2,
@@ -217,6 +232,31 @@ function createMultiLineChartConfig(options) {
     };
 
     return config;
+}
+
+function chartConfigWithCurrentColors(sourceConfig) {
+    const chartConfig = JSON.parse(JSON.stringify(sourceConfig));
+    const lineColors = [
+        SPARK.stroke,
+        SPARK.strokeLight,
+        SPARK.strokeDim,
+        colorTokenWithAlpha('--neutral-rgb', 0.1)
+    ];
+    chartConfig.data.datasets.forEach((dataset, index) => {
+        dataset.borderColor = chartConfig.data.datasets.length === 1
+            ? SPARK.stroke
+            : lineColors[index % lineColors.length];
+    });
+    const yScale = chartConfig.options.scales.y;
+    if (yScale?.grid) yScale.grid.color = SPARK.grid;
+    if (yScale?.ticks) yScale.ticks.color = SPARK.tick;
+    const tooltip = chartConfig.options.plugins.tooltip;
+    tooltip.backgroundColor = SPARK.tooltipBg;
+    tooltip.titleColor = readColorToken('--text-primary');
+    tooltip.bodyColor = colorTokenWithAlpha('--text-rgb', 0.7);
+    const legendLabels = chartConfig.options.plugins.legend.labels;
+    if (legendLabels) legendLabels.color = colorTokenWithAlpha('--neutral-rgb', 0.5);
+    return chartConfig;
 }
 
 // ============================================
