@@ -35,6 +35,20 @@ function hasMetric(gpuInfo, key) {
     return value !== null && value !== undefined && value !== 'N/A' && value !== 'Unknown' && value !== '';
 }
 
+function renderCollectorText(markup, collectorValues) {
+    const template = document.createElement('template');
+    template.innerHTML = markup.trim();
+    template.content.querySelectorAll('[data-collector-text]').forEach(element => {
+        const field = element.dataset.collectorText;
+        const text = String(collectorValues[field] ?? '');
+        element.textContent = text;
+        if (element.hasAttribute('data-collector-title')) element.title = text;
+        element.removeAttribute('data-collector-text');
+        element.removeAttribute('data-collector-title');
+    });
+    return template.innerHTML;
+}
+
 // Helper: bullet bar CSS class based on thresholds
 function bulletClass(value, warnThreshold, dangerThreshold) {
     if (value >= dangerThreshold) return 'danger';
@@ -73,9 +87,9 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
 
     const uuid = getMetricValue(gpuInfo, 'uuid', '');
     const uuidLine = (uuid && uuid !== 'N/A')
-        ? `<p class="gpu-uuid" title="${uuid}">${uuid}</p>` : '';
+        ? '<p class="gpu-uuid" data-collector-text="uuid" data-collector-title></p>' : '';
 
-    return `
+    return renderCollectorText(`
         <div class="overview-gpu-card" data-gpu-id="${gpuId}" onclick="switchToView('gpu-${gpuId}')">
             <div class="overview-gpu-name">
                 <h2>GPU ${gpuId}</h2>
@@ -103,7 +117,7 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
             <div class="overview-mini-chart">
                 <canvas id="overview-chart-${gpuId}"></canvas>
             </div>
-        </div>`;
+        </div>`, { uuid });
 }
 
 // ============================================
@@ -142,7 +156,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     if (hasMetric(gpuInfo, 'performance_state')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-pstate-${gpuId}">${gpuInfo.performance_state}</span>
+                <span class="sgo-info-value" id="sgo-pstate-${gpuId}" data-collector-text="performance_state"></span>
                 <span class="sgo-info-label">P-STATE</span>
             </div>`;
     }
@@ -168,20 +182,20 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
             </div>`;
     }
 
-    return `
+    return renderCollectorText(`
         <div class="single-gpu-overview" data-gpu-id="${gpuId}" onclick="switchToView('gpu-${gpuId}')">
             <div class="sgo-header">
                 <div class="gpu-detail-header">
                     <span class="gpu-detail-title">GPU ${gpuId}</span>
                     <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
                     ${(gpuInfo.uuid && gpuInfo.uuid !== 'N/A')
-                        ? `<span class="gpu-detail-uuid" title="${gpuInfo.uuid}">${gpuInfo.uuid}</span>` : ''}
+                        ? '<span class="gpu-detail-uuid" data-collector-text="uuid" data-collector-title></span>' : ''}
                 </div>
                 <div class="gpu-detail-specs">
                     <span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}%</span>
-                    <span class="spec-tag" id="sgo-pstate-badge-${gpuId}">${gpuInfo.performance_state || ''}</span>
-                    <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
-                    ${hasMetric(gpuInfo, 'architecture') ? `<span class="spec-tag">${gpuInfo.architecture}</span>` : ''}
+                    <span class="spec-tag" id="sgo-pstate-badge-${gpuId}" data-collector-text="performance_state"></span>
+                    <span class="spec-tag" data-collector-text="driver_version"></span>
+                    ${hasMetric(gpuInfo, 'architecture') ? '<span class="spec-tag" data-collector-text="architecture"></span>' : ''}
                     <span class="spec-tag">${gpuInfo._fallback_mode ? 'smi' : 'NVML'}</span>
                 </div>
             </div>
@@ -243,7 +257,12 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
 
             ${secondaryItems ? `<div class="sgo-info-strip">${secondaryItems}</div>` : ''}
         </div>
-    `;
+    `, {
+        uuid: gpuInfo.uuid,
+        performance_state: gpuInfo.performance_state,
+        driver_version: gpuInfo.driver_version,
+        architecture: gpuInfo.architecture
+    });
 }
 
 // Update enhanced overview card
@@ -385,7 +404,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="pstate-${gpuId}">${gpuInfo.performance_state}</span>
+                    <span class="metric-num" id="pstate-${gpuId}" data-collector-text="performance_state"></span>
                 </div>
                 <span class="metric-label">PERFORMANCE STATE</span>
                 <span class="metric-sub">Power Mode</span>
@@ -514,7 +533,7 @@ function createGPUCard(gpuId, gpuInfo) {
                     <span class="metric-num" id="brand-${gpuId}">${gpuInfo.brand || 'N/A'}</span>
                 </div>
                 <span class="metric-label">BRAND / ARCHITECTURE</span>
-                <span class="metric-sub" id="arch-${gpuId}">${gpuInfo.architecture || 'Unknown'}</span>
+                <span class="metric-sub" id="arch-${gpuId}" data-collector-text="architecture"></span>
             </div>`;
     }
 
@@ -536,7 +555,7 @@ function createGPUCard(gpuId, gpuInfo) {
     extraMetrics += `
         <div class="metric-cell">
             <div class="metric-num-row">
-                <span class="metric-num" id="throttle-${gpuId}"${isThrottling ? ' style="color:var(--warning);"' : ''}>${isThrottling ? throttle_reasons : 'GPU Idle'}</span>
+                <span class="metric-num" id="throttle-${gpuId}" data-collector-text="throttle_reasons"${isThrottling ? ' style="color:var(--warning);"' : ''}></span>
             </div>
             <span class="metric-label">THROTTLE STATUS</span>
             <span class="metric-sub" id="throttle-sub-${gpuId}">${isThrottling ? 'Throttling' : 'Performance'}</span>
@@ -606,7 +625,7 @@ function createGPUCard(gpuId, gpuInfo) {
             </div>`;
     }
 
-    return `
+    return renderCollectorText(`
         <div class="gpu-card" id="gpu-${gpuId}">
             <!-- Header -->
             <div class="gpu-detail-header">
@@ -615,9 +634,9 @@ function createGPUCard(gpuId, gpuInfo) {
             </div>
             <div class="gpu-detail-specs">
                 <span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}%</span>
-                <span class="spec-tag" id="pstate-header-${gpuId}">${gpuInfo.performance_state || ''}</span>
+                <span class="spec-tag" id="pstate-header-${gpuId}" data-collector-text="performance_state"></span>
                 <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen || '?'}</span>
-                <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
+                <span class="spec-tag" data-collector-text="driver_version"></span>
                 <span class="spec-tag">${gpuInfo._fallback_mode ? 'smi' : 'NVML'}</span>
             </div>
 
@@ -857,7 +876,12 @@ function createGPUCard(gpuId, gpuInfo) {
                 </div>
             </div>
         </div>
-    `;
+    `, {
+        performance_state: gpuInfo.performance_state,
+        driver_version: gpuInfo.driver_version,
+        architecture: gpuInfo.architecture || 'Unknown',
+        throttle_reasons: isThrottling ? throttle_reasons : 'GPU Idle'
+    });
 }
 
 // ============================================

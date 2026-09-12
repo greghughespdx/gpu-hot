@@ -262,3 +262,38 @@ describe('createCompactOverviewCard', () => {
         expect(html).toContain("switchToView('gpu-2')");
     });
 });
+
+describe('collector text rendering', () => {
+    const hostileText = '<img src=x onerror="window.__collectorTextExecuted=1">';
+    const gpuInfo = {
+        name: 'Test GPU',
+        utilization: 1,
+        temperature: 1,
+        memory_used: 1,
+        memory_total: 1024,
+        power_draw: 1,
+        power_limit: 100,
+        fan_speed: 1
+    };
+
+    it.each([
+        ['compact overview', 'uuid', createCompactOverviewCard],
+        ['single-GPU overview', 'uuid', createEnhancedOverviewCard],
+        ['single-GPU overview', 'performance_state', createEnhancedOverviewCard],
+        ['single-GPU overview', 'driver_version', createEnhancedOverviewCard],
+        ['single-GPU overview', 'architecture', createEnhancedOverviewCard],
+        ['detail card', 'performance_state', createGPUCard],
+        ['detail card', 'driver_version', createGPUCard],
+        ['detail card', 'architecture', createGPUCard],
+        ['detail card', 'throttle_reasons', createGPUCard]
+    ])('%s renders hostile %s as text', (_cardType, field, markupFactory) => {
+        const container = document.createElement('div');
+        container.innerHTML = markupFactory('0', { ...gpuInfo, [field]: hostileText });
+
+        expect(container.querySelector('img')).toBeNull();
+        expect(container.textContent).toContain(hostileText);
+        if (field === 'uuid') {
+            expect(container.querySelector('[title]').title).toBe(hostileText);
+        }
+    });
+});
