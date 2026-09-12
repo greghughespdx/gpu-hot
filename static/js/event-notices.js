@@ -276,12 +276,12 @@
 
     function snapshotOnlineRoster(node, gpuMap) {
         const currentRoster = new Set(Object.keys(gpuMap));
-        if (currentRoster.size === 0) return;
         const rememberedRoster = lastOnlineRosters.get(node);
         if (!rememberedRoster) {
             lastOnlineRosters.set(node, currentRoster);
             return;
         }
+        if (currentRoster.size === 0) return;
         const combinedRoster = new Set([...rememberedRoster, ...currentRoster]);
         if (combinedRoster.size <= MAX_GPUS_PER_NODE) {
             lastOnlineRosters.set(node, combinedRoster);
@@ -321,7 +321,7 @@
             nodeEntries.forEach(([rawNode, nodeData]) => {
                 const node = boundedString(rawNode);
                 if (!node || !isObject(nodeData)) return;
-                if (nodeData.status === 'offline') {
+                if (nodeData.status === 'offline' && lastOnlineRosters.has(node)) {
                     updateCondition('nodeOffline', node, null, true, 'The node is offline.');
                 } else if (nodeData.status === 'online' && isCompleteGpuMap(nodeData.gpus)) {
                     observeOnlineNode(node, nodeData.gpus);
