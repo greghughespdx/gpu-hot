@@ -24,11 +24,8 @@
     transform: translateX(2px);
 }
 
-.node-group.dashboard-ordering,
-.node-group.dashboard-ordering .overview-gpu-card,
-.node-group.dashboard-ordering .overview-gpu-card *,
-.overview-gpu-card.dashboard-ordering,
-.overview-gpu-card.dashboard-ordering * {
+#overview-container.dashboard-ordering-active,
+#overview-container.dashboard-ordering-active * {
     cursor: grabbing;
 }
 

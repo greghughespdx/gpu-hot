@@ -288,6 +288,8 @@ function continueDashboardMove(event, documentRef) {
     if (!activeDashboardMove.moved && distance < SIDEBAR_MOVE_THRESHOLD) return;
     activeDashboardMove.moved = true;
     activeDashboardMove.item.classList.add('dashboard-ordering');
+    activeDashboardMove.container.closest('#overview-container')
+        ?.classList.add('dashboard-ordering-active');
     const target = documentRef.elementFromPoint(event.clientX, event.clientY)
         ?.closest(`[data-layout-kind="${activeDashboardMove.kind}"]`);
     if (!target || target === activeDashboardMove.item || target.parentElement !== activeDashboardMove.container) {
@@ -321,6 +323,7 @@ function finishDashboardMove(documentRef, cancelled) {
         setTimeout(() => { suppressedDashboardClickKey = null; }, 0);
     }
     item.classList.remove('dashboard-ordering');
+    container.closest('#overview-container')?.classList.remove('dashboard-ordering-active');
     activeDashboardMove = null;
 }
 

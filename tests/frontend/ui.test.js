@@ -593,31 +593,45 @@ describe('All page ordering', () => {
 });
 
 describe('ordering interaction styles', () => {
-    it('keeps resting cursors unchanged and shows grabbing only during a move', () => {
+    it('keeps resting cursors unchanged and shows grabbing across the ordering surface during a move', () => {
         const layoutStyles = document.createElement('style');
         const componentStyles = document.createElement('style');
         layoutStyles.textContent = layoutCss;
         componentStyles.textContent = componentsCss;
         document.head.append(layoutStyles, componentStyles);
         document.body.innerHTML = `
+            <div id="overview-container">
             <section class="node-group">
                 <div class="node-label">Node</div>
-                <article class="overview-gpu-card">
-                    <div class="overview-gpu-name">GPU</div>
-                </article>
+                <div class="node-grid">
+                    <article class="overview-gpu-card"><div class="overview-gpu-name">GPU 0</div></article>
+                    <article class="overview-gpu-card"><div class="overview-gpu-name">GPU 1</div></article>
+                </div>
             </section>
+            </div>
         `;
-        const group = document.querySelector('.node-group');
-        const card = document.querySelector('.overview-gpu-card');
+        const cards = document.querySelectorAll('.overview-gpu-card');
+        const card = cards[0];
+        const neighbor = cards[1];
         const name = document.querySelector('.overview-gpu-name');
+        card.setPointerCapture = vi.fn();
+        neighbor.getBoundingClientRect = () => ({ left: 130, top: 0, width: 130, height: 60 });
+        document.elementFromPoint = vi.fn(() => neighbor);
+        window.registerDashboardGpu(card, 'node', '0');
+        window.registerDashboardGpu(neighbor, 'node', '1');
+        window.initializeDashboardOrdering();
 
         expect(getComputedStyle(card).cursor).toBe('pointer');
-        group.classList.add('dashboard-ordering');
-        expect(getComputedStyle(card).cursor).toBe('grabbing');
-        group.classList.remove('dashboard-ordering');
-        card.classList.add('dashboard-ordering');
+        expect(getComputedStyle(neighbor).cursor).toBe('pointer');
+        dispatchPointer(name, 'pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 20 });
+        dispatchPointer(name, 'pointermove', { pointerId: 1, clientX: 40, clientY: 20 });
         expect(getComputedStyle(card).cursor).toBe('grabbing');
         expect(getComputedStyle(name).cursor).toBe('grabbing');
+        expect(getComputedStyle(neighbor).cursor).toBe('grabbing');
+        expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(true);
+        dispatchPointer(name, 'pointerup', { pointerId: 1, clientX: 40, clientY: 20 });
+        expect(getComputedStyle(neighbor).cursor).toBe('pointer');
+        expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(false);
         layoutStyles.remove();
         componentStyles.remove();
     });
