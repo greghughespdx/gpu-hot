@@ -4,35 +4,56 @@
  */
 
 // Helper: format memory values
+function finiteCollectorNumber(value) {
+    if (typeof value !== 'number' && typeof value !== 'string') return NaN;
+    if (typeof value === 'string' && value.trim() === '') return NaN;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : NaN;
+}
+
 function formatMemory(mb) {
-    if (mb >= 1024) {
-        return `${(mb / 1024).toFixed(1)}`;
+    const value = finiteCollectorNumber(mb);
+    if (!Number.isFinite(value)) return 'Not reported';
+    if (value >= 1024) {
+        return `${(value / 1024).toFixed(1)}`;
     }
-    return `${Math.round(mb)}`;
+    return `${Math.round(value)}`;
 }
 
 // Helper: memory unit
 function formatMemoryUnit(mb) {
-    return mb >= 1024 ? 'GB' : 'MB';
+    const value = finiteCollectorNumber(mb);
+    if (!Number.isFinite(value)) return '';
+    return value >= 1024 ? 'GB' : 'MB';
 }
 
 // Helper: format energy values
 function formatEnergy(wh) {
-    if (wh >= 1000) {
-        return `${(wh / 1000).toFixed(2)}kWh`;
+    const value = finiteCollectorNumber(wh);
+    if (!Number.isFinite(value)) return 'Not reported';
+    if (value >= 1000) {
+        return `${(value / 1000).toFixed(2)}kWh`;
     }
-    return `${wh.toFixed(2)}Wh`;
+    return `${value.toFixed(2)}Wh`;
 }
 
 // Helper: safely get metric value with default
 function getMetricValue(gpuInfo, key, defaultValue = 0) {
-    return (key in gpuInfo && gpuInfo[key] !== null && gpuInfo[key] !== undefined) ? gpuInfo[key] : defaultValue;
+    if (!(key in gpuInfo) || gpuInfo[key] === null || gpuInfo[key] === undefined) return defaultValue;
+    if (typeof defaultValue !== 'number' && defaultValue !== null) return gpuInfo[key];
+    const value = finiteCollectorNumber(gpuInfo[key]);
+    return Number.isFinite(value) ? value : defaultValue;
 }
 
 // Helper: check if metric is available
 function hasMetric(gpuInfo, key) {
     const value = gpuInfo[key];
     return value !== null && value !== undefined && value !== 'N/A' && value !== 'Unknown' && value !== '';
+}
+
+function reportedNumber(value, fallback = 'Not reported') {
+    const number = finiteCollectorNumber(value);
+    return Number.isFinite(number) ? String(number) : fallback;
 }
 
 // Helper: tachometer reading for the fan cell, when a fan controller reports one.
@@ -69,15 +90,13 @@ const OVERVIEW_EXTRA_METRIC_DEFINITIONS = Object.freeze([
 const latestOverviewExtraMetrics = new Map();
 
 function formatOverviewNumber(value, suffix = '', prefix = '') {
-    if (value === null || value === undefined || value === '') return 'Not reported';
-    const number = Number(value);
+    const number = finiteCollectorNumber(value);
     if (!Number.isFinite(number)) return 'Not reported';
     return `${prefix}${Math.round(number)}${suffix}`;
 }
 
 function formatOverviewMemoryGb(value) {
-    if (value === null || value === undefined || value === '') return 'Not reported';
-    const number = Number(value);
+    const number = finiteCollectorNumber(value);
     if (!Number.isFinite(number)) return 'Not reported';
     return `${(number / 1024).toFixed(1)} GB`;
 }
@@ -87,10 +106,16 @@ function formatOverviewCount(value) {
 }
 
 function formatOverviewText(value) {
-    if (Array.isArray(value)) value = value.join(', ');
+    if (Array.isArray(value)) {
+        if (!value.every(item => ['string', 'number', 'boolean'].includes(typeof item))) {
+            return 'Not reported';
+        }
+        value = value.join(', ');
+    }
     if (value === null || value === undefined || value === '' || value === 'N/A') {
         return 'Not reported';
     }
+    if (typeof value === 'object') return 'Not reported';
     return String(value).slice(0, 80);
 }
 
@@ -269,14 +294,14 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     if (hasMetric(gpuInfo, 'clock_graphics')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-clock-gr-${gpuId}">${gpuInfo.clock_graphics} MHz</span>
+                <span class="sgo-info-value" id="sgo-clock-gr-${gpuId}">${reportedNumber(gpuInfo.clock_graphics)} MHz</span>
                 <span class="sgo-info-label">GFX CLOCK</span>
             </div>`;
     }
     if (hasMetric(gpuInfo, 'clock_memory')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-clock-mem-${gpuId}">${gpuInfo.clock_memory} MHz</span>
+                <span class="sgo-info-value" id="sgo-clock-mem-${gpuId}">${reportedNumber(gpuInfo.clock_memory)} MHz</span>
                 <span class="sgo-info-label">MEM CLOCK</span>
             </div>`;
     }
@@ -290,14 +315,14 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     if (hasMetric(gpuInfo, 'memory_utilization')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-mem-util-${gpuId}">${gpuInfo.memory_utilization}%</span>
+                <span class="sgo-info-value" id="sgo-mem-util-${gpuId}">${reportedNumber(gpuInfo.memory_utilization)}%</span>
                 <span class="sgo-info-label">MEM CTRL</span>
             </div>`;
     }
     if (hasMetric(gpuInfo, 'pcie_gen')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-pcie-${gpuId}">Gen${gpuInfo.pcie_gen} x${gpuInfo.pcie_width || '?'}</span>
+                <span class="sgo-info-value" id="sgo-pcie-${gpuId}">Gen${reportedNumber(gpuInfo.pcie_gen)} x${reportedNumber(gpuInfo.pcie_width, '?')}</span>
                 <span class="sgo-info-label">PCIE</span>
             </div>`;
     }
@@ -502,7 +527,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="mem-util-${gpuId}">${gpuInfo.memory_utilization}</span>
+                    <span class="metric-num" id="mem-util-${gpuId}">${reportedNumber(gpuInfo.memory_utilization)}</span>
                     <span class="metric-unit">%</span>
                 </div>
                 <span class="metric-label">MEMORY UTILIZATION</span>
@@ -514,7 +539,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="clock-gr-${gpuId}">${gpuInfo.clock_graphics}</span>
+                    <span class="metric-num" id="clock-gr-${gpuId}">${reportedNumber(gpuInfo.clock_graphics)}</span>
                     <span class="metric-unit">MHz</span>
                 </div>
                 <span class="metric-label">GRAPHICS CLOCK</span>
@@ -525,7 +550,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="clock-mem-${gpuId}">${gpuInfo.clock_memory}</span>
+                    <span class="metric-num" id="clock-mem-${gpuId}">${reportedNumber(gpuInfo.clock_memory)}</span>
                     <span class="metric-unit">MHz</span>
                 </div>
                 <span class="metric-label">MEMORY CLOCK</span>
@@ -547,19 +572,19 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="pcie-${gpuId}">Gen ${gpuInfo.pcie_gen}</span>
+                    <span class="metric-num" id="pcie-${gpuId}">Gen ${reportedNumber(gpuInfo.pcie_gen)}</span>
                 </div>
                 <span class="metric-label">PCIE LINK</span>
-                <span class="metric-sub">x${gpuInfo.pcie_width || '?'} lanes</span>
+                <span class="metric-sub">x${reportedNumber(gpuInfo.pcie_width, '?')} lanes</span>
             </div>`;
     }
 
     if (hasMetric(gpuInfo, 'encoder_sessions')) {
-        const encUtil = hasMetric(gpuInfo, 'encoder_utilization') ? `${gpuInfo.encoder_utilization}%` : '';
+        const encUtil = hasMetric(gpuInfo, 'encoder_utilization') ? `${reportedNumber(gpuInfo.encoder_utilization)}%` : '';
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="encoder-${gpuId}">${gpuInfo.encoder_sessions}</span>
+                    <span class="metric-num" id="encoder-${gpuId}">${reportedNumber(gpuInfo.encoder_sessions)}</span>
                 </div>
                 <span class="metric-label">ENC SESS</span>
                 ${encUtil ? `<span class="metric-sub" id="enc-util-${gpuId}">${encUtil} utilization</span>` : ''}
@@ -570,11 +595,11 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="clock-sm-${gpuId}">${gpuInfo.clock_sm}</span>
+                    <span class="metric-num" id="clock-sm-${gpuId}">${reportedNumber(gpuInfo.clock_sm)}</span>
                     <span class="metric-unit">MHz</span>
                 </div>
                 <span class="metric-label">SM CLOCK</span>
-                <span class="metric-sub" id="clock-sm-max-${gpuId}">MHz / ${gpuInfo.clock_sm_max || '?'} Max</span>
+                <span class="metric-sub" id="clock-sm-max-${gpuId}">MHz / ${reportedNumber(gpuInfo.clock_sm_max, '?')} Max</span>
             </div>`;
     }
 
@@ -582,7 +607,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="temp-mem-${gpuId}">${gpuInfo.temperature_memory}</span>
+                    <span class="metric-num" id="temp-mem-${gpuId}">${reportedNumber(gpuInfo.temperature_memory)}</span>
                     <span class="metric-unit">°C</span>
                 </div>
                 <span class="metric-label">VRAM TEMP</span>
@@ -602,11 +627,11 @@ function createGPUCard(gpuId, gpuInfo) {
     }
 
     if (hasMetric(gpuInfo, 'decoder_sessions')) {
-        const decUtil = hasMetric(gpuInfo, 'decoder_utilization') ? `${gpuInfo.decoder_utilization}%` : '';
+        const decUtil = hasMetric(gpuInfo, 'decoder_utilization') ? `${reportedNumber(gpuInfo.decoder_utilization)}%` : '';
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="decoder-${gpuId}">${gpuInfo.decoder_sessions}</span>
+                    <span class="metric-num" id="decoder-${gpuId}">${reportedNumber(gpuInfo.decoder_sessions)}</span>
                 </div>
                 <span class="metric-label">DEC SESS</span>
                 ${decUtil ? `<span class="metric-sub" id="dec-util-${gpuId}">${decUtil} utilization</span>` : ''}
@@ -628,7 +653,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="clock-video-${gpuId}">${gpuInfo.clock_video}</span>
+                    <span class="metric-num" id="clock-video-${gpuId}">${reportedNumber(gpuInfo.clock_video)}</span>
                     <span class="metric-unit">MHz</span>
                 </div>
                 <span class="metric-label">VIDEO CLOCK</span>
@@ -639,10 +664,10 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="pcie-max-${gpuId}">Gen ${gpuInfo.pcie_gen_max}</span>
+                    <span class="metric-num" id="pcie-max-${gpuId}">Gen ${reportedNumber(gpuInfo.pcie_gen_max)}</span>
                 </div>
                 <span class="metric-label">MAX PCIE</span>
-                <span class="metric-sub" id="pcie-max-width-${gpuId}">x${gpuInfo.pcie_width_max || '?'} Max</span>
+                <span class="metric-sub" id="pcie-max-width-${gpuId}">x${reportedNumber(gpuInfo.pcie_width_max, '?')} Max</span>
             </div>`;
     }
 
@@ -662,7 +687,7 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="brand-${gpuId}">${gpuInfo.brand || 'N/A'}</span>
+                    <span class="metric-num" id="brand-${gpuId}" data-collector-text="brand"></span>
                 </div>
                 <span class="metric-label">BRAND / ARCHITECTURE</span>
                 <span class="metric-sub" id="arch-${gpuId}" data-collector-text="architecture"></span>
@@ -767,7 +792,7 @@ function createGPUCard(gpuId, gpuInfo) {
             <div class="gpu-detail-specs">
                 <span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}%</span>
                 <span class="spec-tag" id="pstate-header-${gpuId}" data-collector-text="performance_state"></span>
-                <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen || '?'}</span>
+                <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${reportedNumber(gpuInfo.pcie_gen, '?')}</span>
                 <span class="spec-tag" data-collector-text="driver_version"></span>
                 <span class="spec-tag">${gpuInfo._fallback_mode ? 'smi' : 'NVML'}</span>
             </div>
@@ -1013,6 +1038,7 @@ function createGPUCard(gpuId, gpuInfo) {
         performance_state: gpuInfo.performance_state,
         driver_version: gpuInfo.driver_version,
         architecture: gpuInfo.architecture || 'Unknown',
+        brand: gpuInfo.brand || 'N/A',
         throttle_reasons: isThrottling ? throttle_reasons : 'GPU Idle'
     });
 }

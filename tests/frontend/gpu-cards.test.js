@@ -84,6 +84,10 @@ describe('getMetricValue', () => {
     it('returns zero when value is zero', () => {
         expect(getMetricValue({ temp: 0 }, 'temp', 99)).toBe(0);
     });
+
+    it('uses the numeric default when a collector metric is not numeric', () => {
+        expect(getMetricValue({ temp: '<img src=x>' }, 'temp', 7)).toBe(7);
+    });
 });
 
 describe('hasMetric', () => {
@@ -550,5 +554,82 @@ describe('collector text rendering', () => {
         expect(card.querySelector('.gpu-uuid').title).toBe(hostileText);
         expect(card.querySelector('img')).toBeNull();
         expect(card.hasAttribute('onclick')).toBe(false);
+    });
+
+    it('keeps hostile numeric-looking fields out of candidate card markup', () => {
+        const numericFields = [
+            'pcie_gen', 'pcie_width', 'pcie_gen_max', 'pcie_width_max',
+            'clock_sm_max', 'clock_graphics', 'clock_memory', 'clock_sm',
+            'clock_video', 'memory_utilization', 'temperature_memory',
+            'decoder_sessions', 'encoder_sessions', 'encoder_utilization',
+            'decoder_utilization', 'memory_free', 'bar1_memory_used',
+            'energy_consumption_wh', 'power_draw', 'power_limit',
+            'memory_used', 'memory_total', 'utilization', 'temperature',
+            'fan_speed'
+        ];
+        const hostileInfo = {
+            ...gpuInfo,
+            ...Object.fromEntries(numericFields.map(field => [field, hostileText])),
+            brand: hostileText
+        };
+        const cards = [
+            gpuCardElementFromMarkup(createCompactOverviewCard, '0', hostileInfo),
+            gpuCardElementFromMarkup(createEnhancedOverviewCard, '0', hostileInfo),
+            gpuCardElementFromMarkup(createGPUCard, '0', hostileInfo)
+        ];
+
+        cards.forEach(card => expect(card.querySelector('img')).toBeNull());
+        expect(cards[1].querySelector('#sgo-clock-gr-0').textContent).toBe('Not reported MHz');
+        expect(cards[2].querySelector('#clock-gr-0').textContent).toBe('Not reported');
+        expect(cards[2].querySelector('#brand-0').textContent).toBe(hostileText);
+        expect(cards[2].querySelector('#brand-0 img')).toBeNull();
+    });
+
+    it.each([
+        ['object with a non-callable toString', JSON.parse('{"toString":"bad"}')],
+        ['array', [12]],
+        ['boolean', true],
+        ['nested object', { value: { amount: 12 } }]
+    ])('keeps candidate cards visible when numeric data is a %s', (_name, badValue) => {
+        const data = {
+            ...gpuInfo,
+            utilization: badValue,
+            memory_used: badValue,
+            power_draw: badValue,
+            fan_speed: badValue,
+            clock_graphics: badValue,
+            pcie_gen: badValue,
+            energy_consumption_wh: badValue
+        };
+        const cards = [
+            gpuCardElementFromMarkup(createCompactOverviewCard, '0', data),
+            gpuCardElementFromMarkup(createEnhancedOverviewCard, '0', data),
+            gpuCardElementFromMarkup(createGPUCard, '0', data)
+        ];
+
+        cards.forEach(card => expect(card).toBeInstanceOf(Element));
+        expect(cards[1].textContent).toContain('Not reported');
+        expect(cards[2].querySelector('#clock-gr-0').textContent).toBe('Not reported');
+        expect(getMetricValue({ metric: badValue }, 'metric', 7)).toBe(7);
+        expect(formatOverviewNumber(badValue)).toBe('Not reported');
+        expect(formatOverviewMemoryGb(badValue)).toBe('Not reported');
+        if (badValue !== true && !Array.isArray(badValue)) {
+            expect(formatOverviewText(badValue)).toBe('Not reported');
+        }
+    });
+
+    it('keeps a reported zero instead of treating it as missing', () => {
+        const card = gpuCardElementFromMarkup(createGPUCard, '0', {
+            ...gpuInfo, pcie_gen: 0, pcie_width: 0
+        });
+
+        expect(card.querySelector('#pcie-0').textContent).toBe('Gen 0');
+        expect(card.querySelector('#pcie-0').closest('.metric-cell').querySelector('.metric-sub').textContent)
+            .toBe('x0 lanes');
+    });
+
+    it('does not stringify an object inside a throttle detail array', () => {
+        expect(formatOverviewText([JSON.parse('{"toString":"bad"}')]))
+            .toBe('Not reported');
     });
 });
