@@ -15,7 +15,8 @@ const defaults = {
     'overview.memory': true,
     'overview.power': true,
     'overview.chart': true,
-    theme: 'default'
+    theme: 'default',
+    overviewMiniChartBehindDim: 30
 };
 const tokensCss = readFileSync(join(testDir, '../../static/css/tokens.css'), 'utf8');
 
@@ -36,7 +37,12 @@ function panelMarkup() {
                 <option value="auto">Automatic</option>
                 <option value="wide">Wide</option>
                 <option value="full">Full row</option>
+                <option value="behind">Behind metrics</option>
             </select>
+            <label id="settings-overview-chart-behind-dim-field" hidden>
+                <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" value="30">
+                <output id="settings-overview-chart-behind-dim-value">30%</output>
+            </label>
             <select id="settings-sidebar-width">
                 <option value="standard">Standard</option>
                 <option value="comfortable">Comfortable</option>
@@ -85,8 +91,10 @@ describe('settings storage', () => {
         document.documentElement.classList.remove(
             'settings-connection-in-panel',
             'overview-chart-width-wide',
-            'overview-chart-width-full'
+            'overview-chart-width-full',
+            'overview-chart-width-behind'
         );
+        document.documentElement.style.removeProperty('--overview-chart-behind-dim');
         document.documentElement.style.removeProperty('--sidebar-width');
         delete window.updateSidebarLabels;
         delete window.applySidebarOrder;
@@ -692,6 +700,8 @@ describe('settings panel', () => {
         expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
         expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
         expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
+        expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(false);
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
     });
 
     it('persists a wider chart and asks the chart to resize', () => {
@@ -714,6 +724,74 @@ describe('settings panel', () => {
         } finally {
             Chart.getChart = originalGetChart;
         }
+    });
+
+    it('applies Behind metrics before first paint with its chosen default strength', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'behind' }
+        }));
+
+        const api = loadSettingsModule();
+
+        expect(api.settings.overviewMiniChartWidth).toBe('behind');
+        expect(api.settings.overviewMiniChartBehindDim).toBe(30);
+        expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(true);
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
+    });
+
+    it('shows and persists the Behind metrics strength only for that width', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const width = document.getElementById('settings-overview-chart-width');
+        const field = document.getElementById('settings-overview-chart-behind-dim-field');
+        const dim = document.getElementById('settings-overview-chart-behind-dim');
+        const value = document.getElementById('settings-overview-chart-behind-dim-value');
+
+        expect(field.hidden).toBe(true);
+        width.value = 'behind';
+        width.dispatchEvent(new Event('change'));
+        expect(field.hidden).toBe(false);
+
+        dim.value = '45';
+        dim.dispatchEvent(new Event('input'));
+        expect(value.textContent).toBe('45%');
+        dim.dispatchEvent(new Event('change'));
+
+        expect(api.settings.overviewMiniChartBehindDim).toBe(45);
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.45');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+            .toMatchObject({ overviewMiniChartWidth: 'behind', overviewMiniChartBehindDim: 45 });
+
+        width.value = 'full';
+        width.dispatchEvent(new Event('change'));
+        expect(field.hidden).toBe(true);
+    });
+
+    it.each([9, 101, 10.5])('rejects invalid Behind metrics strength %s', dim => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartBehindDim: dim }
+        }));
+
+        expect(loadSettingsModule().settings.overviewMiniChartBehindDim).toBe(30);
+    });
+
+    it('tracks the visible metric span for existing cards', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { 'overview.temperature': false, 'overview.power': false }
+        }));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(api.visibleOverviewMetricCount()).toBe(2);
+        expect(document.querySelector('.overview-gpu-card').dataset.overviewVisibleMetrics).toBe('2');
+
+        const memory = document.querySelector('[data-overview-setting="memory"]');
+        memory.checked = false;
+        memory.dispatchEvent(new Event('change'));
+        expect(document.querySelector('.overview-gpu-card').dataset.overviewVisibleMetrics).toBe('1');
     });
 
     it('sanitizes an unsupported chart width from the live change path', () => {
@@ -755,7 +833,7 @@ describe('settings panel', () => {
         expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
     });
 
-    it.each(['auto', 'wide', 'full'])(
+    it.each(['auto', 'wide', 'full', 'behind'])(
         'keeps the mini chart column removed at %s width when the chart is hidden',
         width => {
             localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
@@ -777,6 +855,8 @@ describe('settings panel', () => {
                 .toBe(width === 'wide');
             expect(document.documentElement.classList.contains('overview-chart-width-full'))
                 .toBe(width === 'full');
+            expect(document.documentElement.classList.contains('overview-chart-width-behind'))
+                .toBe(width === 'behind');
         }
     );
 
@@ -1094,12 +1174,14 @@ describe('settings page contract', () => {
         expect(new Set(metrics).size).toBe(5);
     });
 
-    it('offers the three mini chart widths once', () => {
+    it('offers the four mini chart widths and the conditional strength control once', () => {
         const parsed = new DOMParser().parseFromString(template, 'text/html');
         const select = parsed.getElementById('settings-overview-chart-width');
 
         expect(Array.from(select.options).map(option => option.value))
-            .toEqual(['auto', 'wide', 'full']);
+            .toEqual(['auto', 'wide', 'full', 'behind']);
+        expect(parsed.querySelectorAll('#settings-overview-chart-behind-dim')).toHaveLength(1);
+        expect(parsed.getElementById('settings-overview-chart-behind-dim-field').hidden).toBe(true);
     });
 
     it('offers every left bar option inside settings', () => {
@@ -1163,6 +1245,22 @@ describe('settings page contract', () => {
         );
         expect(componentsCss).toMatch(
             /@media \(min-width: 769px\) and \(max-width: 1200px\)[\s\S]*?html \.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 140px 1fr;/
+        );
+    });
+
+    it('layers Behind metrics only on desktop and respects the visible metric count', () => {
+        expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.3;/);
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[\s\S]*?grid-column: 2 \/ 4;[\s\S]*?mask-image:/
+        );
+        expect(componentsCss).toMatch(
+            /data-overview-visible-metrics="4"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\)[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+        );
+        expect(componentsCss).toMatch(
+            /data-overview-visible-metrics="0"[\s\S]*?\.overview-mini-chart \{[\s\S]*?grid-column: 3;[\s\S]*?mask-image: none;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[\s\S]*?grid-column: 1;[\s\S]*?mask-image: none;/
         );
     });
 

@@ -250,6 +250,7 @@ describe('createCompactOverviewCard', () => {
     it('includes overview-gpu-card class', () => {
         const html = createCompactOverviewCard('0', gpuInfo);
         expect(html).toContain('overview-gpu-card');
+        expect(html).toContain('data-overview-visible-metrics="4"');
     });
 
     it('includes compact metric elements with overview- IDs', () => {
@@ -289,7 +290,8 @@ describe('createCompactOverviewCard', () => {
 
     it('marks hidden metric columns from browser settings', () => {
         window.GPUHotSettings = {
-            isOverviewMetricVisible: metric => !['temperature', 'chart'].includes(metric)
+            isOverviewMetricVisible: metric => !['temperature', 'chart'].includes(metric),
+            visibleOverviewMetricCount: () => 3
         };
         try {
             const html = createCompactOverviewCard('0', gpuInfo);
@@ -297,6 +299,7 @@ describe('createCompactOverviewCard', () => {
             expect(html).toContain('data-overview-metric="temperature" hidden');
             expect(html).toContain('data-overview-metric="chart" hidden');
             expect(html).toContain('overview-gpu-card overview-chart-hidden');
+            expect(html).toContain('data-overview-visible-metrics="3"');
             expect(html).not.toContain('data-overview-metric="utilization" hidden');
         } finally {
             delete window.GPUHotSettings;
