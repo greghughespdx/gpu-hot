@@ -21,7 +21,8 @@
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
         ),
-        theme: 'default'
+        theme: 'default',
+        showStarPrompt: true
     });
     const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
     const SIDEBAR_WIDTHS = Object.freeze({
@@ -101,6 +102,7 @@
         sidebarLabel: value => SIDEBAR_LABELS.includes(value),
         sidebarAutoHide: value => typeof value === 'boolean',
         sidebarPinned: value => typeof value === 'boolean',
+        showStarPrompt: value => typeof value === 'boolean',
         theme: value => THEMES.includes(value),
         sidebarOrder: isSidebarOrder,
         labelOverrides: normalizeLabelOverrides
@@ -400,6 +402,7 @@
         const labelSelect = documentRef.getElementById('settings-sidebar-label');
         const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
         const pinned = documentRef.getElementById('settings-sidebar-pinned');
+        const showStarPrompt = documentRef.getElementById('settings-show-star-prompt');
         const themeSelect = documentRef.getElementById('settings-theme');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
@@ -542,6 +545,26 @@
             });
         }
 
+        if (showStarPrompt) {
+            showStarPrompt.checked = settings.showStarPrompt !== false;
+            showStarPrompt.addEventListener('change', () => {
+                const previous = settings.showStarPrompt !== false;
+                const nextSettings = sanitizeSettings({
+                    ...settings,
+                    showStarPrompt: showStarPrompt.checked
+                });
+                if (!saveSettings(nextSettings)) {
+                    showStarPrompt.checked = previous;
+                    status.textContent = 'This choice could not be saved. Try again.';
+                    return;
+                }
+                Object.keys(settings).forEach(key => delete settings[key]);
+                Object.assign(settings, nextSettings);
+                global.setStarPromptEnabled?.(settings.showStarPrompt);
+                status.textContent = '';
+            });
+        }
+
         function isOpen() {
             return !panel.hidden;
         }
@@ -598,6 +621,8 @@
             applySidebarSettings(documentRef);
             if (themeSelect) themeSelect.value = settings.theme;
             applyTheme(settings.theme, documentRef);
+            if (showStarPrompt) showStarPrompt.checked = true;
+            global.setStarPromptEnabled?.(true);
             if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
             if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
             renderLabelControls(documentRef);

@@ -56,6 +56,7 @@ function loadAppModule() {
         globalThis.fetchStarCount = fetchStarCount;
         globalThis.formatNumber = formatNumber;
         globalThis.initStarPrompt = initStarPrompt;
+        globalThis.setStarPromptEnabled = setStarPromptEnabled;
     })();`;
     vm.runInThisContext(wrappedCode, { filename: 'app.js' });
 }
@@ -171,5 +172,56 @@ describe('fetchStarCount', () => {
         await fetchStarCount();
         const wrap = document.getElementById('star-progress-wrap');
         expect(wrap.classList.contains('is-hidden')).toBe(true);
+    });
+});
+
+describe('star prompt setting', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        delete globalThis.GPUHotSettings;
+        loadAppModule();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        delete globalThis.GPUHotSettings;
+    });
+
+    it('does not fetch, schedule, or render when the setting is off', () => {
+        globalThis.GPUHotSettings = { settings: { showStarPrompt: false } };
+        const schedule = vi.spyOn(globalThis, 'setTimeout');
+
+        initStarPrompt();
+        vi.advanceTimersByTime(60000);
+
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+        expect(schedule).not.toHaveBeenCalled();
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
+    });
+
+    it('uses the existing default behavior when the setting is absent', () => {
+        globalThis.fetch.mockResolvedValue({ ok: false });
+
+        initStarPrompt();
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            'https://api.github.com/repos/psalias2006/gpu-hot',
+            expect.any(Object)
+        );
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
+
+        vi.advanceTimersByTime(60000);
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(false);
+    });
+
+    it('cancels a pending prompt and hides it when the setting turns off', () => {
+        globalThis.fetch.mockResolvedValue({ ok: false });
+        const cancel = vi.spyOn(globalThis, 'clearTimeout');
+        initStarPrompt();
+
+        setStarPromptEnabled(false);
+        vi.advanceTimersByTime(60000);
+
+        expect(cancel).toHaveBeenCalled();
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
     });
 });

@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initStarPrompt();
 });
 
+let starPromptTimerId = null;
+let starPromptBound = false;
+
 /**
  * Check current version and update availability
  */
@@ -60,7 +63,7 @@ function initStarPrompt() {
     const dismissKey = 'gpuHotStarPromptDismissed';
     const toast = document.getElementById('star-toast');
 
-    if (!toast) {
+    if (!toast || window.GPUHotSettings?.settings?.showStarPrompt === false) {
         return;
     }
 
@@ -72,31 +75,53 @@ function initStarPrompt() {
     const closeButton = toast.querySelector('[data-action="dismiss"]');
 
     const dismissPrompt = () => {
+        if (starPromptTimerId !== null) {
+            clearTimeout(starPromptTimerId);
+            starPromptTimerId = null;
+        }
         localStorage.setItem(dismissKey, 'true');
         toast.classList.add('is-hidden');
     };
 
-    if (starButton) {
+    if (starButton && !starPromptBound) {
         starButton.addEventListener('click', () => {
             window.open('https://github.com/psalias2006/gpu-hot', '_blank', 'noopener,noreferrer');
             dismissPrompt();
         });
     }
 
-    if (closeButton) {
+    if (closeButton && !starPromptBound) {
         closeButton.addEventListener('click', dismissPrompt);
     }
+    starPromptBound = true;
+
+    if (starPromptTimerId !== null) return;
 
     // Fire-and-forget: fetch star count async, don't block anything
     fetchStarCount().catch(() => {});
 
     // Show after 1 minute of active use
     const showDelayMs = 60 * 1000;
-    setTimeout(() => {
-        if (localStorage.getItem(dismissKey) !== 'true') {
+    starPromptTimerId = setTimeout(() => {
+        starPromptTimerId = null;
+        if (window.GPUHotSettings?.settings?.showStarPrompt !== false
+            && localStorage.getItem(dismissKey) !== 'true') {
             toast.classList.remove('is-hidden');
         }
     }, showDelayMs);
+}
+
+function setStarPromptEnabled(enabled) {
+    const toast = document.getElementById('star-toast');
+    if (!enabled) {
+        if (starPromptTimerId !== null) {
+            clearTimeout(starPromptTimerId);
+            starPromptTimerId = null;
+        }
+        toast?.classList.add('is-hidden');
+        return;
+    }
+    initStarPrompt();
 }
 
 /**

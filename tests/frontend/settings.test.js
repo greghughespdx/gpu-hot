@@ -15,7 +15,8 @@ const defaults = {
     'overview.memory': true,
     'overview.power': true,
     'overview.chart': true,
-    theme: 'default'
+    theme: 'default',
+    showStarPrompt: true
 };
 const tokensCss = readFileSync(join(testDir, '../../static/css/tokens.css'), 'utf8');
 
@@ -54,6 +55,7 @@ function panelMarkup() {
                 <option value="midnight">Midnight</option>
                 <option value="high-contrast">High contrast</option>
             </select>
+            <input id="settings-show-star-prompt" type="checkbox">
             <div id="settings-label-list"></div>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
@@ -90,6 +92,7 @@ describe('settings storage', () => {
         document.documentElement.style.removeProperty('--sidebar-width');
         delete window.updateSidebarLabels;
         delete window.applySidebarOrder;
+        delete window.setStarPromptEnabled;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -664,6 +667,39 @@ describe('settings panel', () => {
         expect(api.isOverviewMetricVisible('power')).toBe(true);
         expect(document.getElementById('settings-status').textContent)
             .toBe('This setting could not be saved. Try again.');
+    });
+
+    it('stores the star prompt choice and applies it immediately', () => {
+        const setEnabled = vi.fn();
+        window.setStarPromptEnabled = setEnabled;
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const control = document.getElementById('settings-show-star-prompt');
+
+        expect(control.checked).toBe(true);
+        control.click();
+
+        expect(api.settings.showStarPrompt).toBe(false);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings.showStarPrompt).toBe(false);
+        expect(setEnabled).toHaveBeenCalledWith(false);
+    });
+
+    it('reset restores the star prompt choice to on', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { showStarPrompt: false }
+        }));
+        const setEnabled = vi.fn();
+        window.setStarPromptEnabled = setEnabled;
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(document.getElementById('settings-show-star-prompt').checked).toBe(false);
+        document.getElementById('settings-reset').click();
+
+        expect(api.settings.showStarPrompt).toBe(true);
+        expect(document.getElementById('settings-show-star-prompt').checked).toBe(true);
+        expect(setEnabled).toHaveBeenCalledWith(true);
     });
 
     it('reset restores every metric and the chart column', () => {
