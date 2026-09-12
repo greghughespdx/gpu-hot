@@ -549,7 +549,7 @@ describe('All page ordering', () => {
     it('adds one grip per ordering label and consumes grip clicks without navigation', () => {
         const group = addDashboardNode('node-a', ['0']);
         const card = group.querySelector('.overview-gpu-card');
-        const nodeGrip = group.querySelector(':scope > .node-label > .dashboard-order-grip');
+        const nodeGrip = group.querySelector(':scope > .dashboard-order-grip');
         const gpuGrip = card.querySelector(':scope > .overview-gpu-name > .dashboard-order-grip');
         const navigate = vi.fn();
         card.addEventListener('click', navigate);
@@ -557,7 +557,7 @@ describe('All page ordering', () => {
         window.registerDashboardNode(group, 'node-a');
         window.registerDashboardGpu(card, 'node-a', '0');
 
-        expect(group.querySelectorAll(':scope > .node-label > .dashboard-order-grip')).toHaveLength(1);
+        expect(group.querySelectorAll(':scope > .dashboard-order-grip')).toHaveLength(1);
         expect(card.querySelectorAll(':scope > .overview-gpu-name > .dashboard-order-grip')).toHaveLength(1);
         expect(nodeGrip.dataset.dashboardOrderGrip).toBe('node');
         expect(gpuGrip.dataset.dashboardOrderGrip).toBe('gpu');
@@ -570,6 +570,17 @@ describe('All page ordering', () => {
         expect(down.defaultPrevented).toBe(true);
         expect(navigate).not.toHaveBeenCalled();
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('keeps the node grip when label binding replaces the label text', () => {
+        const group = addDashboardNode('node-a', ['0']);
+        const label = group.querySelector(':scope > .node-label');
+        const grip = group.querySelector(':scope > .dashboard-order-grip');
+
+        label.textContent = 'Renamed node';
+
+        expect(group.querySelector(':scope > .dashboard-order-grip')).toBe(grip);
+        expect(label.textContent).toBe('Renamed node');
     });
 
     it('ignores a second non-primary touch', () => {
@@ -626,6 +637,24 @@ describe('All page ordering', () => {
 });
 
 describe('ordering interaction styles', () => {
+    it('places each grip inside contiguous label padding', () => {
+        const layoutStyles = document.createElement('style');
+        layoutStyles.textContent = layoutCss;
+        document.head.appendChild(layoutStyles);
+        document.body.innerHTML = '<div id="overview-container"></div>';
+        const group = addDashboardNode('node-a', ['0']);
+        const nodeLabel = group.querySelector(':scope > .node-label');
+        const nodeGrip = group.querySelector(':scope > .dashboard-order-grip');
+        const gpuName = group.querySelector('.overview-gpu-name');
+        const gpuGrip = gpuName.querySelector(':scope > .dashboard-order-grip');
+
+        expect(getComputedStyle(nodeLabel).paddingLeft).toBe('18px');
+        expect(getComputedStyle(gpuName).paddingLeft).toBe('18px');
+        expect(getComputedStyle(nodeGrip).left).toBe('0px');
+        expect(getComputedStyle(gpuGrip).left).toBe('0px');
+        layoutStyles.remove();
+    });
+
     it('keeps resting cursors unchanged and shows grabbing across the ordering surface during a move', () => {
         const layoutStyles = document.createElement('style');
         const componentStyles = document.createElement('style');

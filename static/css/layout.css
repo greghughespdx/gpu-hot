@@ -279,15 +279,20 @@
     padding-left: var(--space-xs);
 }
 
+.node-group[data-layout-kind="node"] {
+    position: relative;
+}
+
 .node-group[data-layout-kind="node"]>.node-label,
 .overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
     position: relative;
+    padding-left: 18px;
 }
 
 .dashboard-order-grip {
     position: absolute;
     top: 0;
-    left: -18px;
+    left: 0;
     width: 12px;
     height: 18px;
     color: var(--text-tertiary);
@@ -299,21 +304,15 @@
     pointer-events: none;
 }
 
-.node-label:hover>.dashboard-order-grip,
-.overview-gpu-name:hover>.dashboard-order-grip,
+.node-group[data-layout-kind="node"]:hover>.dashboard-order-grip,
+.overview-gpu-card[data-layout-kind="gpu"]:hover>.overview-gpu-name>.dashboard-order-grip,
 .dashboard-order-grip:hover {
     opacity: 1;
     pointer-events: auto;
 }
 
 @media (hover: none) {
-    .node-group[data-layout-kind="node"]>.node-label,
-    .overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
-        padding-left: 18px;
-    }
-
     .dashboard-order-grip {
-        left: 0;
         opacity: 1;
         pointer-events: auto;
     }

@@ -221,13 +221,16 @@ function applyDashboardOrder(documentRef = document) {
 }
 
 function addDashboardOrderGrip(item, label, kind) {
-    if (!label || label.querySelector(':scope > .dashboard-order-grip')) return;
+    if (!label) return;
+    const host = kind === 'node' ? item : label;
+    if (host.querySelector(':scope > .dashboard-order-grip')) return;
     const grip = item.ownerDocument.createElement('span');
     grip.className = 'dashboard-order-grip';
     grip.dataset.dashboardOrderGrip = kind;
     grip.title = kind === 'node' ? 'Move this node' : 'Move this GPU';
     grip.setAttribute('aria-hidden', 'true');
-    label.prepend(grip);
+    if (kind === 'node') label.after(grip);
+    else label.prepend(grip);
 }
 
 function registerDashboardNode(group, nodeName) {
