@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -9,7 +10,7 @@ REPO_ROOT = Path(__file__).parents[2]
 
 
 def _service(compose_name):
-    compose = yaml.safe_load((REPO_ROOT / compose_name).read_text(encoding="ascii"))
+    compose = yaml.safe_load((REPO_ROOT / compose_name).read_text(encoding="utf-8"))
     return compose["services"]["gpu-hot"]
 
 
@@ -24,6 +25,35 @@ def test_base_amd_compose_needs_no_optional_device_or_rocm_path():
     assert service["init"] is True
     assert service["pid"] == "host"
     assert service["environment"]["NODE_NAME"] == "${NODE_NAME:-gpu-hot-node}"
+
+
+@pytest.mark.parametrize(
+    ("compose_name", "expected_environment"),
+    [
+        (
+            "docker-compose.yml",
+            [
+                "NVIDIA_VISIBLE_DEVICES=all",
+                "NVIDIA_DRIVER_CAPABILITIES=all",
+                "NODE_NAME=${HOSTNAME}",
+                "EXTERNAL_FANS=${EXTERNAL_FANS:-}",
+            ],
+        ),
+        (
+            "docker-compose.amd.yml",
+            {
+                "NODE_NAME": "${NODE_NAME:-gpu-hot-node}",
+                "EXTERNAL_FANS": "${EXTERNAL_FANS:-}",
+            },
+        ),
+    ],
+)
+def test_compose_file_passes_external_fan_mapping_to_the_container(
+    compose_name, expected_environment
+):
+    service = _service(compose_name)
+
+    assert service["environment"] == expected_environment
 
 
 def test_amd_smi_override_mounts_rocm_read_only_and_adds_devices():
