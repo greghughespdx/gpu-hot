@@ -2,7 +2,7 @@
  * Tests for static/js/ui.js
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Globals loaded by setup.js: switchToView, ensureGPUTab, removeGPUTab,
 // autoSwitchSingleGPU, currentTab, registeredGPUs, charts, chartData
@@ -114,6 +114,40 @@ describe('ensureGPUTab', () => {
         window.updateSidebarLabels();
 
         expect(document.querySelector('[data-view="gpu-node-a-1"]').textContent).toBe('RTX 4090');
+    });
+
+    it('keeps a custom GPU label above the selected scheme', () => {
+        const bindGpuLabel = vi.fn((button, nodeName, gpuId, fallback) => {
+            button.textContent = nodeName === 'node-a' && gpuId === '1'
+                ? 'Training card'
+                : fallback;
+        });
+        window.GPUHotSettings = {
+            settings: { sidebarLabel: 'index' },
+            registerGpuLabelTarget: () => {},
+            bindGpuLabel
+        };
+
+        ensureGPUTab('node-a-1', { name: 'NVIDIA GeForce RTX 4090' }, {
+            shouldUpdateDOM: false,
+            nodeName: 'node-a',
+            sourceGpuId: '1'
+        });
+        const button = document.querySelector('[data-view="gpu-node-a-1"]');
+        expect(button.textContent).toBe('Training card');
+        expect(bindGpuLabel).toHaveBeenNthCalledWith(
+            1, button, 'node-a', '1', '1'
+        );
+
+        window.GPUHotSettings.settings.sidebarLabel = 'short-name';
+        window.updateSidebarLabels();
+
+        expect(button.textContent).toBe('Training card');
+        expect(bindGpuLabel).toHaveBeenNthCalledWith(
+            2, button, 'node-a', '1', 'RTX 4090'
+        );
+        expect(button.dataset.gpuNode).toBe('node-a');
+        expect(button.dataset.sourceGpuId).toBe('1');
     });
 });
 
