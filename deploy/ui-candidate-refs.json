@@ -15,10 +15,18 @@
     {
       "name": "settings foundation",
       "commit": "fba714826f4f089f285446565c168873eb462abd"
+    },
+    {
+      "name": "connection details relocation",
+      "commit": "407670f0484d0e70f971cae91f1c09918dd4eb9d"
+    },
+    {
+      "name": "All page metric visibility",
+      "commit": "97a9b691ec8df61f7453e8187d7fbf2fe827b74f"
     }
   ],
   "upstream_review": {
-    "checked_at": "2026-09-12T08:18:00Z",
+    "checked_at": "2026-09-12T08:53:40Z",
     "latest_commit": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
     "relevant_issue": 26,
     "relevant_open_pull_requests": [74, 75]
