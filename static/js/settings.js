@@ -10,7 +10,18 @@
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
     const DEFAULT_SETTINGS = Object.freeze({});
-    const ALLOWED_SETTINGS = Object.freeze({});
+    const SIDEBAR_WIDTHS = Object.freeze({
+        standard: null,
+        comfortable: '72px',
+        wide: '96px'
+    });
+    const SIDEBAR_LABELS = Object.freeze(['index', 'node-index', 'short-name']);
+    const ALLOWED_SETTINGS = Object.freeze({
+        sidebarWidth: value => Object.prototype.hasOwnProperty.call(SIDEBAR_WIDTHS, value),
+        sidebarLabel: value => SIDEBAR_LABELS.includes(value),
+        sidebarAutoHide: value => typeof value === 'boolean',
+        sidebarPinned: value => typeof value === 'boolean'
+    });
 
     function defaultSettings() {
         return { ...DEFAULT_SETTINGS };
@@ -73,6 +84,22 @@
         }
     }
 
+    function applySidebarSettings(documentRef = global.document) {
+        if (!documentRef) return;
+        const root = documentRef.documentElement;
+        const width = SIDEBAR_WIDTHS[settings.sidebarWidth || 'standard'];
+        if (width) {
+            root.style.setProperty('--sidebar-width', width);
+        } else {
+            root.style.removeProperty('--sidebar-width');
+        }
+        root.classList.toggle('sidebar-auto-hide', settings.sidebarAutoHide === true);
+        root.classList.toggle('sidebar-pinned', settings.sidebarPinned === true);
+        if (typeof global.updateSidebarLabels === 'function') {
+            global.updateSidebarLabels();
+        }
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -80,9 +107,75 @@
         const overlay = documentRef.getElementById('settings-overlay');
         const panel = documentRef.getElementById('settings-panel');
         const status = documentRef.getElementById('settings-status');
+        const widthSelect = documentRef.getElementById('settings-sidebar-width');
+        const labelSelect = documentRef.getElementById('settings-sidebar-label');
+        const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
+        const pinned = documentRef.getElementById('settings-sidebar-pinned');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+
+        function syncSidebarControls() {
+            if (widthSelect) widthSelect.value = settings.sidebarWidth || 'standard';
+            if (labelSelect) labelSelect.value = settings.sidebarLabel || 'index';
+            if (autoHide) autoHide.checked = settings.sidebarAutoHide === true;
+            if (pinned) {
+                pinned.checked = settings.sidebarPinned === true;
+                pinned.disabled = settings.sidebarAutoHide !== true;
+            }
+        }
+
+        function saveSidebarSetting(key, value, control, previousValue) {
+            const nextSettings = { ...settings, [key]: value };
+            if (!saveSettings(nextSettings)) {
+                if (control.type === 'checkbox') control.checked = previousValue;
+                else control.value = previousValue;
+                status.textContent = 'This display change could not be saved. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(existingKey => delete settings[existingKey]);
+            Object.assign(settings, sanitizeSettings(nextSettings));
+            syncSidebarControls();
+            applySidebarSettings(documentRef);
+            status.textContent = '';
+        }
+
+        if (widthSelect) {
+            widthSelect.addEventListener('change', () => {
+                saveSidebarSetting(
+                    'sidebarWidth',
+                    widthSelect.value,
+                    widthSelect,
+                    settings.sidebarWidth || 'standard'
+                );
+            });
+        }
+        if (labelSelect) {
+            labelSelect.addEventListener('change', () => {
+                saveSidebarSetting(
+                    'sidebarLabel',
+                    labelSelect.value,
+                    labelSelect,
+                    settings.sidebarLabel || 'index'
+                );
+            });
+        }
+        if (autoHide) {
+            autoHide.addEventListener('change', () => {
+                saveSidebarSetting(
+                    'sidebarAutoHide', autoHide.checked, autoHide, settings.sidebarAutoHide === true
+                );
+            });
+        }
+        if (pinned) {
+            pinned.addEventListener('change', () => {
+                saveSidebarSetting(
+                    'sidebarPinned', pinned.checked, pinned, settings.sidebarPinned === true
+                );
+            });
+        }
+        syncSidebarControls();
+        applySidebarSettings(documentRef);
 
         function isOpen() {
             return !panel.hidden;
@@ -112,9 +205,14 @@
         closeButton.addEventListener('click', closePanel);
         overlay.addEventListener('click', closePanel);
         resetButton.addEventListener('click', () => {
-            status.textContent = resetSettings()
-                ? 'Settings reset.'
-                : 'Settings could not be reset. Try again.';
+            if (!resetSettings()) {
+                status.textContent = 'Settings could not be reset. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(key => delete settings[key]);
+            syncSidebarControls();
+            applySidebarSettings(documentRef);
+            status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
             if (!isOpen()) return;
@@ -144,6 +242,7 @@
     }
 
     const settings = loadSettings();
+    if (global.document) applySidebarSettings(global.document);
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
         STORAGE_VERSION,
@@ -151,6 +250,7 @@
         loadSettings,
         saveSettings,
         resetSettings,
+        applySidebarSettings,
         initSettingsPanel
     });
 

@@ -8,6 +8,7 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
 const template = readFileSync(join(testDir, '../../templates/index.html'), 'utf8');
 const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
+const layoutCss = readFileSync(join(testDir, '../../static/css/layout.css'), 'utf8');
 
 function panelMarkup() {
     document.body.innerHTML = `
@@ -15,6 +16,18 @@ function panelMarkup() {
         <div id="settings-overlay" hidden></div>
         <aside id="settings-panel" hidden inert aria-hidden="true">
             <button id="settings-close">Close</button>
+            <select id="settings-sidebar-width">
+                <option value="standard">Standard</option>
+                <option value="comfortable">Comfortable</option>
+                <option value="wide">Wide</option>
+            </select>
+            <select id="settings-sidebar-label">
+                <option value="index">Index</option>
+                <option value="node-index">Node and index</option>
+                <option value="short-name">Short name</option>
+            </select>
+            <input id="settings-sidebar-auto-hide" type="checkbox">
+            <input id="settings-sidebar-pinned" type="checkbox">
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -31,6 +44,9 @@ describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
+        document.documentElement.className = '';
+        document.documentElement.style.removeProperty('--sidebar-width');
+        delete window.updateSidebarLabels;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -75,11 +91,37 @@ describe('settings storage', () => {
 
     it('stores only allowlisted settings in a versioned envelope', () => {
         const api = loadSettingsModule();
-        expect(api.saveSettings({ unknown: 'value' })).toBe(true);
+        expect(api.saveSettings({ sidebarWidth: 'wide', unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: { sidebarWidth: 'wide' }
         });
+    });
+
+    it('drops invalid left bar settings', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                sidebarWidth: 'giant',
+                sidebarLabel: 'serial',
+                sidebarAutoHide: 'yes',
+                sidebarPinned: 1
+            }
+        }));
+        expect(loadSettingsModule().settings).toEqual({});
+    });
+
+    it('applies stored width and visibility before the page is ready', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarWidth: 'comfortable', sidebarAutoHide: true, sidebarPinned: true }
+        }));
+
+        loadSettingsModule();
+
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('72px');
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -113,6 +155,9 @@ describe('settings panel', () => {
     beforeEach(() => {
         localStorage.clear();
         panelMarkup();
+        document.documentElement.className = '';
+        document.documentElement.style.removeProperty('--sidebar-width');
+        delete window.updateSidebarLabels;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -187,6 +232,86 @@ describe('settings panel', () => {
         expect(document.getElementById('settings-panel').hidden).toBe(false);
     });
 
+    it('persists width and label choices and applies the width token', () => {
+        const api = loadSettingsModule();
+        window.updateSidebarLabels = vi.fn();
+        api.initSettingsPanel();
+        window.updateSidebarLabels.mockClear();
+        const width = document.getElementById('settings-sidebar-width');
+        const label = document.getElementById('settings-sidebar-label');
+
+        width.value = 'wide';
+        width.dispatchEvent(new Event('change'));
+        window.updateSidebarLabels.mockClear();
+        label.value = 'node-index';
+        label.dispatchEvent(new Event('change'));
+
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('96px');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings).toEqual({
+            sidebarWidth: 'wide',
+            sidebarLabel: 'node-index'
+        });
+        expect(window.updateSidebarLabels).toHaveBeenCalledOnce();
+    });
+
+    it('auto-hides only when enabled and lets the panel pin it open', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const autoHide = document.getElementById('settings-sidebar-auto-hide');
+        const pinned = document.getElementById('settings-sidebar-pinned');
+
+        expect(pinned.disabled).toBe(true);
+        autoHide.checked = true;
+        autoHide.dispatchEvent(new Event('change'));
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(pinned.disabled).toBe(false);
+
+        pinned.checked = true;
+        pinned.dispatchEvent(new Event('change'));
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+    });
+
+    it('restores the default bar after reset', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                sidebarWidth: 'wide',
+                sidebarLabel: 'short-name',
+                sidebarAutoHide: true,
+                sidebarPinned: true
+            }
+        }));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        document.getElementById('settings-reset').click();
+
+        expect(document.getElementById('settings-sidebar-width').value).toBe('standard');
+        expect(document.getElementById('settings-sidebar-label').value).toBe('index');
+        expect(document.getElementById('settings-sidebar-auto-hide').checked).toBe(false);
+        expect(document.getElementById('settings-sidebar-pinned').disabled).toBe(true);
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('');
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(false);
+        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+    });
+
+    it('keeps the current width when storage rejects the change', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+        const width = document.getElementById('settings-sidebar-width');
+
+        width.value = 'wide';
+        width.dispatchEvent(new Event('change'));
+
+        expect(width.value).toBe('standard');
+        expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('');
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This display change could not be saved. Try again.');
+    });
+
     it('explains a reset failure and keeps the panel open', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -225,6 +350,17 @@ describe('settings page contract', () => {
         expect(panel.getAttribute('aria-labelledby')).toBe('settings-title');
     });
 
+    it('offers every left bar option inside settings', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        expect(Array.from(parsed.getElementById('settings-sidebar-width').options)
+            .map(option => option.value)).toEqual(['standard', 'comfortable', 'wide']);
+        expect(Array.from(parsed.getElementById('settings-sidebar-label').options)
+            .map(option => option.value)).toEqual(['index', 'node-index', 'short-name']);
+        expect(parsed.getElementById('settings-sidebar-auto-hide')).not.toBeNull();
+        expect(parsed.getElementById('settings-sidebar-pinned')).not.toBeNull();
+        expect(parsed.querySelector('.sidebar #settings-sidebar-pinned')).toBeNull();
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -234,6 +370,16 @@ describe('settings page contract', () => {
     it('keeps the hidden panel out of layout', () => {
         expect(componentsCss).toMatch(
             /\.settings-panel\[hidden\] \{\s*display: none;\s*\}/
+        );
+    });
+
+    it('uses the shared width token and keeps auto-hide off on phones', () => {
+        expect(layoutCss).toMatch(/\.sidebar \{[\s\S]*?width: var\(--sidebar-width\);/);
+        expect(layoutCss).toMatch(
+            /html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.sidebar \{[\s\S]*?translateX\(calc\(-100% \+ 8px\)\)/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?\.sidebar \{[\s\S]*?transform: none !important;/
         );
     });
 });

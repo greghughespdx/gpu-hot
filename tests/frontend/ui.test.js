@@ -52,6 +52,7 @@ describe('ensureGPUTab', () => {
         setupDOM();
         global.registeredGPUs = new Set();
         global.charts = {};
+        window.GPUHotSettings = { settings: {} };
         for (const key of Object.keys(chartData)) {
             delete chartData[key];
         }
@@ -89,6 +90,30 @@ describe('ensureGPUTab', () => {
 
         const btn = document.querySelector('[data-view="gpu-server-2-0"]');
         expect(btn.textContent).toBe('0');
+    });
+
+    it('shows node and index when that label scheme is selected', () => {
+        window.GPUHotSettings.settings.sidebarLabel = 'node-index';
+        ensureGPUTab('gpu-server-2-0', { name: 'AMD Radeon Pro V620' }, false);
+
+        expect(document.querySelector('[data-view="gpu-gpu-server-2-0"]').textContent)
+            .toBe('gpu-server-2 0');
+    });
+
+    it('shows a short model name when that label scheme is selected', () => {
+        window.GPUHotSettings.settings.sidebarLabel = 'short-name';
+        ensureGPUTab('node-a-1', { name: 'AMD Radeon Pro V620' }, false);
+
+        expect(document.querySelector('[data-view="gpu-node-a-1"]').textContent).toBe('V620');
+    });
+
+    it('updates existing labels when the setting changes', () => {
+        ensureGPUTab('node-a-1', { name: 'NVIDIA GeForce RTX 4090' }, false);
+        window.GPUHotSettings.settings.sidebarLabel = 'short-name';
+
+        window.updateSidebarLabels();
+
+        expect(document.querySelector('[data-view="gpu-node-a-1"]').textContent).toBe('RTX 4090');
     });
 });
 

@@ -1054,6 +1054,41 @@
     color: var(--text-secondary);
 }
 
+.settings-group {
+    display: grid;
+    gap: var(--space-md);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.settings-group legend {
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.settings-field,
+.settings-option {
+    display: grid;
+    gap: var(--space-sm);
+    color: var(--text-primary);
+}
+
+.settings-option {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+}
+
+.settings-field select {
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
 .settings-reset {
     margin-top: var(--space-md);
     padding: var(--space-sm) var(--space-md);
