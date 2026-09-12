@@ -113,6 +113,7 @@ for (const file of loadOrder) {
         if (typeof formatOverviewCount !== 'undefined') globalThis.formatOverviewCount = formatOverviewCount;
         if (typeof formatOverviewText !== 'undefined') globalThis.formatOverviewText = formatOverviewText;
         if (typeof updateOverviewExtraMetrics !== 'undefined') globalThis.updateOverviewExtraMetrics = updateOverviewExtraMetrics;
+        if (typeof refreshVisibleOverviewExtraMetrics !== 'undefined') globalThis.refreshVisibleOverviewExtraMetrics = refreshVisibleOverviewExtraMetrics;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
         if (typeof gpuCardElementFromMarkup !== 'undefined') globalThis.gpuCardElementFromMarkup = gpuCardElementFromMarkup;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;

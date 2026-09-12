@@ -347,6 +347,23 @@ describe('opt-in All page metrics', () => {
         expect(clock.querySelector('.overview-metric-value').textContent).toBe('Not reported');
     });
 
+    it('does not look up extra metric cells when every extra is off', () => {
+        window.GPUHotSettings.isOverviewMetricVisible = () => false;
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, '0', {
+            name: 'Test GPU', memory_total: 1, fan_speed: 60
+        });
+        const originalQuerySelector = card.querySelector.bind(card);
+        let lookupCount = 0;
+        card.querySelector = (...args) => {
+            lookupCount += 1;
+            return originalQuerySelector(...args);
+        };
+
+        updateOverviewExtraMetrics(card, '0', { fan_speed: 70 });
+
+        expect(lookupCount).toBe(0);
+    });
+
     it('renders every selected payload metric as a card cell', () => {
         const card = gpuCardElementFromMarkup(createCompactOverviewCard, 'node-a-0', {
             name: 'Test GPU', utilization: 75, temperature: 62,

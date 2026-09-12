@@ -789,30 +789,91 @@ describe('settings panel', () => {
         expect(api.visibleOverviewMetricCount()).toBe(4);
     });
 
-    it('persists selected extras and extends the Behind metrics mask', () => {
+    it('persists selected extras and measures the Behind metrics mask', () => {
         document.body.insertAdjacentHTML('beforeend', `
             <div class="overview-gpu-card">
-                <div data-overview-metric="fan-speed" hidden></div>
-                <div data-overview-metric="graphics-clock" hidden></div>
+                <div class="overview-metric" data-overview-metric="utilization"></div>
+                <div class="overview-metric" data-overview-metric="temperature"></div>
+                <div class="overview-metric" data-overview-metric="memory"></div>
+                <div class="overview-metric" data-overview-metric="power"></div>
+                <div class="overview-metric" data-overview-metric="fan-speed" hidden></div>
+                <div class="overview-metric" data-overview-metric="graphics-clock" hidden></div>
+                <div class="overview-mini-chart"></div>
             </div>
         `);
         const api = loadSettingsModule();
         api.initSettingsPanel();
 
+        const card = document.querySelectorAll('.overview-gpu-card')[1];
+        const metrics = card.querySelectorAll('[data-overview-metric]');
+        const rectangles = [
+            [100, 172], [212, 284], [324, 396], [436, 508], [548, 620], [660, 760]
+        ];
+        metrics.forEach((metric, index) => {
+            metric.getBoundingClientRect = () => ({
+                left: rectangles[index][0], right: rectangles[index][1], top: 10
+            });
+        });
+        card.querySelector('.overview-mini-chart').getBoundingClientRect = () => ({ left: 100 });
+
         document.querySelector('[data-overview-setting="fan-speed"]').click();
         document.querySelector('[data-overview-setting="graphics-clock"]').click();
 
-        const cards = document.querySelectorAll('.overview-gpu-card');
-        const card = cards[cards.length - 1];
         expect(api.visibleOverviewMetricCount()).toBe(6);
         expect(card.dataset.overviewVisibleMetrics).toBe('6');
         expect(card.classList.contains('overview-has-extra-metrics')).toBe(true);
         expect(card.querySelector('[data-overview-metric="fan-speed"]').hidden).toBe(false);
         expect(card.querySelector('[data-overview-metric="graphics-clock"]').hidden).toBe(false);
         expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
-            .toContain('var(--overview-metric-width) + var(--overview-metric-gap)');
+            .toBe('560px');
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end')).toBe('660px');
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
             .toMatchObject({ 'overview.fan-speed': true, 'overview.graphics-clock': true });
+    });
+
+    it('removes the Behind metrics mask when visible metrics wrap', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { 'overview.fan-speed': true }
+        }));
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="overview-gpu-card">
+                <div class="overview-metric" data-overview-metric="utilization"></div>
+                <div class="overview-metric" data-overview-metric="temperature"></div>
+                <div class="overview-metric" data-overview-metric="memory"></div>
+                <div class="overview-metric" data-overview-metric="power"></div>
+                <div class="overview-metric" data-overview-metric="fan-speed"></div>
+                <div class="overview-mini-chart"></div>
+            </div>
+        `);
+        const api = loadSettingsModule();
+        const card = document.querySelectorAll('.overview-gpu-card')[1];
+        const metrics = card.querySelectorAll('.overview-metric');
+        metrics.forEach((metric, index) => {
+            metric.getBoundingClientRect = () => ({ left: index * 80, right: index * 80 + 72,
+                top: index === metrics.length - 1 ? 50 : 10 });
+        });
+        card.querySelector('.overview-mini-chart').getBoundingClientRect = () => ({ left: 0 });
+
+        api.applyOverviewMetricVisibility(document);
+
+        expect(card.querySelector('.overview-mini-chart').style.maskImage).toBe('none');
+    });
+
+    it('fills a newly enabled metric from the latest GPU payload immediately', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, 'fresh-0', {
+            name: 'Test GPU', memory_total: 1, fan_speed: 67
+        });
+        document.body.appendChild(card);
+        expect(card.querySelector('[data-overview-extra="fan-speed"] .overview-metric-value').textContent)
+            .toBe('Not reported');
+
+        document.querySelector('[data-overview-setting="fan-speed"]').click();
+
+        expect(card.querySelector('[data-overview-extra="fan-speed"] .overview-metric-value').textContent)
+            .toBe('67%');
     });
 
     it('keeps the previous choice when storage rejects a change', () => {

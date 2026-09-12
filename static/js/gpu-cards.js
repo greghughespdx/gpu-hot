@@ -66,6 +66,7 @@ const OVERVIEW_EXTRA_METRIC_DEFINITIONS = Object.freeze([
     { id: 'decoder-load', label: 'DECODER', value: gpu => formatOverviewNumber(gpu.decoder_utilization, '%') },
     { id: 'performance-state', label: 'PERFORMANCE', value: gpu => formatOverviewText(gpu.performance_state) }
 ]);
+const latestOverviewExtraMetrics = new Map();
 
 function formatOverviewNumber(value, suffix = '', prefix = '') {
     if (value === null || value === undefined || value === '') return 'Not reported';
@@ -105,13 +106,29 @@ function overviewExtraMetricsMarkup(gpuId) {
 }
 
 function updateOverviewExtraMetrics(root, gpuId, gpuInfo, context = {}) {
+    let updated = false;
     OVERVIEW_EXTRA_METRIC_DEFINITIONS.forEach(metric => {
+        if (window.GPUHotSettings?.isOverviewMetricVisible?.(metric.id) !== true) return;
         const cell = root.nodeType === 9
             ? root.getElementById(`overview-extra-${metric.id}-${gpuId}`)?.closest('[data-overview-extra]')
             : root.querySelector(`[data-overview-extra="${metric.id}"]`);
-        if (!cell || cell.hidden) return;
+        if (!cell) return;
         const element = cell.querySelector('.overview-metric-value');
-        if (element) element.textContent = metric.value(gpuInfo, context);
+        if (element) {
+            element.textContent = metric.value(gpuInfo, context);
+            updated = true;
+        }
+    });
+    if (updated) window.GPUHotSettings?.scheduleOverviewBehindMasks?.();
+}
+
+function rememberOverviewExtraMetrics(gpuId, gpuInfo, context = {}) {
+    latestOverviewExtraMetrics.set(String(gpuId), { gpuInfo, context });
+}
+
+function refreshVisibleOverviewExtraMetrics(root = document) {
+    latestOverviewExtraMetrics.forEach(({ gpuInfo, context }, gpuId) => {
+        updateOverviewExtraMetrics(root, gpuId, gpuInfo, context);
     });
 }
 
@@ -129,6 +146,7 @@ function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo, context = {}) {
     if (title) title.textContent = `GPU ${gpuId}`;
     const model = card.querySelector('.gpu-detail-name, .overview-gpu-name p');
     if (model) model.textContent = String(gpuInfo.name || 'Unknown');
+    rememberOverviewExtraMetrics(gpuId, gpuInfo, context);
     updateOverviewExtraMetrics(card, gpuId, gpuInfo, context);
     card.removeAttribute('onclick');
     return card;
@@ -358,6 +376,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
 
 // Update enhanced overview card
 function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true, context = {}) {
+    rememberOverviewExtraMetrics(gpuId, gpuInfo, context);
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
     const memory_used = getMetricValue(gpuInfo, 'memory_used', 0);

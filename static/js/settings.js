@@ -229,21 +229,47 @@
             .length;
     }
 
+    function resetOverviewBehindMask(card, chart) {
+        card.style.removeProperty('--overview-chart-behind-fade-start');
+        card.style.removeProperty('--overview-chart-behind-fade-end');
+        chart?.style.removeProperty('-webkit-mask-image');
+        chart?.style.removeProperty('mask-image');
+    }
+
     function setOverviewBehindMask(card, visibleCount) {
+        const chart = card.querySelector('.overview-mini-chart');
         if (visibleCount <= 4) {
-            card.style.removeProperty('--overview-chart-behind-fade-start');
-            card.style.removeProperty('--overview-chart-behind-fade-end');
+            resetOverviewBehindMask(card, chart);
             return;
         }
-        const beforeLast = Array.from(
-            { length: visibleCount - 1 },
-            () => 'var(--overview-metric-width) + var(--overview-metric-gap)'
-        ).join(' + ');
-        card.style.setProperty('--overview-chart-behind-fade-start', `calc(${beforeLast})`);
-        card.style.setProperty(
-            '--overview-chart-behind-fade-end',
-            'calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width))'
-        );
+        const visibleMetrics = Array.from(card.querySelectorAll('.overview-metric'))
+            .filter(metric => !metric.hidden);
+        if (!chart || visibleMetrics.length === 0) return;
+        const firstMetric = visibleMetrics[0].getBoundingClientRect();
+        const lastMetric = visibleMetrics[visibleMetrics.length - 1].getBoundingClientRect();
+        if (Math.abs(lastMetric.top - firstMetric.top) > 1) {
+            card.style.removeProperty('--overview-chart-behind-fade-start');
+            card.style.removeProperty('--overview-chart-behind-fade-end');
+            chart.style.setProperty('-webkit-mask-image', 'none');
+            chart.style.setProperty('mask-image', 'none');
+            return;
+        }
+        resetOverviewBehindMask(card, chart);
+        const chartLeft = chart.getBoundingClientRect().left;
+        card.style.setProperty('--overview-chart-behind-fade-start', `${lastMetric.left - chartLeft}px`);
+        card.style.setProperty('--overview-chart-behind-fade-end', `${lastMetric.right - chartLeft}px`);
+    }
+
+    let overviewMaskFrame = null;
+    function scheduleOverviewBehindMasks(documentRef = global.document) {
+        if (!documentRef || overviewMaskFrame !== null) return;
+        overviewMaskFrame = global.requestAnimationFrame(() => {
+            overviewMaskFrame = null;
+            const visibleCount = visibleOverviewMetricCount();
+            documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
+                setOverviewBehindMask(card, visibleCount);
+            });
+        });
     }
 
     function applyOverviewMetricVisibility(documentRef = global.document) {
@@ -254,6 +280,7 @@
                 element.hidden = !visible;
             });
         });
+        global.refreshVisibleOverviewExtraMetrics?.(documentRef);
         documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
             card.classList.toggle('overview-chart-hidden', !isOverviewMetricVisible('chart'));
             const visibleCount = visibleOverviewMetricCount();
@@ -329,6 +356,9 @@
         root.classList.toggle('overview-chart-width-wide', selected === 'wide');
         root.classList.toggle('overview-chart-width-full', selected === 'full');
         root.classList.toggle('overview-chart-width-behind', selected === 'behind');
+        documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
+            setOverviewBehindMask(card, visibleOverviewMetricCount());
+        });
         if (resize) resizeOverviewMiniCharts(documentRef);
     }
 
@@ -841,6 +871,7 @@
         isOverviewMetricVisible,
         visibleOverviewMetricCount,
         applyOverviewMetricVisibility,
+        scheduleOverviewBehindMasks,
         applyOverviewMiniChartWidth,
         applyOverviewMiniChartBehindDim,
         applySidebarSettings,
