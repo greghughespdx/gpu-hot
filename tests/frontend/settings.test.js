@@ -269,6 +269,19 @@ describe('settings panel', () => {
         expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(true);
     });
 
+    it('does not keep an unsupported chart width from the change event', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const select = document.getElementById('settings-overview-chart-width');
+
+        select.value = 'unsupported';
+        select.dispatchEvent(new Event('change'));
+
+        expect(select.value).toBe('auto');
+        expect(api.settings).toEqual({});
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings).toEqual({});
+    });
+
     it('restores automatic width on reset', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,

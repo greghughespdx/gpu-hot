@@ -111,13 +111,19 @@
             chartWidth.value = settings.overviewMiniChartWidth || 'auto';
             chartWidth.addEventListener('change', () => {
                 const previous = settings.overviewMiniChartWidth || 'auto';
-                const requested = chartWidth.value;
-                if (!saveSettings({ ...settings, overviewMiniChartWidth: requested })) {
+                const nextSettings = sanitizeSettings({
+                    ...settings,
+                    overviewMiniChartWidth: chartWidth.value
+                });
+                const requested = nextSettings.overviewMiniChartWidth || 'auto';
+                if (!saveSettings(nextSettings)) {
                     chartWidth.value = previous;
                     status.textContent = 'This display change could not be saved. Try again.';
                     return;
                 }
-                settings.overviewMiniChartWidth = requested;
+                Object.keys(settings).forEach(key => delete settings[key]);
+                Object.assign(settings, nextSettings);
+                chartWidth.value = requested;
                 applyOverviewMiniChartWidth(requested, documentRef);
                 status.textContent = '';
             });
