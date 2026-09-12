@@ -74,6 +74,7 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleSocketOpen = handleSocketOpen;
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
+        globalThis.handleSocketMessage = handleSocketMessage;
         globalThis.attemptReconnect = attemptReconnect;
         globalThis.getClusterProcesses = getClusterProcesses;
         globalThis.handleClusterData = handleClusterData;
@@ -173,6 +174,65 @@ describe('getClusterProcesses', () => {
 
         expect(document.querySelectorAll('.process-item')).toHaveLength(0);
         expect(document.getElementById('process-count').textContent).toBe('0');
+    });
+});
+
+describe('handleSocketMessage', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => {
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+        vi.restoreAllMocks();
+        delete globalThis.initOverviewMiniChart;
+        delete globalThis.updateOverviewCard;
+        delete globalThis.updateGPUSystemCharts;
+    });
+
+    it('binds single-node processes to the payload node and bare GPU id', () => {
+        loadSocketHandlers();
+        document.body.insertAdjacentHTML('beforeend', '<div id="overview-container"></div>');
+
+        const animationFrames = [];
+        vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(callback => {
+            animationFrames.push(callback);
+            return animationFrames.length;
+        });
+        vi.spyOn(globalThis, 'createEnhancedOverviewCard').mockReturnValue(
+            '<div data-gpu-id="0"></div>'
+        );
+        globalThis.initOverviewMiniChart = vi.fn();
+        globalThis.updateOverviewCard = vi.fn();
+        vi.spyOn(globalThis, 'ensureGPUTab').mockImplementation(() => {});
+        globalThis.updateGPUSystemCharts = vi.fn();
+        vi.spyOn(globalThis, 'autoSwitchSingleGPU').mockImplementation(() => {});
+        const updateProcessesSpy = vi.spyOn(globalThis, 'updateProcesses')
+            .mockImplementation(() => {});
+
+        handleSocketMessage({
+            data: JSON.stringify({
+                node_name: 'render-1',
+                gpus: {
+                    '0': {
+                        utilization: 25,
+                        temperature: 50,
+                        memory_used: 100,
+                        memory_total: 1000,
+                        power_draw: 40
+                    }
+                },
+                processes: [{ name: 'worker', pid: '77', memory: 100, gpu_id: '0' }]
+            })
+        });
+        animationFrames.shift()();
+
+        expect(updateProcessesSpy).toHaveBeenCalledWith([{
+            name: 'worker',
+            pid: '77',
+            memory: 100,
+            gpu_id: '0',
+            node_name: 'render-1',
+            gpu_key: '0'
+        }]);
     });
 });
 
