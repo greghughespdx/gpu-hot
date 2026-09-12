@@ -1509,7 +1509,7 @@ describe('settings page contract', () => {
 
     it('layers Behind metrics only on desktop and respects the visible metric count', () => {
         expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.3;/);
-        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: 32px;/);
+        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: 64px;/);
         expect(tokensCss).toMatch(
             /--overview-chart-behind-fade-start: calc\([^;]*var\(--overview-chart-behind-lead-in\)\);/
         );

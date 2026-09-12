@@ -48,7 +48,7 @@
     --spark-stroke: rgba(238, 240, 244, 0.6);
     --spark-stroke-secondary: rgba(238, 240, 244, 0.35);
     --overview-chart-behind-dim: 0.3;
-    --overview-chart-behind-lead-in: 32px;
+    --overview-chart-behind-lead-in: 64px;
 
     /* Bullet bar */
     --bar-track: rgba(255, 255, 255, 0.07);
