@@ -3,6 +3,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const testDir = dirname(fileURLToPath(import.meta.url));
+const layoutCss = readFileSync(join(testDir, '../../static/css/layout.css'), 'utf8');
 
 // Globals loaded by setup.js: switchToView, ensureGPUTab, removeGPUTab,
 // autoSwitchSingleGPU, currentTab, registeredGPUs, charts, chartData
@@ -203,20 +209,29 @@ describe('sidebar ordering', () => {
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
     });
 
-    it('does not write when a sidebar drag returns to its starting position', () => {
+    it('suppresses navigation without writing when a sidebar drag returns to its starting position', () => {
         const first = addOrderedGpu('node-a', '0');
-        addOrderedGpu('node-a', '1');
-        document.elementFromPoint.mockReturnValue(first);
+        const second = addOrderedGpu('node-a', '1');
+        second.getBoundingClientRect = () => ({ top: 40, height: 40, left: 0, width: 40 });
+        document.elementFromPoint
+            .mockReturnValueOnce(second)
+            .mockReturnValueOnce(second);
 
         dispatchPointer(first, 'pointerdown', {
             pointerId: 12, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
         });
         dispatchPointer(first, 'pointermove', {
-            pointerId: 12, pointerType: 'mouse', clientX: 30, clientY: 10
+            pointerId: 12, pointerType: 'mouse', clientX: 10, clientY: 70
+        });
+        dispatchPointer(first, 'pointermove', {
+            pointerId: 12, pointerType: 'mouse', clientX: 10, clientY: 45
         });
         dispatchPointer(first, 'pointerup', { pointerId: 12, pointerType: 'mouse' });
 
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        first.click();
+        expect(global.currentTab).toBe('overview');
     });
 
     it('keeps cross-node movement on the node-level All page control', () => {
@@ -250,6 +265,25 @@ describe('sidebar ordering', () => {
             pointerId: 3, pointerType: 'touch', clientX: 10, clientY: 70
         });
         dispatchPointer(first, 'pointercancel', { pointerId: 3, pointerType: 'touch' });
+
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('ignores a second non-primary touch in the left bar', () => {
+        const first = addOrderedGpu('node-a', '0');
+        const second = addOrderedGpu('node-a', '1');
+        second.getBoundingClientRect = () => ({ top: 40, height: 40, left: 0, width: 40 });
+        document.elementFromPoint.mockReturnValue(second);
+
+        dispatchPointer(first, 'pointerdown', {
+            pointerId: 31, pointerType: 'touch', isPrimary: false,
+            button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(first, 'pointermove', {
+            pointerId: 31, pointerType: 'touch', clientX: 10, clientY: 70
+        });
+        dispatchPointer(first, 'pointerup', { pointerId: 31, pointerType: 'touch' });
 
         expect(gpuButtonKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
@@ -413,15 +447,17 @@ describe('All page ordering', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
-        document.elementFromPoint.mockReturnValue(second);
+        document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(first, 'pointerdown', {
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerdown', {
             pointerId: 22, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first, 'pointermove', {
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointermove', {
             pointerId: 22, pointerType: 'touch', clientX: 170, clientY: 10
         });
-        dispatchPointer(first, 'pointercancel', { pointerId: 22, pointerType: 'touch' });
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointercancel', {
+            pointerId: 22, pointerType: 'touch'
+        });
 
         expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
@@ -456,19 +492,50 @@ describe('All page ordering', () => {
         expect(document.activeElement).toBe(first);
     });
 
-    it('does not write when a drag finishes in its starting position', () => {
+    it('suppresses navigation without writing when an All page drag returns to its starting position', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
-        const first = group.querySelector('.overview-gpu-card');
-        document.elementFromPoint.mockReturnValue(first);
+        const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
+        const firstName = first.querySelector('.overview-gpu-name');
+        second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
+        document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
+        const navigate = vi.fn();
+        first.addEventListener('click', navigate);
 
-        dispatchPointer(first, 'pointerdown', {
+        dispatchPointer(firstName, 'pointerdown', {
             pointerId: 23, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first, 'pointermove', {
-            pointerId: 23, pointerType: 'mouse', clientX: 30, clientY: 10
+        dispatchPointer(firstName, 'pointermove', {
+            pointerId: 23, pointerType: 'mouse', clientX: 170, clientY: 10
         });
-        dispatchPointer(first, 'pointerup', { pointerId: 23, pointerType: 'mouse' });
+        dispatchPointer(firstName, 'pointermove', {
+            pointerId: 23, pointerType: 'mouse', clientX: 110, clientY: 10
+        });
+        dispatchPointer(firstName, 'pointerup', { pointerId: 23, pointerType: 'mouse' });
 
+        expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        first.click();
+        expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('starts pointer ordering only from a node label or GPU name', () => {
+        const group = addDashboardNode('node-a', ['0', '1']);
+        const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
+        const metrics = document.createElement('div');
+        metrics.className = 'overview-metrics';
+        first.appendChild(metrics);
+        second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
+        document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
+
+        dispatchPointer(metrics, 'pointerdown', {
+            pointerId: 24, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(metrics, 'pointermove', {
+            pointerId: 24, pointerType: 'touch', clientX: 170, clientY: 10
+        });
+        dispatchPointer(metrics, 'pointerup', { pointerId: 24, pointerType: 'touch' });
+
+        expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
     });
 
@@ -476,16 +543,18 @@ describe('All page ordering', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
-        document.elementFromPoint.mockReturnValue(second);
+        document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(first, 'pointerdown', {
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerdown', {
             pointerId: 30, pointerType: 'touch', isPrimary: false,
             button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first, 'pointermove', {
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointermove', {
             pointerId: 30, pointerType: 'touch', clientX: 170, clientY: 10
         });
-        dispatchPointer(first, 'pointerup', { pointerId: 30, pointerType: 'touch' });
+        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerup', {
+            pointerId: 30, pointerType: 'touch'
+        });
 
         expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
@@ -519,6 +588,19 @@ describe('All page ordering', () => {
         window.applyDashboardOrder(document);
 
         expect(dashboardKeys()).toEqual([orderKey('reset-a', '0'), orderKey('reset-b', '0')]);
+    });
+});
+
+describe('ordering interaction styles', () => {
+    it('keeps resting cursors unchanged and shows grabbing only during a move', () => {
+        const grabTargets = layoutCss.match(
+            /\.node-group\[data-layout-kind="node"\][\s\S]*?\{([\s\S]*?)\}/
+        )?.[1];
+        const activeMove = layoutCss.match(/\.dashboard-ordering\s*\{([\s\S]*?)\}/)?.[1];
+
+        expect(grabTargets).toContain('touch-action: none');
+        expect(grabTargets).not.toContain('cursor: grab');
+        expect(activeMove).toContain('cursor: grabbing');
     });
 });
 

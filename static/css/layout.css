@@ -281,7 +281,6 @@
 
 .node-group[data-layout-kind="node"]>.node-label,
 .overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
-    cursor: grab;
     touch-action: none;
 }
 

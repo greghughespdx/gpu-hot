@@ -99,15 +99,14 @@ function finishSidebarMove(nav, cancelled) {
     if (cancelled) restoreVisibleSidebarOrder(nav, initialOrder);
     else if (moved) {
         const finalOrder = sidebarButtons(nav).map(entry => entry.dataset.sidebarOrderKey);
-        if (JSON.stringify(finalOrder) === JSON.stringify(initialOrder)) {
-            activeSidebarMove.moved = false;
-        } else if (!persistVisibleSidebarOrder(nav)) {
+        const orderChanged = JSON.stringify(finalOrder) !== JSON.stringify(initialOrder);
+        if (orderChanged && !persistVisibleSidebarOrder(nav)) {
             restoreVisibleSidebarOrder(nav, initialOrder);
-        } else {
+        } else if (orderChanged) {
             applyDashboardOrder(nav.ownerDocument);
         }
     }
-    if (activeSidebarMove.moved && !cancelled) {
+    if (moved && !cancelled) {
         suppressedSidebarClickKey = button.dataset.sidebarOrderKey;
         setTimeout(() => { suppressedSidebarClickKey = null; }, 0);
     }
@@ -116,6 +115,7 @@ function finishSidebarMove(nav, cancelled) {
 }
 
 function beginSidebarMove(event, nav) {
+    if (event.isPrimary === false) return;
     const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
     if (!button || (event.button !== undefined && event.button !== 0)) return;
     activeSidebarMove = {
@@ -257,7 +257,11 @@ function persistDashboardOrder(documentRef) {
 
 function beginDashboardMove(event) {
     if (event.isPrimary === false) return;
-    const item = event.target.closest('[data-layout-kind]');
+    const grabTarget = event.target.closest(
+        '.node-group[data-layout-kind="node"] > .node-label, '
+        + '.overview-gpu-card[data-layout-kind="gpu"] > .overview-gpu-name'
+    );
+    const item = grabTarget?.closest('[data-layout-kind]');
     if (!item || (event.button !== undefined && event.button !== 0)) return;
     const kind = item.dataset.layoutKind;
     const container = item.parentElement;
@@ -312,7 +316,7 @@ function finishDashboardMove(documentRef, cancelled) {
     if (cancelled || (moved && !unchanged && !persistDashboardOrder(documentRef))) {
         restoreDashboardOrder(container, initialElements);
     }
-    if (moved && !cancelled && !unchanged) {
+    if (moved && !cancelled) {
         suppressedDashboardClickKey = item.dataset.layoutOrderKey || `node:${item.dataset.orderNode}`;
         setTimeout(() => { suppressedDashboardClickKey = null; }, 0);
     }
