@@ -32,6 +32,11 @@
     transform: translateX(2px);
 }
 
+#overview-container.dashboard-ordering-active,
+#overview-container.dashboard-ordering-active * {
+    cursor: grabbing;
+}
+
 .overview-gpu-name {
     display: flex;
     flex-direction: column;

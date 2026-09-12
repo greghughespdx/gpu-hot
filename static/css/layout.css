@@ -114,6 +114,15 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
     background: var(--accent);
 }
 
+.sidebar-btn[data-sidebar-order-key] {
+    touch-action: none;
+}
+
+.sidebar-btn.sidebar-ordering {
+    cursor: grabbing;
+    opacity: 0.7;
+}
+
 /* Sidebar bottom section (system info, links) */
 .sidebar-bottom {
     display: flex;
@@ -282,6 +291,15 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
     letter-spacing: 1px;
     color: var(--text-tertiary);
     padding-left: var(--space-xs);
+}
+
+.node-group[data-layout-kind="node"]>.node-label,
+.overview-gpu-card[data-layout-kind="gpu"]>.overview-gpu-name {
+    touch-action: none;
+}
+
+.dashboard-ordering {
+    opacity: 0.7;
 }
 
 .node-grid {

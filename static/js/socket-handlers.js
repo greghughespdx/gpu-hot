@@ -147,6 +147,7 @@ const DOM_UPDATE_INTERVAL = 1000; // Text/card updates every 1s, charts update e
 // Handle incoming GPU data
 function handleSocketMessage(event) {
     const data = JSON.parse(event.data);
+    const localNodeName = data.node_name || window.DEFAULT_NODE_NAME || 'GPU Server';
     // Hub mode: different data structure with nodes
     if (data.mode === 'hub') {
         handleClusterData(data);
@@ -219,7 +220,7 @@ function handleSocketMessage(event) {
             gpuInfo,
             systemInfo: data.system,
             sourceKey: '_local',
-            nodeName: data.node_name || 'GPU Server',
+            nodeName: localNodeName,
             sourceGpuId: gpuId,
             shouldUpdateDOM,
             now
@@ -232,7 +233,7 @@ function handleSocketMessage(event) {
                 // Compact layout for multi-GPU servers
                 let nodeGrid = overviewContainer.querySelector('.node-grid');
                 if (!nodeGrid) {
-                    const hostname = data.node_name || 'GPU Server';
+                    const hostname = localNodeName;
                     overviewContainer.insertAdjacentHTML('beforeend', `
                         <div class="node-group" data-node="_local">
                             <div class="node-label">${hostname}</div>
@@ -240,8 +241,14 @@ function handleSocketMessage(event) {
                         </div>
                     `);
                     nodeGrid = overviewContainer.querySelector('.node-grid');
+                    window.registerDashboardNode?.(nodeGrid.closest('.node-group'), localNodeName);
                 }
                 nodeGrid.insertAdjacentHTML('beforeend', createCompactOverviewCard(gpuId, gpuInfo));
+                window.registerDashboardGpu?.(
+                    nodeGrid.querySelector(`[data-gpu-id="${gpuId}"]`),
+                    localNodeName,
+                    gpuId
+                );
             } else {
                 overviewContainer.insertAdjacentHTML('beforeend', createEnhancedOverviewCard(gpuId, gpuInfo));
                 // Auto-expand processes for single GPU
@@ -528,6 +535,7 @@ function handleClusterData(data) {
                 </div>
             `);
             nodeGroup = overviewContainer.querySelector(`[data-node="${nodeName}"]`);
+            window.registerDashboardNode?.(nodeGroup, nodeName);
         }
 
         const nodeGrid = nodeGroup.querySelector('.node-grid');
@@ -568,6 +576,11 @@ function handleClusterData(data) {
                 const existingCard = nodeGrid.querySelector(`[data-gpu-id="${fullGpuId}"]`);
                 if (!existingCard) {
                     nodeGrid.insertAdjacentHTML('beforeend', createClusterGPUCard(nodeName, gpuId, gpuInfo));
+                    window.registerDashboardGpu?.(
+                        nodeGrid.querySelector(`[data-gpu-id="${fullGpuId}"]`),
+                        nodeName,
+                        gpuId
+                    );
                     initOverviewMiniChart(fullGpuId, gpuInfo.utilization);
                     lastDOMUpdate[fullGpuId] = now;
                 }

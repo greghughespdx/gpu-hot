@@ -30,6 +30,27 @@
         wide: '96px'
     });
     const SIDEBAR_LABELS = Object.freeze(['index', 'node-index', 'short-name']);
+    const MAX_SIDEBAR_ORDER_ENTRIES = 512;
+    const MAX_SIDEBAR_ORDER_KEY_LENGTH = 1024;
+
+    function isSidebarOrderKey(candidate) {
+        if (typeof candidate !== 'string' || candidate.length > MAX_SIDEBAR_ORDER_KEY_LENGTH) return false;
+        try {
+            const parts = JSON.parse(candidate);
+            return Array.isArray(parts) && parts.length === 2
+                && parts.every(part => typeof part === 'string' && part.length > 0);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function isSidebarOrder(candidate) {
+        return Array.isArray(candidate)
+            && candidate.length <= MAX_SIDEBAR_ORDER_ENTRIES
+            && new Set(candidate).size === candidate.length
+            && candidate.every(isSidebarOrderKey);
+    }
+
     const ALLOWED_SETTINGS = Object.freeze({
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, value => typeof value === 'boolean'])
@@ -40,7 +61,8 @@
         sidebarLabel: value => SIDEBAR_LABELS.includes(value),
         sidebarAutoHide: value => typeof value === 'boolean',
         sidebarPinned: value => typeof value === 'boolean',
-        theme: value => THEMES.includes(value)
+        theme: value => THEMES.includes(value),
+        sidebarOrder: isSidebarOrder
     });
 
     function defaultSettings() {
@@ -391,6 +413,8 @@
             applySidebarSettings(documentRef);
             if (themeSelect) themeSelect.value = settings.theme;
             applyTheme(settings.theme, documentRef);
+            if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
+            if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
             status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {

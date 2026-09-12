@@ -90,6 +90,8 @@ for (const file of loadOrder) {
         if (typeof chartData !== 'undefined') globalThis.chartData = chartData;
         if (typeof systemCharts !== 'undefined') globalThis.systemCharts = systemCharts;
         if (typeof initGPUData !== 'undefined') globalThis.initGPUData = initGPUData;
+        if (typeof initOverviewMiniChart !== 'undefined') globalThis.initOverviewMiniChart = initOverviewMiniChart;
+        if (typeof updateGPUSystemCharts !== 'undefined') globalThis.updateGPUSystemCharts = updateGPUSystemCharts;
         if (typeof calculateStats !== 'undefined') globalThis.calculateStats = calculateStats;
         if (typeof updateChart !== 'undefined') globalThis.updateChart = updateChart;
         if (typeof updateChartStats !== 'undefined') globalThis.updateChartStats = updateChartStats;
@@ -107,6 +109,7 @@ for (const file of loadOrder) {
         if (typeof setFanRpm !== 'undefined') globalThis.setFanRpm = setFanRpm;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;
+        if (typeof updateOverviewCard !== 'undefined') globalThis.updateOverviewCard = updateOverviewCard;
         if (typeof createCompactOverviewCard !== 'undefined') globalThis.createCompactOverviewCard = createCompactOverviewCard;
         if (typeof createEnhancedOverviewCard !== 'undefined') globalThis.createEnhancedOverviewCard = createEnhancedOverviewCard;
         if (typeof createGPUCard !== 'undefined') globalThis.createGPUCard = createGPUCard;

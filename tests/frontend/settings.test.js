@@ -88,6 +88,7 @@ describe('settings storage', () => {
         );
         document.documentElement.style.removeProperty('--sidebar-width');
         delete window.updateSidebarLabels;
+        delete window.applySidebarOrder;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -214,6 +215,30 @@ describe('settings storage', () => {
         expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('72px');
         expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
         expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+    });
+
+    it('stores a valid sidebar order with the other settings defaults', () => {
+        const api = loadSettingsModule();
+        const order = [JSON.stringify(['node-a', '0']), JSON.stringify(['node-b', '1'])];
+        expect(api.saveSettings({ sidebarOrder: order, unknown: 'value' })).toBe(true);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
+            version: 1,
+            settings: { ...defaults, sidebarOrder: order }
+        });
+    });
+
+    it.each([
+        ['a non-array', 'node-a-0'],
+        ['a duplicate key', [JSON.stringify(['node-a', '0']), JSON.stringify(['node-a', '0'])]],
+        ['a malformed key', ['node-a-0']],
+        ['an empty identity part', [JSON.stringify(['', '0'])]]
+    ])('drops %s from the saved order', (_label, sidebarOrder) => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarOrder }
+        }));
+
+        expect(loadSettingsModule().settings).toEqual(defaults);
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -357,6 +382,7 @@ describe('settings panel', () => {
         );
         document.documentElement.style.removeProperty('--sidebar-width');
         delete window.updateSidebarLabels;
+        delete window.applySidebarOrder;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -470,6 +496,12 @@ describe('settings panel', () => {
     });
 
     it('shows whether reset succeeded without closing the panel', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { sidebarOrder: [JSON.stringify(['node-a', '0'])] }
+        }));
+        window.applySidebarOrder = vi.fn();
+        window.applyDashboardOrder = vi.fn();
         const api = loadSettingsModule();
         api.initSettingsPanel();
         document.getElementById('settings-open').click();
@@ -477,6 +509,9 @@ describe('settings panel', () => {
 
         expect(document.getElementById('settings-status').textContent).toBe('Settings reset.');
         expect(document.getElementById('settings-panel').hidden).toBe(false);
+        expect(api.settings).toEqual({});
+        expect(window.applySidebarOrder).toHaveBeenCalledOnce();
+        expect(window.applyDashboardOrder).toHaveBeenCalledOnce();
     });
 
     it('persists metric choices and applies them to every All page row', () => {
