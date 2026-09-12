@@ -1072,35 +1072,82 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
 // Process Table
 // ============================================
 
-function updateProcesses(processes) {
-    const container = document.getElementById('processes-container');
-    const countEl = document.getElementById('process-count');
+let latestProcesses = [];
 
-    if (countEl) {
-        countEl.textContent = processes.length === 0 ? '0' :
-            `${processes.length}`;
+function updateProcesses(processes) {
+    latestProcesses = Array.isArray(processes) ? processes : [];
+    renderProcessesForView(typeof currentTab === 'string' ? currentTab : 'overview');
+}
+
+function processesForView(processes, viewName) {
+    if (!viewName || !viewName.startsWith('gpu-')) return processes;
+
+    const gpuKey = viewName.slice(4);
+    return processes.filter(process => String(process.gpu_key) === gpuKey);
+}
+
+function appendProcessCell(row, className, value) {
+    const cell = document.createElement('div');
+    cell.className = className;
+    cell.textContent = String(value);
+    row.appendChild(cell);
+}
+
+function appendProcessHeader(container) {
+    const header = document.createElement('div');
+    header.className = 'process-table-header';
+
+    for (const [className, label] of [
+        ['process-system-heading', 'System'],
+        ['process-name-heading', 'Process'],
+        ['process-pid-heading', 'PID'],
+        ['process-memory-heading', 'VRAM']
+    ]) {
+        const heading = document.createElement('span');
+        heading.className = className;
+        heading.textContent = label;
+        header.appendChild(heading);
     }
 
-    if (processes.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-text">No active GPU processes</div>
-            </div>
-        `;
+    container.appendChild(header);
+}
+
+function showEmptyProcesses(container, viewName) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    const emptyText = document.createElement('div');
+    emptyText.className = 'empty-state-text';
+    emptyText.textContent = viewName && viewName.startsWith('gpu-')
+        ? 'No active processes on this GPU'
+        : 'No active GPU processes';
+    emptyState.appendChild(emptyText);
+    container.replaceChildren(emptyState);
+}
+
+function createProcessRow(process) {
+    const row = document.createElement('div');
+    row.className = 'process-item';
+    appendProcessCell(row, 'process-system', process.node_name || 'This system');
+    appendProcessCell(row, 'process-name', process.name || 'Unknown process');
+    appendProcessCell(row, 'process-pid', process.pid ?? 'Unknown');
+    appendProcessCell(row, 'process-memory', `${formatMemory(process.memory)}${formatMemoryUnit(process.memory)}`);
+    return row;
+}
+
+function renderProcessesForView(viewName) {
+    const container = document.getElementById('processes-container');
+    if (!container) return;
+
+    const visibleProcesses = processesForView(latestProcesses, viewName);
+    const countEl = document.getElementById('process-count');
+    if (countEl) countEl.textContent = String(visibleProcesses.length);
+    if (visibleProcesses.length === 0) {
+        showEmptyProcesses(container, viewName);
         return;
     }
 
-    container.innerHTML = `
-        <div class="process-table-header">
-            <span>Process</span>
-            <span>PID</span>
-            <span style="text-align:right">VRAM</span>
-        </div>
-    ` + processes.map(proc => `
-        <div class="process-item">
-            <div class="process-name">${proc.name}</div>
-            <div class="process-pid">${proc.pid}</div>
-            <div class="process-memory">${formatMemory(proc.memory)}${formatMemoryUnit(proc.memory)}</div>
-        </div>
-    `).join('');
+    const processTable = document.createDocumentFragment();
+    appendProcessHeader(processTable);
+    visibleProcesses.forEach(process => processTable.appendChild(createProcessRow(process)));
+    container.replaceChildren(processTable);
 }

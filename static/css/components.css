@@ -590,7 +590,7 @@
 /* Process table rows */
 .process-table-header {
     display: grid;
-    grid-template-columns: 1fr 100px 100px;
+    grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1fr) 100px 100px;
     gap: var(--space-md);
     padding: var(--space-sm) 0;
     border-bottom: 1px solid var(--border-subtle);
@@ -606,7 +606,7 @@
 
 .process-item {
     display: grid;
-    grid-template-columns: 1fr 100px 100px;
+    grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1fr) 100px 100px;
     gap: var(--space-md);
     padding: var(--space-sm) 0;
     align-items: center;
@@ -633,6 +633,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.process-system {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.process-memory-heading,
+.process-memory {
+    text-align: right;
 }
 
 .process-pid {
@@ -1240,7 +1253,7 @@
 
     .process-table-header,
     .process-item {
-        grid-template-columns: 1fr 80px 80px;
+        grid-template-columns: minmax(90px, 0.7fr) minmax(120px, 1fr) 80px 80px;
     }
 
     .system-info {
@@ -1289,10 +1302,11 @@
 
     .process-table-header,
     .process-item {
-        grid-template-columns: 1fr 80px;
+        grid-template-columns: minmax(70px, 0.7fr) minmax(100px, 1fr) 72px;
     }
 
-    .process-pid {
+    .process-pid,
+    .process-pid-heading {
         display: none;
     }
 }
