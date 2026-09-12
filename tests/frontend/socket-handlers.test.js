@@ -240,6 +240,20 @@ describe('handleSocketMessage', () => {
             gpu_key: '0'
         }]);
     });
+
+    it('sends a complete payload to notice detection before scrolling can skip rendering', () => {
+        loadSocketHandlers();
+        document.body.insertAdjacentHTML('beforeend', '<div id="overview-container"></div>');
+        window.GPUHotNotices = { processPayload: vi.fn() };
+        vi.advanceTimersByTime(500);
+        window.dispatchEvent(new Event('scroll'));
+        const payload = { node_name: 'render-1', gpus: {} };
+
+        handleSocketMessage({ data: JSON.stringify(payload) });
+
+        expect(window.GPUHotNotices.processPayload).toHaveBeenCalledWith(payload);
+        delete window.GPUHotNotices;
+    });
 });
 
 describe('handleSocketOpen', () => {

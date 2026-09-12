@@ -17,11 +17,18 @@
         'power',
         'chart'
     ]);
+    const NOTICE_SETTINGS = Object.freeze([
+        'noticeGpuThrottle',
+        'noticeGpuMissing',
+        'noticeNodeOffline',
+        'noticeExternalFanStopped'
+    ]);
     const DEFAULT_SETTINGS = Object.freeze({
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
         ),
-        theme: 'default'
+        theme: 'default',
+        ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, false]))
     });
     const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
     const SIDEBAR_WIDTHS = Object.freeze({
@@ -103,7 +110,8 @@
         sidebarPinned: value => typeof value === 'boolean',
         theme: value => THEMES.includes(value),
         sidebarOrder: isSidebarOrder,
-        labelOverrides: normalizeLabelOverrides
+        labelOverrides: normalizeLabelOverrides,
+        ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, value => typeof value === 'boolean']))
     });
 
     function defaultSettings() {
@@ -224,6 +232,14 @@
 
     function displayLabel(key, fallback) {
         return overrideMap().get(key) || fallback;
+    }
+
+    function nodeDisplayLabel(nodeName, fallback = String(nodeName)) {
+        return displayLabel(labelKey('node', nodeName), fallback);
+    }
+
+    function gpuDisplayLabel(nodeName, gpuId, fallback = `GPU ${gpuId}`) {
+        return displayLabel(labelKey('gpu', nodeName, gpuId), fallback);
     }
 
     function bindLabel(element, key, fallback, output = 'text') {
@@ -349,6 +365,7 @@
                 Object.keys(settings).forEach(key => delete settings[key]);
                 Object.assign(settings, nextSettings);
                 applyDisplayLabels(documentRef);
+                global.GPUHotNotices?.render?.();
                 const status = documentRef.getElementById('settings-status');
                 if (status) status.textContent = label ? 'Label saved.' : 'Default label restored.';
             });
@@ -402,6 +419,7 @@
         const pinned = documentRef.getElementById('settings-sidebar-pinned');
         const themeSelect = documentRef.getElementById('settings-theme');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
+        const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
         renderLabelControls(documentRef);
@@ -542,6 +560,24 @@
             });
         }
 
+        noticeInputs.forEach(input => {
+            const key = input.dataset.noticeSetting;
+            input.checked = settings[key] === true;
+            input.addEventListener('change', () => {
+                const previous = settings[key] === true;
+                const nextSettings = sanitizeSettings({ ...settings, [key]: input.checked });
+                if (!saveSettings(nextSettings)) {
+                    input.checked = previous;
+                    status.textContent = 'This notice choice could not be saved. Try again.';
+                    return;
+                }
+                Object.keys(settings).forEach(existingKey => delete settings[existingKey]);
+                Object.assign(settings, nextSettings);
+                status.textContent = '';
+                global.GPUHotNotices?.settingsChanged?.();
+            });
+        });
+
         function isOpen() {
             return !panel.hidden;
         }
@@ -598,6 +634,10 @@
             applySidebarSettings(documentRef);
             if (themeSelect) themeSelect.value = settings.theme;
             applyTheme(settings.theme, documentRef);
+            noticeInputs.forEach(input => {
+                input.checked = false;
+            });
+            global.GPUHotNotices?.settingsChanged?.();
             if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
             if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
             renderLabelControls(documentRef);
@@ -674,6 +714,8 @@
         bindGpuLabel,
         bindNodeLabel,
         updateSettingsPanelOverflow,
+        nodeDisplayLabel,
+        gpuDisplayLabel,
         initSettingsPanel,
         registerGpuLabelTarget,
         registerNodeLabelTarget

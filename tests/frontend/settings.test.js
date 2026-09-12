@@ -15,7 +15,11 @@ const defaults = {
     'overview.memory': true,
     'overview.power': true,
     'overview.chart': true,
-    theme: 'default'
+    theme: 'default',
+    noticeGpuThrottle: false,
+    noticeGpuMissing: false,
+    noticeNodeOffline: false,
+    noticeExternalFanStopped: false
 };
 const tokensCss = readFileSync(join(testDir, '../../static/css/tokens.css'), 'utf8');
 
@@ -54,6 +58,10 @@ function panelMarkup() {
                 <option value="midnight">Midnight</option>
                 <option value="high-contrast">High contrast</option>
             </select>
+            <input type="checkbox" data-notice-setting="noticeGpuThrottle">
+            <input type="checkbox" data-notice-setting="noticeGpuMissing">
+            <input type="checkbox" data-notice-setting="noticeNodeOffline">
+            <input type="checkbox" data-notice-setting="noticeExternalFanStopped">
             <div id="settings-label-list"></div>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
@@ -90,6 +98,7 @@ describe('settings storage', () => {
         document.documentElement.style.removeProperty('--sidebar-width');
         delete window.updateSidebarLabels;
         delete window.applySidebarOrder;
+        delete window.GPUHotNotices;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -139,6 +148,44 @@ describe('settings storage', () => {
             version: 1,
             settings: { ...defaults, moveConnectionDetails: true }
         });
+    });
+
+    it('stores each event notice choice independently and leaves the others off', () => {
+        panelMarkup();
+        const api = loadSettingsModule();
+        const throttle = document.querySelector('[data-notice-setting="noticeGpuThrottle"]');
+        throttle.checked = true;
+        throttle.dispatchEvent(new Event('change'));
+
+        expect(api.settings.noticeGpuThrottle).toBe(true);
+        expect(api.settings.noticeGpuMissing).toBe(false);
+        expect(api.settings.noticeNodeOffline).toBe(false);
+        expect(api.settings.noticeExternalFanStopped).toBe(false);
+    });
+
+    it('reset turns off every event choice without erasing notice history', () => {
+        panelMarkup();
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                noticeGpuThrottle: true,
+                noticeGpuMissing: true,
+                noticeNodeOffline: true,
+                noticeExternalFanStopped: true
+            }
+        }));
+        localStorage.setItem('gpu-hot.notices.v1', 'saved history');
+        const settingsChanged = vi.fn();
+        window.GPUHotNotices = { settingsChanged };
+        const api = loadSettingsModule();
+
+        document.getElementById('settings-reset').click();
+
+        expect(api.settings).toEqual(defaults);
+        expect(Array.from(document.querySelectorAll('[data-notice-setting]'))
+            .every(input => input.checked === false)).toBe(true);
+        expect(localStorage.getItem('gpu-hot.notices.v1')).toBe('saved history');
+        expect(settingsChanged).toHaveBeenCalled();
     });
 
     it('keeps only boolean metric choices and fills missing defaults', () => {

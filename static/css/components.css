@@ -930,6 +930,92 @@
     border-color: rgba(var(--metric-temp), 0.45);
 }
 
+/* Persistent event notices */
+.event-notices {
+    position: fixed;
+    top: calc(var(--space-lg) + 96px);
+    right: var(--space-lg);
+    z-index: 900;
+    width: min(360px, calc(100vw - 2 * var(--space-lg)));
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    padding: var(--space-md);
+    background: var(--bg-elevated);
+    border: 1px solid rgba(var(--metric-temp), 0.2);
+    border-left: 3px solid rgba(var(--metric-temp), 0.6);
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(var(--shadow-rgb), 0.3);
+}
+
+.event-notices[hidden] {
+    display: none;
+}
+
+.event-notices-header,
+.event-notice-scope,
+.event-notice-times {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.event-notice-scope {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+}
+
+.event-notices-header {
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.event-notices-header h2,
+.event-notice h3 {
+    margin: 0;
+    font-size: 13px;
+}
+
+.event-notices-header button,
+.event-notice-dismiss {
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: var(--space-xs) var(--space-sm);
+    cursor: pointer;
+}
+
+.event-notice {
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.event-notice-scope,
+.event-notice-detail,
+.event-notice-times {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.event-notice-detail {
+    margin: var(--space-xs) 0;
+    overflow-wrap: anywhere;
+}
+
+.event-notice-times {
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+@media screen and (max-width: 768px), screen and (max-height: 480px) and (orientation: landscape) {
+    .event-notices {
+        top: var(--space-sm);
+        right: var(--space-sm);
+        width: min(360px, calc(100vw - 2 * var(--space-sm)));
+        max-height: calc(100dvh - 56px - 2 * var(--space-sm));
+    }
+}
+
 /* ============================================
    Chart Drawer — Slide-out detail panel
    ============================================ */

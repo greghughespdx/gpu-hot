@@ -177,6 +177,7 @@ const DOM_UPDATE_INTERVAL = 1000; // Text/card updates every 1s, charts update e
 // Handle incoming GPU data
 function handleSocketMessage(event) {
     const data = JSON.parse(event.data);
+    window.GPUHotNotices?.processPayload?.(data);
     const localNodeName = data.node_name || window.DEFAULT_NODE_NAME || 'GPU Server';
     // Hub mode: different data structure with nodes
     if (data.mode === 'hub') {

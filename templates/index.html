@@ -213,10 +213,27 @@
                 <p class="settings-help">Choose names that are easier to recognize. Clear a field to restore its default.</p>
                 <div class="settings-label-list" id="settings-label-list"></div>
             </section>
+            <fieldset class="settings-group">
+                <legend>Event notices</legend>
+                <label><input type="checkbox" data-notice-setting="noticeGpuThrottle"> GPU throttling</label>
+                <label><input type="checkbox" data-notice-setting="noticeGpuMissing"> GPU missing</label>
+                <label><input type="checkbox" data-notice-setting="noticeNodeOffline"> Node offline</label>
+                <label><input type="checkbox" data-notice-setting="noticeExternalFanStopped"> External fan stopped</label>
+                <p class="settings-help">Each choice is off until you turn it on.</p>
+            </fieldset>
             <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
             <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>
     </aside>
+
+    <section class="event-notices" id="event-notices" role="log" aria-live="polite"
+        aria-label="Event notices" hidden>
+        <div class="event-notices-header">
+            <h2>Event notices</h2>
+            <button type="button" id="event-notices-clear">Clear all</button>
+        </div>
+        <div id="event-notices-list"></div>
+    </section>
 
     <!-- Star toast -->
     <div class="star-toast is-hidden" id="star-toast" role="status" aria-live="polite">
@@ -243,6 +260,7 @@
     <script src="/static/js/chart-manager.js"></script>
     <script src="/static/js/gpu-cards.js"></script>
     <script src="/static/js/ui.js"></script>
+    <script src="/static/js/event-notices.js"></script>
     <script src="/static/js/socket-handlers.js"></script>
     <script src="/static/js/chart-drawer.js"></script>
     <script src="/static/js/app.js"></script>
