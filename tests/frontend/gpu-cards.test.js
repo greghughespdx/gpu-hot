@@ -287,6 +287,22 @@ describe('createCompactOverviewCard', () => {
         expect(html).toContain('<canvas');
     });
 
+    it('marks hidden metric columns from browser settings', () => {
+        window.GPUHotSettings = {
+            isOverviewMetricVisible: metric => !['temperature', 'chart'].includes(metric)
+        };
+        try {
+            const html = createCompactOverviewCard('0', gpuInfo);
+
+            expect(html).toContain('data-overview-metric="temperature" hidden');
+            expect(html).toContain('data-overview-metric="chart" hidden');
+            expect(html).toContain('overview-gpu-card overview-chart-hidden');
+            expect(html).not.toContain('data-overview-metric="utilization" hidden');
+        } finally {
+            delete window.GPUHotSettings;
+        }
+    });
+
     it('includes onclick to switch view', () => {
         const html = createCompactOverviewCard('2', gpuInfo);
         expect(html).toContain("switchToView('gpu-2')");

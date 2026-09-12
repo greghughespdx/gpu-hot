@@ -630,33 +630,37 @@ function createClusterGPUCard(nodeName, gpuId, gpuInfo) {
     const uuid = getMetricValue(gpuInfo, 'uuid', '');
     const uuidLine = (uuid && uuid !== 'N/A')
         ? `<p class="gpu-uuid" title="${uuid}">${uuid}</p>` : '';
+    const metricHidden = metric => window.GPUHotSettings?.isOverviewMetricVisible(metric) === false
+        ? ' hidden' : '';
+    const chartHidden = metricHidden('chart');
+    const chartClass = chartHidden ? ' overview-chart-hidden' : '';
 
     return `
-        <div class="overview-gpu-card" data-gpu-id="${fullGpuId}" onclick="switchToView('gpu-${fullGpuId}')">
+        <div class="overview-gpu-card${chartClass}" data-gpu-id="${fullGpuId}" onclick="switchToView('gpu-${fullGpuId}')">
             <div class="overview-gpu-name">
                 <h2>GPU ${gpuId}</h2>
                 <p>${getMetricValue(gpuInfo, 'name', 'Unknown GPU')}</p>
                 ${uuidLine}
             </div>
             <div class="overview-metrics">
-                <div class="overview-metric">
+                <div class="overview-metric" data-overview-metric="utilization"${metricHidden('utilization')}>
                     <div class="overview-metric-value" id="overview-util-${fullGpuId}">${getMetricValue(gpuInfo, 'utilization', 0)}%</div>
                     <div class="overview-metric-label">UTIL</div>
                 </div>
-                <div class="overview-metric">
+                <div class="overview-metric" data-overview-metric="temperature"${metricHidden('temperature')}>
                     <div class="overview-metric-value" id="overview-temp-${fullGpuId}">${getMetricValue(gpuInfo, 'temperature', 0)}°</div>
                     <div class="overview-metric-label">TEMP</div>
                 </div>
-                <div class="overview-metric">
+                <div class="overview-metric" data-overview-metric="memory"${metricHidden('memory')}>
                     <div class="overview-metric-value" id="overview-mem-${fullGpuId}">${Math.round(memPercent)}%</div>
                     <div class="overview-metric-label">MEM</div>
                 </div>
-                <div class="overview-metric">
+                <div class="overview-metric" data-overview-metric="power"${metricHidden('power')}>
                     <div class="overview-metric-value" id="overview-power-${fullGpuId}">${getMetricValue(gpuInfo, 'power_draw', 0).toFixed(0)}W</div>
                     <div class="overview-metric-label">POWER</div>
                 </div>
             </div>
-            <div class="overview-mini-chart">
+            <div class="overview-mini-chart" data-overview-metric="chart"${chartHidden}>
                 <canvas id="overview-chart-${fullGpuId}"></canvas>
             </div>
         </div>

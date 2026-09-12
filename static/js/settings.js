@@ -9,8 +9,20 @@
 
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
-    const DEFAULT_SETTINGS = Object.freeze({});
+    const OVERVIEW_METRICS = Object.freeze([
+        'utilization',
+        'temperature',
+        'memory',
+        'power',
+        'chart'
+    ]);
+    const DEFAULT_SETTINGS = Object.freeze(Object.fromEntries(
+        OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
+    ));
     const ALLOWED_SETTINGS = Object.freeze({
+        ...Object.fromEntries(
+            OVERVIEW_METRICS.map(metric => [`overview.${metric}`, value => typeof value === 'boolean'])
+        ),
         moveConnectionDetails: value => typeof value === 'boolean'
     });
 
@@ -23,7 +35,7 @@
             return defaultSettings();
         }
 
-        const clean = {};
+        const clean = defaultSettings();
         Object.entries(ALLOWED_SETTINGS).forEach(([key, isAllowed]) => {
             if (isAllowed(candidate[key])) clean[key] = candidate[key];
         });
@@ -91,6 +103,23 @@
         settingsHome.hidden = !moveToSettings;
     }
 
+    function isOverviewMetricVisible(metric) {
+        return settings[`overview.${metric}`] !== false;
+    }
+
+    function applyOverviewMetricVisibility(documentRef = global.document) {
+        if (!documentRef) return;
+        OVERVIEW_METRICS.forEach(metric => {
+            const visible = isOverviewMetricVisible(metric);
+            documentRef.querySelectorAll(`[data-overview-metric="${metric}"]`).forEach(element => {
+                element.hidden = !visible;
+            });
+        });
+        documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
+            card.classList.toggle('overview-chart-hidden', !isOverviewMetricVisible('chart'));
+        });
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -102,6 +131,24 @@
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+        const metricInputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
+        metricInputs.forEach(input => {
+            const metric = input.dataset.overviewSetting;
+            input.checked = isOverviewMetricVisible(metric);
+            input.addEventListener('change', () => {
+                const previousValue = isOverviewMetricVisible(metric);
+                const nextSettings = { ...settings, [`overview.${metric}`]: input.checked };
+                if (!saveSettings(nextSettings)) {
+                    input.checked = previousValue;
+                    status.textContent = 'This setting could not be saved. Try again.';
+                    return;
+                }
+                Object.assign(settings, sanitizeSettings(nextSettings));
+                status.textContent = '';
+                applyOverviewMetricVisibility(documentRef);
+            });
+        });
+        applyOverviewMetricVisibility(documentRef);
 
         if (moveConnectionDetails) {
             moveConnectionDetails.checked = settings.moveConnectionDetails === true;
@@ -153,10 +200,15 @@
                 return;
             }
             Object.keys(settings).forEach(key => delete settings[key]);
+            Object.assign(settings, defaultSettings());
             if (moveConnectionDetails) {
                 moveConnectionDetails.checked = false;
                 applyConnectionDetailsLocation(false, documentRef);
             }
+            metricInputs.forEach(input => {
+                input.checked = isOverviewMetricVisible(input.dataset.overviewSetting);
+            });
+            applyOverviewMetricVisibility(documentRef);
             status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
@@ -206,6 +258,8 @@
         saveSettings,
         resetSettings,
         applyConnectionDetailsLocation,
+        isOverviewMetricVisible,
+        applyOverviewMetricVisibility,
         initSettingsPanel
     });
 

@@ -78,6 +78,7 @@ function loadSocketHandlers(locationOverride) {
         globalThis.attemptReconnect = attemptReconnect;
         globalThis.getClusterProcesses = getClusterProcesses;
         globalThis.handleClusterData = handleClusterData;
+        globalThis.createClusterGPUCard = createClusterGPUCard;
         globalThis.MAX_RECONNECT_ATTEMPTS = MAX_RECONNECT_ATTEMPTS;
         globalThis.RECONNECT_DELAY = RECONNECT_DELAY;
     })();`;
@@ -303,5 +304,24 @@ describe('attemptReconnect', () => {
         const first = global.reconnectInterval;
         attemptReconnect(); // Should be a no-op
         expect(global.reconnectInterval).toBe(first);
+    });
+});
+
+describe('createClusterGPUCard metric settings', () => {
+    afterEach(() => { delete window.GPUHotSettings; });
+
+    it('uses the same hidden columns for hub rows', () => {
+        loadSocketHandlers();
+        window.GPUHotSettings = {
+            isOverviewMetricVisible: metric => metric !== 'power'
+        };
+        const html = createClusterGPUCard('node-a', '0', {
+            name: 'GPU', utilization: 1, temperature: 2,
+            memory_used: 3, memory_total: 4, power_draw: 5
+        });
+
+        expect(html).toContain('data-overview-metric="power" hidden');
+        expect(html).not.toContain('data-overview-metric="temperature" hidden');
+        expect(html).not.toContain('overview-chart-hidden');
     });
 });

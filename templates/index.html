@@ -156,6 +156,14 @@
                     <small>This clears the space above the dashboard.</small>
                 </span>
             </label>
+            <fieldset class="settings-group">
+                <legend>All page metrics</legend>
+                <label><input type="checkbox" data-overview-setting="utilization"> Utilization</label>
+                <label><input type="checkbox" data-overview-setting="temperature"> Temperature</label>
+                <label><input type="checkbox" data-overview-setting="memory"> Memory</label>
+                <label><input type="checkbox" data-overview-setting="power"> Power</label>
+                <label><input type="checkbox" data-overview-setting="chart"> Mini chart</label>
+            </fieldset>
             <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
             <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>
