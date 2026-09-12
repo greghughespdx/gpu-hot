@@ -92,6 +92,25 @@ describe('event notices', () => {
         expect(api.notices[0]).toMatchObject({ eventType: 'gpuMissing', node: 'node', gpu: '1' });
     });
 
+    it.each([2, 4, 7])(
+        'detects a GPU lost at tick 1 when missing notices start at tick %i',
+        enableTick => {
+            const api = loadNotices();
+            api.processPayload(hub({ node: online({ '0': {}, '1': {} }) }));
+            for (let tick = 1; tick < enableTick; tick += 1) {
+                api.processPayload(hub({ node: online({ '0': {} }) }));
+            }
+
+            window.GPUHotSettings.settings.noticeGpuMissing = true;
+            api.settingsChanged();
+
+            expect(api.notices).toHaveLength(1);
+            expect(api.notices[0]).toMatchObject({
+                eventType: 'gpuMissing', node: 'node', gpu: '1'
+            });
+        }
+    );
+
     it('still closes an active notice after every option is turned off', () => {
         const api = loadNotices({ noticeGpuThrottle: true });
         api.processPayload(hub({ node: online({
