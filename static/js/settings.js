@@ -31,14 +31,28 @@
             && candidate.label.length <= MAX_LABEL_LENGTH;
     }
 
-    function isLabelOverrides(candidate) {
-        if (!Array.isArray(candidate) || candidate.length > MAX_LABEL_OVERRIDES) return false;
-        const keys = candidate.map(item => labelKey(item?.kind, item?.node, item?.gpu));
-        return candidate.every(isLabelOverride) && new Set(keys).size === keys.length;
+    function normalizeLabelOverrides(candidate) {
+        if (!Array.isArray(candidate)) return undefined;
+        const normalized = [];
+        const keys = new Set();
+        for (const labelOverride of candidate) {
+            if (!isLabelOverride(labelOverride)) continue;
+            const key = labelKey(labelOverride.kind, labelOverride.node, labelOverride.gpu);
+            if (keys.has(key)) continue;
+            keys.add(key);
+            normalized.push({
+                kind: labelOverride.kind,
+                node: labelOverride.node,
+                ...(labelOverride.kind === 'gpu' ? { gpu: labelOverride.gpu } : {}),
+                label: labelOverride.label
+            });
+            if (normalized.length === MAX_LABEL_OVERRIDES) break;
+        }
+        return normalized.length > 0 ? normalized : undefined;
     }
 
     const ALLOWED_SETTINGS = Object.freeze({
-        labelOverrides: isLabelOverrides
+        labelOverrides: normalizeLabelOverrides
     });
 
     function defaultSettings() {
@@ -51,8 +65,9 @@
         }
 
         const clean = {};
-        Object.entries(ALLOWED_SETTINGS).forEach(([key, isAllowed]) => {
-            if (isAllowed(candidate[key])) clean[key] = candidate[key];
+        Object.entries(ALLOWED_SETTINGS).forEach(([key, normalize]) => {
+            const normalized = normalize(candidate[key]);
+            if (normalized !== undefined) clean[key] = normalized;
         });
         return clean;
     }
@@ -116,23 +131,27 @@
     function bindLabel(element, key, fallback, output = 'text') {
         if (!element) return;
         element.dataset.displayLabelKey = key;
-        element.dataset.displayLabelDefault = fallback;
-        element.dataset.displayLabelOutput = output;
         const label = displayLabel(key, fallback);
-        if (output === 'title' || output === 'both') element.title = label;
-        if (output === 'text' || output === 'both') element.textContent = label;
+        if (output === 'title' || output === 'both') {
+            element.dataset.displayLabelTitleDefault = fallback;
+            element.title = label;
+        }
+        if (output === 'text' || output === 'both') {
+            element.dataset.displayLabelTextDefault = fallback;
+            element.textContent = label;
+        }
     }
 
     function applyDisplayLabels(documentRef = global.document) {
         if (!documentRef) return;
         documentRef.querySelectorAll('[data-display-label-key]').forEach(element => {
-            const label = displayLabel(
-                element.dataset.displayLabelKey,
-                element.dataset.displayLabelDefault || ''
-            );
-            const output = element.dataset.displayLabelOutput;
-            if (output === 'title' || output === 'both') element.title = label;
-            if (output === 'text' || output === 'both') element.textContent = label;
+            const key = element.dataset.displayLabelKey;
+            if (element.dataset.displayLabelTitleDefault !== undefined) {
+                element.title = displayLabel(key, element.dataset.displayLabelTitleDefault);
+            }
+            if (element.dataset.displayLabelTextDefault !== undefined) {
+                element.textContent = displayLabel(key, element.dataset.displayLabelTextDefault);
+            }
         });
     }
 

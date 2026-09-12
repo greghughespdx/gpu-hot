@@ -88,10 +88,6 @@ describe('settings storage', () => {
     });
 
     it.each([
-        ['duplicate identities', [
-            { kind: 'node', node: 'node-a', label: 'One' },
-            { kind: 'node', node: 'node-a', label: 'Two' }
-        ]],
         ['an empty identity', [{ kind: 'gpu', node: 'node-a', gpu: '', label: 'GPU' }]],
         ['an overlong identity', [{ kind: 'node', node: 'n'.repeat(257), label: 'Node' }]],
         ['an overlong label', [{ kind: 'node', node: 'node-a', label: 'x'.repeat(81) }]],
@@ -102,6 +98,24 @@ describe('settings storage', () => {
             settings: { labelOverrides }
         }));
         expect(loadSettingsModule().settings).toEqual({});
+    });
+
+    it('keeps valid rows when neighboring rows are invalid or duplicated', () => {
+        const first = { kind: 'node', node: 'node-a', label: 'First' };
+        const validGpu = { kind: 'gpu', node: 'node-a', gpu: '0', label: 'Primary' };
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                labelOverrides: [
+                    first,
+                    { kind: 'node', node: 'node-a', label: 'Duplicate' },
+                    { kind: 'gpu', node: 'node-a', gpu: '1', label: 'x'.repeat(81) },
+                    validGpu
+                ]
+            }
+        }));
+
+        expect(loadSettingsModule().settings.labelOverrides).toEqual([first, validGpu]);
     });
 
     it('bounds the number of stored label overrides', () => {
@@ -118,7 +132,7 @@ describe('settings storage', () => {
             version: 1,
             settings: { labelOverrides: makeLabels(513) }
         }));
-        expect(loadSettingsModule().settings).toEqual({});
+        expect(loadSettingsModule().settings.labelOverrides).toHaveLength(512);
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -295,6 +309,26 @@ describe('settings panel', () => {
         expect(output.querySelector('img')).toBeNull();
     });
 
+    it('renders a label edit as text everywhere it is already displayed', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const nodeLabel = document.createElement('span');
+        const cardHeading = document.createElement('h2');
+        document.body.append(nodeLabel, cardHeading);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(nodeLabel, 'node-a');
+        api.bindNodeLabel(cardHeading, 'node-a');
+        const input = document.querySelector('#settings-label-list input');
+
+        input.value = '<img src=x onerror=alert(1)>';
+        input.dispatchEvent(new Event('change'));
+
+        expect(nodeLabel.textContent).toBe('<img src=x onerror=alert(1)>');
+        expect(cardHeading.textContent).toBe('<img src=x onerror=alert(1)>');
+        expect(nodeLabel.children).toHaveLength(0);
+        expect(cardHeading.children).toHaveLength(0);
+    });
+
     it('restores default labels on blank input and reset', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -318,6 +352,28 @@ describe('settings panel', () => {
         expect(output.textContent).toBe('GPU 0');
         expect(api.settings).toEqual({});
         expect(document.querySelector('#settings-label-list input').value).toBe('');
+    });
+
+    it('restores separate text and tooltip defaults on the same control', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const button = document.createElement('button');
+        document.body.appendChild(button);
+        api.registerGpuLabelTarget('node-a', '0');
+        api.bindGpuLabel(button, 'node-a', '0', '0');
+        api.bindGpuLabel(button, 'node-a', '0', 'GPU node-a-0', 'title');
+        const input = document.querySelector('#settings-label-list input');
+
+        expect(button.textContent).toBe('0');
+        expect(button.title).toBe('GPU node-a-0');
+        input.value = 'Training card';
+        input.dispatchEvent(new Event('change'));
+        expect(button.textContent).toBe('Training card');
+        expect(button.title).toBe('Training card');
+        input.value = '';
+        input.dispatchEvent(new Event('change'));
+        expect(button.textContent).toBe('0');
+        expect(button.title).toBe('GPU node-a-0');
     });
 
     it('keeps the prior label when storage rejects a change', () => {

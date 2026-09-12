@@ -87,6 +87,7 @@ for (const file of loadOrder) {
         if (typeof getMetricValue !== 'undefined') globalThis.getMetricValue = getMetricValue;
         if (typeof hasMetric !== 'undefined') globalThis.hasMetric = hasMetric;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
+        if (typeof gpuCardElementFromMarkup !== 'undefined') globalThis.gpuCardElementFromMarkup = gpuCardElementFromMarkup;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;
         if (typeof createCompactOverviewCard !== 'undefined') globalThis.createCompactOverviewCard = createCompactOverviewCard;
         if (typeof createEnhancedOverviewCard !== 'undefined') globalThis.createEnhancedOverviewCard = createEnhancedOverviewCard;

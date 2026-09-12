@@ -14,6 +14,7 @@ import vm from 'vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcPath = join(__dirname, '../../static/js/socket-handlers.js');
 const sourceCode = readFileSync(srcPath, 'utf-8');
+const defaultSwitchToView = globalThis.switchToView;
 
 function loadSocketHandlers(locationOverride) {
     // Reset globals that socket-handlers.js defines
@@ -78,6 +79,7 @@ function loadSocketHandlers(locationOverride) {
         globalThis.handleClusterData = handleClusterData;
         globalThis.processBatchedUpdates = processBatchedUpdates;
         globalThis.pendingSocketUpdates = pendingUpdates;
+        globalThis.createClusterGPUCard = createClusterGPUCard;
         globalThis.createNodeGroup = createNodeGroup;
         globalThis.findDataElement = findDataElement;
         globalThis.attemptReconnect = attemptReconnect;
@@ -207,6 +209,7 @@ describe('safe node labels', () => {
     afterEach(() => {
         vi.useRealTimers();
         global.clearInterval(global.reconnectInterval);
+        global.switchToView = defaultSwitchToView;
         vi.restoreAllMocks();
     });
 
@@ -226,6 +229,33 @@ describe('safe node labels', () => {
     it('contains no HTML interpolation for node group labels or data attributes', () => {
         expect(sourceCode).not.toMatch(/class="node-label">\$\{(?:hostname|nodeName)\}/);
         expect(sourceCode).not.toMatch(/data-node="\$\{nodeName\}"/);
+        expect(sourceCode).not.toMatch(/onclick="switchToView\('gpu-\$\{fullGpuId\}'\)"/);
+    });
+
+    it('builds a cluster card without parsing its node identity or model as HTML', () => {
+        const nodeName = '<img src=x onerror="window.__nodeXss=1">';
+        const modelName = '</p><img src=x onerror="window.__modelXss=1"><p>';
+        global.switchToView = vi.fn();
+        delete window.__nodeXss;
+        delete window.__modelXss;
+
+        const card = createClusterGPUCard(nodeName, '0', {
+            name: modelName,
+            utilization: 20,
+            temperature: 40,
+            memory_used: 10,
+            memory_total: 100,
+            power_draw: 30
+        });
+        document.body.appendChild(card);
+        card.click();
+
+        expect(card.dataset.gpuId).toBe(`${nodeName}-0`);
+        expect(card.querySelector('.overview-gpu-name p').textContent).toBe(modelName);
+        expect(card.querySelectorAll('img')).toHaveLength(0);
+        expect(window.__nodeXss).toBeUndefined();
+        expect(window.__modelXss).toBeUndefined();
+        expect(global.switchToView).toHaveBeenCalledWith(`gpu-${nodeName}-0`);
     });
 
     it('keeps the default node label if settings are unavailable', () => {
@@ -255,10 +285,14 @@ describe('safe node labels', () => {
 
         const group = document.querySelector('.node-group');
         const titles = group.querySelectorAll('.overview-gpu-name h2');
+        const models = group.querySelectorAll('.overview-gpu-name p');
         expect(group.dataset.node).toBe('_local');
         expect(group.querySelector('.node-label').textContent).toBe(`Label for ${nodeName}`);
         expect(group.querySelectorAll('img')).toHaveLength(0);
         expect(Array.from(titles, title => title.textContent)).toEqual([
+            '<b>GPU label</b>', '<b>GPU label</b>'
+        ]);
+        expect(Array.from(models, model => model.textContent)).toEqual([
             '<b>GPU label</b>', '<b>GPU label</b>'
         ]);
         expect(window.GPUHotSettings.registerGpuLabelTarget)
@@ -282,5 +316,30 @@ describe('safe node labels', () => {
 
         expect(window.GPUHotSettings.registerNodeLabelTarget).toHaveBeenCalledWith('node-a');
         expect(document.querySelector('.node-label')).toBeNull();
+    });
+
+    it('uses one visible fallback identity when a node name is absent', () => {
+        document.body.innerHTML = '<div id="overview-container"><div class="loading"></div></div>';
+        const gpu = {
+            name: 'Test GPU', utilization: 20, temperature: 40,
+            memory_used: 10, memory_total: 100, power_draw: 30,
+            fan_speed: 50, clock_graphics: 100, clock_sm: 100,
+            clock_memory: 100, power_limit: 200
+        };
+
+        handleSocketMessage({
+            data: JSON.stringify({ gpus: { 0: gpu, 1: gpu }, system: {} })
+        });
+
+        expect(document.querySelector('.node-group .node-label').textContent)
+            .toBe('Label for GPU Server');
+        expect(window.GPUHotSettings.registerNodeLabelTarget)
+            .toHaveBeenCalledWith('GPU Server');
+        expect(window.GPUHotSettings.registerGpuLabelTarget)
+            .toHaveBeenCalledWith('GPU Server', '0');
+        expect(window.GPUHotSettings.registerGpuLabelTarget)
+            .toHaveBeenCalledWith('GPU Server', '1');
+        expect(window.GPUHotSettings.registerNodeLabelTarget)
+            .not.toHaveBeenCalledWith('_local');
     });
 });

@@ -3,6 +3,19 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import vm from 'vm';
+
+const testDir = dirname(fileURLToPath(import.meta.url));
+const settingsSource = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
+
+function loadSettingsModule() {
+    delete window.GPUHotSettings;
+    vm.runInThisContext(settingsSource, { filename: 'settings.js' });
+    return window.GPUHotSettings;
+}
 
 // Globals loaded by setup.js: switchToView, ensureGPUTab, removeGPUTab,
 // autoSwitchSingleGPU, currentTab, registeredGPUs, charts, chartData
@@ -50,6 +63,7 @@ describe('switchToView', () => {
 describe('ensureGPUTab', () => {
     beforeEach(() => {
         setupDOM();
+        localStorage.clear();
         global.registeredGPUs = new Set();
         global.charts = {};
         delete window.GPUHotSettings;
@@ -100,6 +114,68 @@ describe('ensureGPUTab', () => {
         expect(document.querySelector('[data-view="gpu-0"]').textContent).toBe('0');
     });
 
+    it('keeps upstream defaults with the current settings module and no overrides', () => {
+        loadSettingsModule();
+
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false,
+            nodeName: 'node-a',
+            sourceGpuId: '0'
+        });
+
+        const button = document.querySelector('[data-view="gpu-node-a-0"]');
+        const card = document.getElementById('gpu-node-a-0');
+        expect(button.textContent).toBe('0');
+        expect(button.title).toBe('GPU node-a-0');
+        expect(card.querySelector('.gpu-detail-title').textContent).toBe('GPU node-a-0');
+        expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
+    });
+
+    it('uses one saved GPU override for navigation, heading, and model name', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                labelOverrides: [
+                    { kind: 'gpu', node: 'node-a', gpu: '0', label: 'Training card' }
+                ]
+            }
+        }));
+        loadSettingsModule();
+
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false,
+            nodeName: 'node-a',
+            sourceGpuId: '0'
+        });
+
+        const button = document.querySelector('[data-view="gpu-node-a-0"]');
+        const card = document.getElementById('gpu-node-a-0');
+        expect(button.textContent).toBe('Training card');
+        expect(button.title).toBe('Training card');
+        expect(card.querySelector('.gpu-detail-title').textContent).toBe('Training card');
+        expect(card.querySelector('.gpu-detail-name').textContent).toBe('Training card');
+    });
+
+    it('builds a detailed card without parsing its identity or model as HTML', () => {
+        loadSettingsModule();
+        const unsafeNode = '<img src=x onerror="window.__nodeXss=1">';
+        const unsafeModel = '</span><img src=x onerror="window.__modelXss=1"><span>';
+        const gpuId = `${unsafeNode}-0`;
+
+        ensureGPUTab(gpuId, { name: unsafeModel, utilization: 50 }, {
+            shouldUpdateDOM: false,
+            nodeName: unsafeNode,
+            sourceGpuId: '0'
+        });
+
+        const card = document.getElementById(`gpu-${gpuId}`);
+        expect(card).not.toBeNull();
+        expect(card.querySelectorAll('img')).toHaveLength(0);
+        expect(card.querySelector('.gpu-detail-name').textContent).toBe(unsafeModel);
+        expect(window.__nodeXss).toBeUndefined();
+        expect(window.__modelXss).toBeUndefined();
+    });
+
     it('renders a custom GPU label as text while keeping its stable identity', () => {
         const calls = [];
         const customLabel = '<img src=x onerror=alert(1)>';
@@ -122,11 +198,14 @@ describe('ensureGPUTab', () => {
 
         const button = document.querySelector('[data-view="gpu-node-a-0"]');
         const title = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
+        const model = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-name');
         expect(button.textContent).toBe(customLabel);
         expect(button.title).toBe(customLabel);
         expect(button.querySelector('img')).toBeNull();
         expect(title.textContent).toBe(customLabel);
         expect(title.querySelector('img')).toBeNull();
+        expect(model.textContent).toBe(customLabel);
+        expect(model.querySelector('img')).toBeNull();
         expect(button.dataset.view).toBe('gpu-node-a-0');
         expect(button.dataset.testIdentity).toBe(JSON.stringify(['node-a', '0']));
         expect(calls).toEqual([['node-a', '0']]);

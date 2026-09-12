@@ -35,6 +35,22 @@ function hasMetric(gpuInfo, key) {
     return value !== null && value !== undefined && value !== 'N/A' && value !== 'Unknown' && value !== '';
 }
 
+function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo) {
+    const placeholder = '__gpu_hot_identity__';
+    const template = document.createElement('template');
+    template.innerHTML = markupFactory(placeholder, { ...gpuInfo, name: '' }).trim();
+    const card = template.content.firstElementChild;
+    const identityElements = [card, ...card.querySelectorAll('[id], [data-gpu-id]')];
+    identityElements.forEach(element => {
+        if (element.id) element.id = element.id.split(placeholder).join(String(gpuId));
+        if (element.dataset.gpuId === placeholder) element.dataset.gpuId = String(gpuId);
+    });
+    const model = card.querySelector('.gpu-detail-name, .overview-gpu-name p');
+    if (model) model.textContent = String(gpuInfo.name || 'Unknown');
+    card.removeAttribute('onclick');
+    return card;
+}
+
 // Helper: bullet bar CSS class based on thresholds
 function bulletClass(value, warnThreshold, dangerThreshold) {
     if (value >= dangerThreshold) return 'danger';

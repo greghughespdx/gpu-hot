@@ -82,12 +82,14 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
         btn.dataset.view = `gpu-${gpuId}`;
         // For cluster IDs like "gpu-server-2-0", show only the last segment
         const parts = String(gpuId).split('-');
-        btn.textContent = parts.length > 1 ? parts[parts.length - 1] : gpuId;
+        const sidebarLabel = parts.length > 1 ? parts[parts.length - 1] : String(gpuId);
+        btn.textContent = sidebarLabel;
         btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
         window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, sourceGpuId);
-        window.GPUHotSettings?.bindGpuLabel?.(btn, nodeName, sourceGpuId, `GPU ${sourceGpuId}`, 'both');
+        window.GPUHotSettings?.bindGpuLabel?.(btn, nodeName, sourceGpuId, sidebarLabel);
+        window.GPUHotSettings?.bindGpuLabel?.(btn, nodeName, sourceGpuId, `GPU ${gpuId}`, 'title');
 
         // Create tab content
         const tabContent = document.createElement('div');
@@ -100,15 +102,24 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
     }
 
     // Update or create detailed GPU card
-    const detailedContainer = document.querySelector(`#tab-gpu-${gpuId} .detailed-view`);
+    const detailedContainer = document.getElementById(`tab-gpu-${gpuId}`)
+        ?.querySelector('.detailed-view');
     const existingCard = document.getElementById(`gpu-${gpuId}`);
 
     if (!existingCard && detailedContainer) {
-        detailedContainer.innerHTML = createGPUCard(gpuId, gpuInfo);
+        const card = gpuCardElementFromMarkup(createGPUCard, gpuId, gpuInfo);
+        detailedContainer.replaceChildren(card);
         window.GPUHotSettings?.bindGpuLabel?.(
-            detailedContainer.querySelector('.gpu-detail-title'),
+            card.querySelector('.gpu-detail-title'),
             nodeName,
-            sourceGpuId
+            sourceGpuId,
+            `GPU ${gpuId}`
+        );
+        window.GPUHotSettings?.bindGpuLabel?.(
+            card.querySelector('.gpu-detail-name'),
+            nodeName,
+            sourceGpuId,
+            String(gpuInfo.name || 'Unknown')
         );
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
@@ -125,7 +136,8 @@ function removeGPUTab(gpuId) {
         switchToView('overview');
     }
 
-    const btn = document.querySelector(`.sidebar-btn[data-view="gpu-${gpuId}"]`);
+    const btn = Array.from(document.querySelectorAll('.sidebar-btn'))
+        .find(button => button.dataset.view === `gpu-${gpuId}`);
     if (btn) btn.remove();
 
     const tabContent = document.getElementById(`tab-gpu-${gpuId}`);
