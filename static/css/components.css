@@ -935,7 +935,7 @@
     position: fixed;
     top: calc(var(--space-lg) + 96px);
     right: var(--space-lg);
-    z-index: 900;
+    z-index: 209;
     width: min(360px, calc(100vw - 2 * var(--space-lg)));
     max-height: calc(100dvh - 120px);
     overflow-y: auto;

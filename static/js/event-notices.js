@@ -216,10 +216,12 @@
             .map(value => value.trim())
             .filter(Boolean);
         if (parts.length === 0) return null;
-        if (String(gpuInfo?.vendor || '').toLowerCase() === 'amd') {
+        const vendor = String(gpuInfo?.vendor || '').toLowerCase();
+        if (vendor === 'amd') {
             const alarming = parts.filter(value => !NORMAL_THROTTLE_STATES.has(value.toLowerCase()));
             return alarming.length > 0 ? alarming.join(', ') : null;
         }
+        if (vendor !== 'nvidia') return null;
         const alarming = parts.filter(value => NVIDIA_THROTTLE_REASONS.has(value.toLowerCase()));
         return alarming.length > 0 ? alarming.join(', ') : null;
     }

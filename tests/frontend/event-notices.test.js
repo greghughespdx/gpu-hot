@@ -7,6 +7,7 @@ import vm from 'vm';
 const testDir = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(testDir, '../../static/js/event-notices.js'), 'utf8');
 const template = readFileSync(join(testDir, '../../templates/index.html'), 'utf8');
+const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
 
 function markup() {
     document.body.innerHTML = `
@@ -130,6 +131,21 @@ describe('event notices', () => {
         expect(api.notices[1].id).not.toBe(firstId);
     });
 
+    it('keeps simultaneous throttle notices separate for each GPU on one node', () => {
+        const api = loadNotices({ noticeGpuThrottle: true });
+        const payload = hub({ node: online({
+            '0': { vendor: 'nvidia', throttle_reasons: 'HW Thermal' },
+            '1': { vendor: 'nvidia', throttle_reasons: 'Power Brake' }
+        }) });
+
+        api.processPayload(payload);
+        api.processPayload(payload);
+
+        expect(api.notices).toHaveLength(2);
+        expect(api.notices.map(notice => notice.gpu)).toEqual(['0', '1']);
+        expect(new Set(api.notices.map(notice => notice.id)).size).toBe(2);
+    });
+
     it('persists a recovered notice with both observed times', () => {
         const api = loadNotices({ noticeGpuThrottle: true });
         api.processPayload(hub({ node: online({
@@ -152,7 +168,8 @@ describe('event notices', () => {
             n0: { vendor: 'nvidia', throttle_reasons: 'Applications Clocks Setting' },
             n1: { vendor: 'nvidia', throttle_reasons: 'HW Slowdown, SW Thermal' },
             a0: { vendor: 'amd', throttle_reasons: 'UNTHROTTLED' },
-            a1: { vendor: 'amd', throttle_reasons: 'POWER_LIMIT' }
+            a1: { vendor: 'amd', throttle_reasons: 'POWER_LIMIT' },
+            unknown: { vendor: 'other', throttle_reasons: 'HW Thermal' }
         }) }));
 
         expect(api.notices.map(notice => notice.gpu)).toEqual(['n1', 'a1']);
@@ -345,5 +362,14 @@ describe('event notices', () => {
         expect(region.getAttribute('role')).toBe('log');
         expect(region.getAttribute('aria-live')).toBe('polite');
         expect(parsed.querySelectorAll('[data-notice-setting]')).toHaveLength(4);
+    });
+
+    it('keeps notices beneath the settings overlay and panel', () => {
+        const noticeLayer = Number(componentsCss.match(/\.event-notices \{[\s\S]*?z-index: (\d+);/)[1]);
+        const overlayLayer = Number(componentsCss.match(/\.settings-overlay \{[\s\S]*?z-index: (\d+);/)[1]);
+        const panelLayer = Number(componentsCss.match(/\.settings-panel \{[\s\S]*?z-index: (\d+);/)[1]);
+
+        expect(noticeLayer).toBeLessThan(overlayLayer);
+        expect(noticeLayer).toBeLessThan(panelLayer);
     });
 });
