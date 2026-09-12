@@ -538,6 +538,26 @@ describe('settings panel', () => {
         expect(document.activeElement).toBe(resetButton);
     });
 
+    it('recovers focus and Escape handling after focus leaves the open panel', () => {
+        const outsideButton = document.createElement('button');
+        outsideButton.textContent = 'Outside';
+        document.body.appendChild(outsideButton);
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const openButton = document.getElementById('settings-open');
+        const panel = document.getElementById('settings-panel');
+
+        openButton.click();
+        outsideButton.focus();
+        expect(document.activeElement).toBe(document.getElementById('settings-close'));
+
+        outsideButton.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape', bubbles: true, cancelable: true
+        }));
+        expect(panel.hidden).toBe(true);
+        expect(document.activeElement).toBe(openButton);
+    });
+
     it('skips controls hidden by CSS when wrapping keyboard focus', () => {
         const hiddenLink = document.createElement('a');
         hiddenLink.href = '#';

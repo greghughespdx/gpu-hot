@@ -540,6 +540,8 @@
 
         function closePanel() {
             if (!isOpen()) return;
+            documentRef.removeEventListener('keydown', handleDocumentKeydown);
+            documentRef.removeEventListener('focusin', handleDocumentFocus);
             panel.hidden = true;
             panel.setAttribute('inert', '');
             panel.setAttribute('aria-hidden', 'true');
@@ -553,12 +555,14 @@
 
         function openPanel() {
             if (isOpen()) return;
+            documentRef.addEventListener('keydown', handleDocumentKeydown);
             panel.hidden = false;
             panel.removeAttribute('inert');
             panel.setAttribute('aria-hidden', 'false');
             overlay.hidden = false;
             openButton.setAttribute('aria-expanded', 'true');
             closeButton.focus();
+            documentRef.addEventListener('focusin', handleDocumentFocus);
         }
 
         openButton.addEventListener('click', openPanel);
@@ -591,16 +595,8 @@
             applyDisplayLabels(documentRef);
             status.textContent = 'Settings reset.';
         });
-        panel.addEventListener('keydown', event => {
-            if (!isOpen()) return;
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                closePanel();
-                return;
-            }
-            if (event.key !== 'Tab') return;
-
-            const focusable = Array.from(panel.querySelectorAll(
+        function panelFocusableControls() {
+            return Array.from(panel.querySelectorAll(
                 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
             )).filter(element => {
                 for (let current = element; current && panel.contains(current); current = current.parentElement) {
@@ -611,17 +607,31 @@
                 }
                 return true;
             });
-            if (focusable.length === 0) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && documentRef.activeElement === first) {
+        }
+
+        function handleDocumentFocus(event) {
+            if (!isOpen() || panel.contains(event.target)) return;
+            (panelFocusableControls()[0] || closeButton).focus();
+        }
+
+        function handleDocumentKeydown(event) {
+            if (!isOpen()) return;
+            if (event.key === 'Escape') {
                 event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && documentRef.activeElement === last) {
-                event.preventDefault();
-                first.focus();
+                closePanel();
+                return;
             }
-        });
+            if (event.key !== 'Tab') return;
+
+            const focusable = panelFocusableControls();
+            if (focusable.length === 0) return;
+            const activeIndex = focusable.indexOf(documentRef.activeElement);
+            const nextIndex = event.shiftKey
+                ? (activeIndex <= 0 ? focusable.length - 1 : activeIndex - 1)
+                : (activeIndex < 0 || activeIndex === focusable.length - 1 ? 0 : activeIndex + 1);
+            event.preventDefault();
+            focusable[nextIndex].focus();
+        }
 
         return { openPanel, closePanel };
     }

@@ -194,8 +194,6 @@ function handleSocketMessage(event) {
 
     const gpuCount = Object.keys(data.gpus).length;
     const now = Date.now();
-    window.GPUHotSettings?.registerNodeLabelTarget?.(localNodeName);
-
     // Performance: Skip ALL DOM updates during active scrolling
     if (isScrolling) {
         // Still update chart data arrays (lightweight) to maintain continuity

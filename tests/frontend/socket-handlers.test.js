@@ -635,7 +635,7 @@ describe('safe node labels', () => {
             .toHaveBeenCalledWith(nodeName, '1');
     });
 
-    it('offers a node label for a single-GPU server without a node heading', () => {
+    it('does not offer a node label when a single-GPU server draws no node heading', () => {
         document.body.innerHTML = '<div id="overview-container"><div class="loading"></div></div>';
         const gpu = {
             name: 'Test GPU', utilization: 20, temperature: 40,
@@ -648,7 +648,7 @@ describe('safe node labels', () => {
             data: JSON.stringify({ node_name: 'node-a', gpus: { 0: gpu }, system: {} })
         });
 
-        expect(window.GPUHotSettings.registerNodeLabelTarget).toHaveBeenCalledWith('node-a');
+        expect(window.GPUHotSettings.registerNodeLabelTarget).not.toHaveBeenCalled();
         expect(document.querySelector('.node-label')).toBeNull();
     });
 
