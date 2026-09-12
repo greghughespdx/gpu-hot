@@ -92,6 +92,20 @@ describe('event notices', () => {
         expect(api.notices[0]).toMatchObject({ eventType: 'gpuMissing', node: 'node', gpu: '1' });
     });
 
+    it('does not remember an oversized roster while notice options are off', () => {
+        const api = loadNotices();
+        const oversizedRoster = Object.fromEntries(
+            Array.from({ length: 600 }, (_, index) => [String(index), {}])
+        );
+        api.processPayload(hub({ node: online(oversizedRoster) }));
+
+        window.GPUHotSettings.settings.noticeGpuMissing = true;
+        api.settingsChanged();
+        api.processPayload(hub({ node: online({ '0': {} }) }));
+
+        expect(api.notices).toEqual([]);
+    });
+
     it.each([2, 4, 7])(
         'detects a GPU lost at tick 1 when missing notices start at tick %i',
         enableTick => {
