@@ -1005,6 +1005,88 @@
     min-height: 0;
 }
 
+/* Settings panel */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.settings-panel[hidden] {
+    display: none;
+}
+
+.settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 211;
+    width: 420px;
+    max-width: calc(100vw - var(--sidebar-width));
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-subtle);
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.settings-close {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.settings-close:hover,
+.settings-close:focus-visible {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-body {
+    padding: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+.settings-reset {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.settings-reset:hover,
+.settings-reset:focus-visible {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-status {
+    min-height: 1.5em;
+    margin-top: var(--space-md);
+}
+
 /* Large chart in drawer */
 .drawer-chart-wrap {
     height: 420px;
@@ -1170,6 +1252,11 @@
 
 @media (max-width: 768px) {
     .drawer {
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    .settings-panel {
         width: 100%;
         max-width: 100vw;
     }
