@@ -67,7 +67,7 @@
     /* All page metric geometry */
     --overview-metric-width: 72px;
     --overview-metric-gap: var(--space-xl);
-    --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+    --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
     --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
 
     /* Sidebar */
