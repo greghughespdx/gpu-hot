@@ -274,6 +274,20 @@
         return Object.keys(EVENT_TYPES).some(optionEnabled);
     }
 
+    function snapshotOnlineRoster(node, gpuMap) {
+        const currentRoster = new Set(Object.keys(gpuMap));
+        if (currentRoster.size === 0) return;
+        const rememberedRoster = lastOnlineRosters.get(node);
+        if (!rememberedRoster) {
+            lastOnlineRosters.set(node, currentRoster);
+            return;
+        }
+        const combinedRoster = new Set([...rememberedRoster, ...currentRoster]);
+        if (combinedRoster.size <= MAX_GPUS_PER_NODE) {
+            lastOnlineRosters.set(node, combinedRoster);
+        }
+    }
+
     function snapshotOnlineRosters(data) {
         if (data.mode === 'hub') {
             if (!isObject(data.nodes)) return;
@@ -283,14 +297,14 @@
                 const node = boundedString(rawNode);
                 if (node && isObject(nodeData) && nodeData.status === 'online'
                     && isCompleteGpuMap(nodeData.gpus)) {
-                    lastOnlineRosters.set(node, new Set(Object.keys(nodeData.gpus)));
+                    snapshotOnlineRoster(node, nodeData.gpus);
                 }
             });
             return;
         }
         if (!isCompleteGpuMap(data.gpus)) return;
         const node = boundedString(data.node_name || global.DEFAULT_NODE_NAME || 'GPU Server');
-        if (node) lastOnlineRosters.set(node, new Set(Object.keys(data.gpus)));
+        if (node) snapshotOnlineRoster(node, data.gpus);
     }
 
     function observePayload(data) {
