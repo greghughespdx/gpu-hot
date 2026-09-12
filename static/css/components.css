@@ -222,22 +222,22 @@
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="1"] {
-        --overview-chart-behind-fade-start: 0px;
-        --overview-chart-behind-fade-end: var(--overview-metric-width);
+        --overview-chart-behind-fade-start: var(--overview-chart-behind-lead-in);
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="2"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
         --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="3"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
         --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="4"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
         --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
     }
 

@@ -256,8 +256,15 @@
         }
         resetOverviewBehindMask(card, chart);
         const chartLeft = chart.getBoundingClientRect().left;
-        card.style.setProperty('--overview-chart-behind-fade-start', `${lastMetric.left - chartLeft}px`);
-        card.style.setProperty('--overview-chart-behind-fade-end', `${lastMetric.right - chartLeft}px`);
+        const leadIn = 'var(--overview-chart-behind-lead-in)';
+        card.style.setProperty(
+            '--overview-chart-behind-fade-start',
+            `calc(${lastMetric.left - chartLeft}px + ${leadIn})`
+        );
+        card.style.setProperty(
+            '--overview-chart-behind-fade-end',
+            `calc(${lastMetric.right - chartLeft}px + ${leadIn})`
+        );
     }
 
     let overviewMaskFrame = null;

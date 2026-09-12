@@ -48,6 +48,7 @@
     --spark-stroke: rgba(238, 240, 244, 0.6);
     --spark-stroke-secondary: rgba(238, 240, 244, 0.35);
     --overview-chart-behind-dim: 0.3;
+    --overview-chart-behind-lead-in: 32px;
 
     /* Bullet bar */
     --bar-track: rgba(255, 255, 255, 0.07);
@@ -66,7 +67,7 @@
     /* All page metric geometry */
     --overview-metric-width: 72px;
     --overview-metric-gap: var(--space-xl);
-    --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+    --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
     --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
 
     /* Sidebar */
