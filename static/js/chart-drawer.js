@@ -20,12 +20,12 @@ let drawerUpdateInterval = null;
 // ============================================
 
 const COMPANION = {
-    line: 'rgba(255, 170, 50, 0.50)',
-    lineBright: 'rgba(255, 170, 50, 0.70)',
-    tick: 'rgba(255, 170, 50, 0.30)',
-    chip: 'rgba(255, 170, 50, 0.12)',
-    chipBorder: 'rgba(255, 170, 50, 0.35)',
-    chipText: 'rgba(255, 170, 50, 0.80)',
+    get line() { return colorTokenWithAlpha('--companion-rgb', 0.50); },
+    get lineBright() { return colorTokenWithAlpha('--companion-rgb', 0.70); },
+    get tick() { return colorTokenWithAlpha('--companion-rgb', 0.30); },
+    get chip() { return colorTokenWithAlpha('--companion-rgb', 0.12); },
+    get chipBorder() { return colorTokenWithAlpha('--companion-rgb', 0.35); },
+    get chipText() { return colorTokenWithAlpha('--companion-rgb', 0.80); },
 };
 
 // ============================================
@@ -197,13 +197,16 @@ function createDrawerChart() {
             systemDiskIo: [{ key: 'dataRead', label: 'Read' }, { key: 'dataWrite', label: 'Write' }],
             systemLoadAvg: [{ key: 'data1m', label: '1m' }, { key: 'data5m', label: '5m' }, { key: 'data15m', label: '15m' }],
         };
-        const whiteAlphas = [0.7, 0.4, 0.25, 0.15];
+        const primaryLineColors = [0.7, 0.4, 0.25, 0.15]
+            .map(alpha => colorTokenWithAlpha('--neutral-rgb', alpha));
         (multiDefs[chartType] || []).forEach((def, i) => {
             datasets.push({
                 label: def.label,
                 data: primaryStore[def.key],
-                borderColor: `rgba(255, 255, 255, ${whiteAlphas[i] || 0.15})`,
-                backgroundColor: i === 0 ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
+                borderColor: primaryLineColors[i] || primaryLineColors[3],
+                backgroundColor: i === 0
+                    ? colorTokenWithAlpha('--neutral-rgb', 0.04)
+                    : 'transparent',
                 borderWidth: i === 0 ? 2 : 1.5,
                 tension: 0.3,
                 fill: i === 0,
@@ -216,8 +219,8 @@ function createDrawerChart() {
         datasets.push({
             label: pMeta.title,
             data: primaryArr,
-            borderColor: 'rgba(255, 255, 255, 0.7)',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            borderColor: colorTokenWithAlpha('--neutral-rgb', 0.7),
+            backgroundColor: colorTokenWithAlpha('--neutral-rgb', 0.04),
             borderWidth: 2,
             tension: 0.3,
             fill: true,
@@ -254,7 +257,7 @@ function createDrawerChart() {
             grid: { display: false },
             border: { display: false },
             ticks: {
-                color: 'rgba(255, 255, 255, 0.30)',
+                color: colorTokenWithAlpha('--neutral-rgb', 0.30),
                 font: { size: 10, family: "'SF Mono', 'Menlo', monospace" },
                 maxTicksLimit: 7,
                 maxRotation: 0,
@@ -265,9 +268,9 @@ function createDrawerChart() {
             display: true,
             position: 'left',
             min: 0,
-            grid: { color: 'rgba(255, 255, 255, 0.05)', lineWidth: 1 },
+            grid: { color: colorTokenWithAlpha('--neutral-rgb', 0.05), lineWidth: 1 },
             ticks: {
-                color: 'rgba(255, 255, 255, 0.40)',
+                color: colorTokenWithAlpha('--neutral-rgb', 0.40),
                 font: { size: 11, family: "'SF Mono', 'Menlo', monospace" },
                 maxTicksLimit: 6,
                 padding: 14,
@@ -321,7 +324,7 @@ function createDrawerChart() {
                     position: 'top',
                     align: 'end',
                     labels: {
-                        color: 'rgba(255, 255, 255, 0.55)',
+                        color: colorTokenWithAlpha('--neutral-rgb', 0.55),
                         font: { size: 11, weight: '500' },
                         boxWidth: 14,
                         boxHeight: 2,
@@ -331,9 +334,9 @@ function createDrawerChart() {
                 },
                 tooltip: {
                     enabled: true,
-                    backgroundColor: '#1e2330',
-                    titleColor: '#eef0f4',
-                    bodyColor: 'rgba(238, 240, 244, 0.7)',
+                    backgroundColor: readColorToken('--bg-elevated'),
+                    titleColor: readColorToken('--text-primary'),
+                    bodyColor: colorTokenWithAlpha('--text-rgb', 0.7),
                     borderWidth: 0,
                     padding: 10,
                     cornerRadius: 4,

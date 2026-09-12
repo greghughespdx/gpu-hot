@@ -124,6 +124,19 @@ describe('companionMap', () => {
     });
 });
 
+describe('COMPANION colors', () => {
+    beforeEach(() => loadChartDrawer());
+
+    it('reads the current companion token when the drawer is drawn', () => {
+        document.documentElement.style.setProperty('--companion-rgb', '1, 2, 3');
+
+        expect(COMPANION.line).toBe('rgba(1, 2, 3, 0.5)');
+        expect(COMPANION.chipText).toBe('rgba(1, 2, 3, 0.8)');
+
+        document.documentElement.style.removeProperty('--companion-rgb');
+    });
+});
+
 // ---------------------------------------------------------------------------
 // fmtValue
 // ---------------------------------------------------------------------------
