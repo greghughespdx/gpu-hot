@@ -427,14 +427,19 @@ describe('sidebar order identity', () => {
                             }
                         },
                         system: {},
-                        processes: []
+                        processes: [
+                            { gpu_id: '0', pid: 10 },
+                            { gpu_id: '0', pid: 11 },
+                            { gpu_id: '1', pid: 12 }
+                        ]
                     }
                 }
             });
 
             expect(pendingSocketUpdates.get('node-a-0')).toMatchObject({
                 nodeName: 'node-a',
-                sourceGpuId: '0'
+                sourceGpuId: '0',
+                processCount: 2
             });
         } finally {
             global.requestAnimationFrame = originalAnimationFrame;
@@ -492,13 +497,17 @@ describe('sidebar order identity', () => {
                         }
                     },
                     system: {},
-                    processes: []
+                    processes: [
+                        { gpu_id: '0', pid: 10 },
+                        { gpu_id: '0', pid: 11 }
+                    ]
                 })
             });
 
             expect(pendingSocketUpdates.get('0')).toMatchObject({
                 nodeName: 'node-a',
-                sourceGpuId: '0'
+                sourceGpuId: '0',
+                processCount: 2
             });
         } finally {
             global.requestAnimationFrame = originalAnimationFrame;

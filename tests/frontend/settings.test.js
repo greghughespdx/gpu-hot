@@ -15,6 +15,19 @@ const defaults = {
     'overview.memory': true,
     'overview.power': true,
     'overview.chart': true,
+    'overview.fan-speed': false,
+    'overview.graphics-clock': false,
+    'overview.memory-clock': false,
+    'overview.memory-used': false,
+    'overview.power-limit': false,
+    'overview.memory-temperature': false,
+    'overview.throttle-status': false,
+    'overview.process-count': false,
+    'overview.pcie-generation': false,
+    'overview.pcie-width': false,
+    'overview.encoder-load': false,
+    'overview.decoder-load': false,
+    'overview.performance-state': false,
     theme: 'default',
     showStarPrompt: true,
     overviewMiniChartBehindDim: 30,
@@ -38,6 +51,19 @@ function panelMarkup() {
             <input type="checkbox" data-overview-setting="memory">
             <input type="checkbox" data-overview-setting="power">
             <input type="checkbox" data-overview-setting="chart">
+            <input type="checkbox" data-overview-setting="fan-speed">
+            <input type="checkbox" data-overview-setting="graphics-clock">
+            <input type="checkbox" data-overview-setting="memory-clock">
+            <input type="checkbox" data-overview-setting="memory-used">
+            <input type="checkbox" data-overview-setting="power-limit">
+            <input type="checkbox" data-overview-setting="memory-temperature">
+            <input type="checkbox" data-overview-setting="throttle-status">
+            <input type="checkbox" data-overview-setting="process-count">
+            <input type="checkbox" data-overview-setting="pcie-generation">
+            <input type="checkbox" data-overview-setting="pcie-width">
+            <input type="checkbox" data-overview-setting="encoder-load">
+            <input type="checkbox" data-overview-setting="decoder-load">
+            <input type="checkbox" data-overview-setting="performance-state">
             <select id="settings-overview-chart-width">
                 <option value="auto">Automatic</option>
                 <option value="wide">Wide</option>
@@ -746,6 +772,49 @@ describe('settings panel', () => {
             .toBe(false);
     });
 
+    it('keeps every extra metric off until the viewer selects it', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(api.EXTRA_OVERVIEW_METRICS).toEqual([
+            'fan-speed', 'graphics-clock', 'memory-clock', 'memory-used',
+            'power-limit', 'memory-temperature', 'throttle-status', 'process-count',
+            'pcie-generation', 'pcie-width', 'encoder-load', 'decoder-load',
+            'performance-state'
+        ]);
+        for (const metric of api.EXTRA_OVERVIEW_METRICS) {
+            expect(api.settings[`overview.${metric}`]).toBe(false);
+            expect(document.querySelector(`[data-overview-setting="${metric}"]`).checked).toBe(false);
+        }
+        expect(api.visibleOverviewMetricCount()).toBe(4);
+    });
+
+    it('persists selected extras and extends the Behind metrics mask', () => {
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="overview-gpu-card">
+                <div data-overview-metric="fan-speed" hidden></div>
+                <div data-overview-metric="graphics-clock" hidden></div>
+            </div>
+        `);
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        document.querySelector('[data-overview-setting="fan-speed"]').click();
+        document.querySelector('[data-overview-setting="graphics-clock"]').click();
+
+        const cards = document.querySelectorAll('.overview-gpu-card');
+        const card = cards[cards.length - 1];
+        expect(api.visibleOverviewMetricCount()).toBe(6);
+        expect(card.dataset.overviewVisibleMetrics).toBe('6');
+        expect(card.classList.contains('overview-has-extra-metrics')).toBe(true);
+        expect(card.querySelector('[data-overview-metric="fan-speed"]').hidden).toBe(false);
+        expect(card.querySelector('[data-overview-metric="graphics-clock"]').hidden).toBe(false);
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
+            .toContain('var(--overview-metric-width) + var(--overview-metric-gap)');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+            .toMatchObject({ 'overview.fan-speed': true, 'overview.graphics-clock': true });
+    });
+
     it('keeps the previous choice when storage rejects a change', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -814,8 +883,9 @@ describe('settings panel', () => {
 
         document.getElementById('settings-reset').click();
 
-        expect(document.querySelectorAll('[data-overview-setting]:not(:checked)')).toHaveLength(0);
-        expect(document.querySelectorAll('[data-overview-metric][hidden]')).toHaveLength(0);
+        expect(document.querySelectorAll('[data-overview-setting]:not(:checked)')).toHaveLength(13);
+        expect(document.querySelectorAll('[data-overview-metric="memory"][hidden]')).toHaveLength(0);
+        expect(document.querySelectorAll('[data-overview-metric="chart"][hidden]')).toHaveLength(0);
         expect(document.querySelector('.overview-gpu-card').classList.contains('overview-chart-hidden'))
             .toBe(false);
         expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
@@ -1291,8 +1361,14 @@ describe('settings page contract', () => {
         const metrics = Array.from(parsed.querySelectorAll('[data-overview-setting]'))
             .map(input => input.dataset.overviewSetting);
 
-        expect(metrics).toEqual(['utilization', 'temperature', 'memory', 'power', 'chart']);
-        expect(new Set(metrics).size).toBe(5);
+        expect(metrics).toEqual([
+            'utilization', 'temperature', 'memory', 'power', 'chart',
+            'fan-speed', 'graphics-clock', 'memory-clock', 'memory-used',
+            'power-limit', 'memory-temperature', 'throttle-status', 'process-count',
+            'pcie-generation', 'pcie-width', 'encoder-load', 'decoder-load',
+            'performance-state'
+        ]);
+        expect(new Set(metrics).size).toBe(18);
     });
 
     it('offers the four mini chart widths and the conditional strength control once', () => {

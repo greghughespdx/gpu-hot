@@ -83,6 +83,10 @@
     min-width: 0;
 }
 
+.overview-gpu-card.overview-has-extra-metrics .overview-metrics {
+    flex-wrap: wrap;
+}
+
 .overview-metric {
     display: flex;
     flex-direction: column;
@@ -99,6 +103,15 @@
     letter-spacing: -0.5px;
     line-height: 1;
     white-space: nowrap;
+}
+
+[data-overview-extra] {
+    max-width: 160px;
+}
+
+[data-overview-extra] .overview-metric-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .overview-metric-label {

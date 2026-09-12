@@ -10,11 +10,30 @@
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
     const THEMES = Object.freeze(['default', 'midnight', 'high-contrast']);
-    const OVERVIEW_METRICS = Object.freeze([
+    const CORE_OVERVIEW_METRICS = Object.freeze([
         'utilization',
         'temperature',
         'memory',
-        'power',
+        'power'
+    ]);
+    const EXTRA_OVERVIEW_METRICS = Object.freeze([
+        'fan-speed',
+        'graphics-clock',
+        'memory-clock',
+        'memory-used',
+        'power-limit',
+        'memory-temperature',
+        'throttle-status',
+        'process-count',
+        'pcie-generation',
+        'pcie-width',
+        'encoder-load',
+        'decoder-load',
+        'performance-state'
+    ]);
+    const OVERVIEW_METRICS = Object.freeze([
+        ...CORE_OVERVIEW_METRICS,
+        ...EXTRA_OVERVIEW_METRICS,
         'chart'
     ]);
     const NOTICE_SETTINGS = Object.freeze([
@@ -24,9 +43,9 @@
         'noticeExternalFanStopped'
     ]);
     const DEFAULT_SETTINGS = Object.freeze({
-        ...Object.fromEntries(
-            OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
-        ),
+        ...Object.fromEntries(CORE_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])),
+        ...Object.fromEntries(EXTRA_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, false])),
+        'overview.chart': true,
         theme: 'default',
         showStarPrompt: true,
         overviewMiniChartBehindDim: 30,
@@ -210,6 +229,23 @@
             .length;
     }
 
+    function setOverviewBehindMask(card, visibleCount) {
+        if (visibleCount <= 4) {
+            card.style.removeProperty('--overview-chart-behind-fade-start');
+            card.style.removeProperty('--overview-chart-behind-fade-end');
+            return;
+        }
+        const beforeLast = Array.from(
+            { length: visibleCount - 1 },
+            () => 'var(--overview-metric-width) + var(--overview-metric-gap)'
+        ).join(' + ');
+        card.style.setProperty('--overview-chart-behind-fade-start', `calc(${beforeLast})`);
+        card.style.setProperty(
+            '--overview-chart-behind-fade-end',
+            'calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width))'
+        );
+    }
+
     function applyOverviewMetricVisibility(documentRef = global.document) {
         if (!documentRef) return;
         OVERVIEW_METRICS.forEach(metric => {
@@ -220,7 +256,13 @@
         });
         documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
             card.classList.toggle('overview-chart-hidden', !isOverviewMetricVisible('chart'));
-            card.dataset.overviewVisibleMetrics = String(visibleOverviewMetricCount());
+            const visibleCount = visibleOverviewMetricCount();
+            card.dataset.overviewVisibleMetrics = String(visibleCount);
+            card.classList.toggle(
+                'overview-has-extra-metrics',
+                EXTRA_OVERVIEW_METRICS.some(isOverviewMetricVisible)
+            );
+            setOverviewBehindMask(card, visibleCount);
         });
     }
 
@@ -790,6 +832,7 @@
         STORAGE_KEY,
         STORAGE_VERSION,
         THEMES,
+        EXTRA_OVERVIEW_METRICS,
         settings,
         loadSettings,
         saveSettings,

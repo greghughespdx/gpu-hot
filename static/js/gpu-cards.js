@@ -51,10 +51,74 @@ function setFanRpm(elementId, gpuInfo) {
     element.hidden = !text;
 }
 
-function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo) {
+const OVERVIEW_EXTRA_METRIC_DEFINITIONS = Object.freeze([
+    { id: 'fan-speed', label: 'FAN', value: gpu => formatOverviewNumber(gpu.fan_speed, '%') },
+    { id: 'graphics-clock', label: 'GRAPHICS CLOCK', value: gpu => formatOverviewNumber(gpu.clock_graphics, ' MHz') },
+    { id: 'memory-clock', label: 'MEMORY CLOCK', value: gpu => formatOverviewNumber(gpu.clock_memory, ' MHz') },
+    { id: 'memory-used', label: 'MEMORY USED', value: gpu => formatOverviewMemoryGb(gpu.memory_used) },
+    { id: 'power-limit', label: 'POWER LIMIT', value: gpu => formatOverviewNumber(gpu.power_limit, ' W') },
+    { id: 'memory-temperature', label: 'MEMORY TEMP', value: gpu => formatOverviewNumber(gpu.temperature_memory, ' C') },
+    { id: 'throttle-status', label: 'THROTTLE', value: gpu => formatOverviewText(gpu.throttle_reasons) },
+    { id: 'process-count', label: 'PROCESSES', value: (gpu, context) => formatOverviewCount(context.processCount) },
+    { id: 'pcie-generation', label: 'PCIE GEN', value: gpu => formatOverviewNumber(gpu.pcie_gen, '', 'Gen ') },
+    { id: 'pcie-width', label: 'PCIE WIDTH', value: gpu => formatOverviewNumber(gpu.pcie_width, '', 'x') },
+    { id: 'encoder-load', label: 'ENCODER', value: gpu => formatOverviewNumber(gpu.encoder_utilization, '%') },
+    { id: 'decoder-load', label: 'DECODER', value: gpu => formatOverviewNumber(gpu.decoder_utilization, '%') },
+    { id: 'performance-state', label: 'PERFORMANCE', value: gpu => formatOverviewText(gpu.performance_state) }
+]);
+
+function formatOverviewNumber(value, suffix = '', prefix = '') {
+    if (value === null || value === undefined || value === '') return 'Not reported';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'Not reported';
+    return `${prefix}${Math.round(number)}${suffix}`;
+}
+
+function formatOverviewMemoryGb(value) {
+    if (value === null || value === undefined || value === '') return 'Not reported';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'Not reported';
+    return `${(number / 1024).toFixed(1)} GB`;
+}
+
+function formatOverviewCount(value) {
+    return Number.isInteger(value) && value >= 0 ? String(value) : 'Not reported';
+}
+
+function formatOverviewText(value) {
+    if (Array.isArray(value)) value = value.join(', ');
+    if (value === null || value === undefined || value === '' || value === 'N/A') {
+        return 'Not reported';
+    }
+    return String(value).slice(0, 80);
+}
+
+function overviewExtraMetricsMarkup(gpuId) {
+    return OVERVIEW_EXTRA_METRIC_DEFINITIONS.map(metric => {
+        const visible = window.GPUHotSettings?.isOverviewMetricVisible?.(metric.id) === true;
+        return `
+                <div class="overview-metric" data-overview-metric="${metric.id}" data-overview-extra="${metric.id}"${visible ? '' : ' hidden'}>
+                    <div class="overview-metric-value" id="overview-extra-${metric.id}-${gpuId}">Not reported</div>
+                    <div class="overview-metric-label">${metric.label}</div>
+                </div>`;
+    }).join('');
+}
+
+function updateOverviewExtraMetrics(root, gpuId, gpuInfo, context = {}) {
+    OVERVIEW_EXTRA_METRIC_DEFINITIONS.forEach(metric => {
+        const cell = root.nodeType === 9
+            ? root.getElementById(`overview-extra-${metric.id}-${gpuId}`)?.closest('[data-overview-extra]')
+            : root.querySelector(`[data-overview-extra="${metric.id}"]`);
+        if (!cell || cell.hidden) return;
+        const element = cell.querySelector('.overview-metric-value');
+        if (element) element.textContent = metric.value(gpuInfo, context);
+    });
+}
+
+function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo, context = {}) {
     const placeholder = '__gpu_hot_identity__';
     const template = document.createElement('template');
-    template.innerHTML = markupFactory(placeholder, { ...gpuInfo, name: '' }).trim();
+    template.innerHTML = markupFactory(placeholder, { ...gpuInfo, name: '' }, context).trim();
     const card = template.content.firstElementChild;
     const identityElements = [card, ...card.querySelectorAll('[id], [data-gpu-id]')];
     identityElements.forEach(element => {
@@ -65,6 +129,7 @@ function gpuCardElementFromMarkup(markupFactory, gpuId, gpuInfo) {
     if (title) title.textContent = `GPU ${gpuId}`;
     const model = card.querySelector('.gpu-detail-name, .overview-gpu-name p');
     if (model) model.textContent = String(gpuInfo.name || 'Unknown');
+    updateOverviewExtraMetrics(card, gpuId, gpuInfo, context);
     card.removeAttribute('onclick');
     return card;
 }
@@ -92,8 +157,8 @@ function createAggregateCard() {
 }
 
 // Update overview card — delegates to enhanced updater
-function updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
-    updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM);
+function updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true, context = {}) {
+    updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM, context);
 }
 
 // ============================================
@@ -113,9 +178,12 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
     const chartHidden = metricHidden('chart');
     const chartClass = chartHidden ? ' overview-chart-hidden' : '';
     const visibleMetricCount = window.GPUHotSettings?.visibleOverviewMetricCount?.() ?? 4;
+    const extraMetricsVisible = OVERVIEW_EXTRA_METRIC_DEFINITIONS.some(
+        metric => window.GPUHotSettings?.isOverviewMetricVisible?.(metric.id) === true
+    );
 
     return `
-        <div class="overview-gpu-card${chartClass}" data-gpu-id="${gpuId}" data-overview-visible-metrics="${visibleMetricCount}" onclick="switchToView('gpu-${gpuId}')">
+        <div class="overview-gpu-card${chartClass}${extraMetricsVisible ? ' overview-has-extra-metrics' : ''}" data-gpu-id="${gpuId}" data-overview-visible-metrics="${visibleMetricCount}" onclick="switchToView('gpu-${gpuId}')">
             <div class="overview-gpu-name">
                 <h2>GPU ${gpuId}</h2>
                 <p>${getMetricValue(gpuInfo, 'name', 'Unknown GPU')}</p>
@@ -138,6 +206,7 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
                     <div class="overview-metric-value" id="overview-power-${gpuId}">${getMetricValue(gpuInfo, 'power_draw', 0).toFixed(0)}W</div>
                     <div class="overview-metric-label">POWER</div>
                 </div>
+                ${overviewExtraMetricsMarkup(gpuId)}
             </div>
             <div class="overview-mini-chart" data-overview-metric="chart"${chartHidden}>
                 <canvas id="overview-chart-${gpuId}"></canvas>
@@ -288,7 +357,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
 }
 
 // Update enhanced overview card
-function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
+function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true, context = {}) {
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
     const memory_used = getMetricValue(gpuInfo, 'memory_used', 0);
@@ -327,6 +396,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (clTempEl) clTempEl.textContent = `${temperature}°`;
         if (clMemEl) clMemEl.textContent = `${Math.round(memPercent)}%`;
         if (clPowerEl) clPowerEl.textContent = `${power_draw.toFixed(0)}W`;
+        updateOverviewExtraMetrics(document, gpuId, gpuInfo, context);
 
         // Bullet bars
         const utilBar = document.getElementById(`sgo-util-bar-${gpuId}`);

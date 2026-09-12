@@ -107,6 +107,12 @@ for (const file of loadOrder) {
         if (typeof hasMetric !== 'undefined') globalThis.hasMetric = hasMetric;
         if (typeof formatFanRpm !== 'undefined') globalThis.formatFanRpm = formatFanRpm;
         if (typeof setFanRpm !== 'undefined') globalThis.setFanRpm = setFanRpm;
+        if (typeof OVERVIEW_EXTRA_METRIC_DEFINITIONS !== 'undefined') globalThis.OVERVIEW_EXTRA_METRIC_DEFINITIONS = OVERVIEW_EXTRA_METRIC_DEFINITIONS;
+        if (typeof formatOverviewNumber !== 'undefined') globalThis.formatOverviewNumber = formatOverviewNumber;
+        if (typeof formatOverviewMemoryGb !== 'undefined') globalThis.formatOverviewMemoryGb = formatOverviewMemoryGb;
+        if (typeof formatOverviewCount !== 'undefined') globalThis.formatOverviewCount = formatOverviewCount;
+        if (typeof formatOverviewText !== 'undefined') globalThis.formatOverviewText = formatOverviewText;
+        if (typeof updateOverviewExtraMetrics !== 'undefined') globalThis.updateOverviewExtraMetrics = updateOverviewExtraMetrics;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
         if (typeof gpuCardElementFromMarkup !== 'undefined') globalThis.gpuCardElementFromMarkup = gpuCardElementFromMarkup;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;

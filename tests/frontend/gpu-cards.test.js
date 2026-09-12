@@ -312,6 +312,121 @@ describe('createCompactOverviewCard', () => {
     });
 });
 
+describe('opt-in All page metrics', () => {
+    const extraMetricIds = [
+        'fan-speed', 'graphics-clock', 'memory-clock', 'memory-used',
+        'power-limit', 'memory-temperature', 'throttle-status', 'process-count',
+        'pcie-generation', 'pcie-width', 'encoder-load', 'decoder-load',
+        'performance-state'
+    ];
+
+    beforeEach(() => {
+        document.body.innerHTML = '';
+        window.GPUHotSettings = {
+            isOverviewMetricVisible: metric => extraMetricIds.includes(metric)
+                || ['utilization', 'temperature', 'memory', 'power', 'chart'].includes(metric),
+            visibleOverviewMetricCount: () => 17
+        };
+    });
+
+    it('does no recurring value work for extra metrics that are off', () => {
+        window.GPUHotSettings.isOverviewMetricVisible = metric => metric === 'fan-speed';
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, '0', {
+            name: 'Test GPU', memory_total: 1, fan_speed: 60, clock_graphics: 1800
+        });
+        document.body.appendChild(card);
+
+        const fan = card.querySelector('[data-overview-extra="fan-speed"]');
+        const clock = card.querySelector('[data-overview-extra="graphics-clock"]');
+        expect(fan.querySelector('.overview-metric-value').textContent).toBe('60%');
+        expect(clock.querySelector('.overview-metric-value').textContent).toBe('Not reported');
+
+        updateOverviewExtraMetrics(card, '0', { fan_speed: 70, clock_graphics: 1900 });
+
+        expect(fan.querySelector('.overview-metric-value').textContent).toBe('70%');
+        expect(clock.querySelector('.overview-metric-value').textContent).toBe('Not reported');
+    });
+
+    it('renders every selected payload metric as a card cell', () => {
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, 'node-a-0', {
+            name: 'Test GPU', utilization: 75, temperature: 62,
+            memory_used: 8192, memory_total: 24576, power_draw: 250,
+            fan_speed: 65, clock_graphics: 1800, clock_memory: 9000,
+            power_limit: 350, temperature_memory: 72, throttle_reasons: 'HW Thermal',
+            pcie_gen: 4, pcie_width: 16, encoder_utilization: 20,
+            decoder_utilization: 10, performance_state: 'P0'
+        }, { processCount: 3 });
+        document.body.appendChild(card);
+
+        const values = Object.fromEntries(extraMetricIds.map(metric => [
+            metric,
+            card.querySelector(`[data-overview-extra="${metric}"] .overview-metric-value`).textContent
+        ]));
+        expect(values).toEqual({
+            'fan-speed': '65%',
+            'graphics-clock': '1800 MHz',
+            'memory-clock': '9000 MHz',
+            'memory-used': '8.0 GB',
+            'power-limit': '350 W',
+            'memory-temperature': '72 C',
+            'throttle-status': 'HW Thermal',
+            'process-count': '3',
+            'pcie-generation': 'Gen 4',
+            'pcie-width': 'x16',
+            'encoder-load': '20%',
+            'decoder-load': '10%',
+            'performance-state': 'P0'
+        });
+        expect(card.classList.contains('overview-has-extra-metrics')).toBe(true);
+        expect(card.dataset.overviewVisibleMetrics).toBe('17');
+    });
+
+    it('uses text rendering for collector status and explains missing values', () => {
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, '0', {
+            name: 'Test GPU', memory_used: 0, memory_total: 1,
+            throttle_reasons: '<img src=x onerror="window.__extraMetricXss=1">'
+        });
+        document.body.appendChild(card);
+
+        const throttle = card.querySelector('[data-overview-extra="throttle-status"]');
+        const fan = card.querySelector('[data-overview-extra="fan-speed"]');
+        const memory = card.querySelector('[data-overview-extra="memory-used"]');
+        expect(throttle.querySelector('.overview-metric-value').textContent)
+            .toBe('<img src=x onerror="window.__extraMetricXss=1">');
+        expect(throttle.querySelector('img')).toBeNull();
+        expect(window.__extraMetricXss).toBeUndefined();
+        expect(fan.querySelector('.overview-metric-value').textContent).toBe('Not reported');
+        expect(memory.querySelector('.overview-metric-value').textContent).toBe('0.0 GB');
+
+        updateOverviewExtraMetrics(card, '0', {
+            fan_speed: null,
+            memory_used: null
+        }, { processCount: null });
+        expect(fan.querySelector('.overview-metric-value').textContent).toBe('Not reported');
+        expect(memory.querySelector('.overview-metric-value').textContent).toBe('Not reported');
+        expect(card.querySelector('[data-overview-extra="process-count"] .overview-metric-value').textContent)
+            .toBe('Not reported');
+    });
+
+    it('updates selected values without changing the metric structure', () => {
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, '0', {
+            name: 'Test GPU', memory_used: 1024, memory_total: 4096, fan_speed: 20
+        }, { processCount: 1 });
+        document.body.appendChild(card);
+        const initialCells = card.querySelectorAll('[data-overview-extra]').length;
+
+        updateOverviewExtraMetrics(document, '0', {
+            fan_speed: 80, memory_used: 2048, performance_state: 'P2'
+        }, { processCount: 4 });
+
+        expect(card.querySelector('#overview-extra-fan-speed-0').textContent).toBe('80%');
+        expect(card.querySelector('#overview-extra-memory-used-0').textContent).toBe('2.0 GB');
+        expect(card.querySelector('#overview-extra-process-count-0').textContent).toBe('4');
+        expect(card.querySelector('#overview-extra-performance-state-0').textContent).toBe('P2');
+        expect(card.querySelectorAll('[data-overview-extra]')).toHaveLength(initialCells);
+    });
+});
+
 describe('formatFanRpm', () => {
     it('formats a tachometer reading from an external fan controller', () => {
         expect(formatFanRpm({ fan_rpm: 3705 })).toBe('3705 RPM');

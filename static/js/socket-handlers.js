@@ -254,6 +254,7 @@ function handleSocketMessage(event) {
             sourceKey: '_local',
             nodeName: localNodeName,
             sourceGpuId: gpuId,
+            processCount: processCountForGpu(data.processes, gpuId),
             shouldUpdateDOM,
             now
         });
@@ -268,14 +269,18 @@ function handleSocketMessage(event) {
                     nodeGrid = createNodeGroup(overviewContainer, '_local', localNodeName)
                         .querySelector('.node-grid');
                 }
-                const card = gpuCardElementFromMarkup(createCompactOverviewCard, gpuId, gpuInfo);
+                const card = gpuCardElementFromMarkup(createCompactOverviewCard, gpuId, gpuInfo, {
+                    processCount: processCountForGpu(data.processes, gpuId)
+                });
                 card.addEventListener('click', () => switchToView(`gpu-${gpuId}`));
                 nodeGrid.appendChild(card);
+                window.GPUHotSettings?.applyOverviewMetricVisibility?.();
                 bindOverviewGpuLabels(card, localNodeName, gpuId, gpuInfo);
             } else {
                 const card = gpuCardElementFromMarkup(createEnhancedOverviewCard, gpuId, gpuInfo);
                 card.addEventListener('click', () => switchToView(`gpu-${gpuId}`));
                 overviewContainer.appendChild(card);
+                window.GPUHotSettings?.applyOverviewMetricVisibility?.();
                 bindOverviewGpuLabels(card, nodeName, gpuId, gpuInfo);
                 // Auto-expand processes for single GPU
                 setTimeout(() => {
@@ -339,6 +344,11 @@ function processRowsForNode(processes, nodeName, gpuKeyPrefix) {
     }));
 }
 
+function processCountForGpu(processes, gpuId) {
+    if (!Array.isArray(processes)) return null;
+    return processes.filter(process => String(process.gpu_id) === String(gpuId)).length;
+}
+
 function getClusterProcesses(nodes) {
     return Object.entries(nodes).flatMap(([nodeName, nodeData]) => {
         if (nodeData.status !== 'online') return [];
@@ -374,12 +384,13 @@ function processBatchedUpdates() {
                 sourceKey,
                 nodeName,
                 sourceGpuId,
+                processCount,
                 shouldUpdateDOM,
                 now
             } = update;
 
             // Update overview card (always for charts, conditionally for text)
-            updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM);
+            updateOverviewCard(gpuId, gpuInfo, shouldUpdateDOM, { processCount });
             if (shouldUpdateDOM) {
                 lastDOMUpdate[gpuId] = now;
             }
@@ -586,6 +597,7 @@ function handleClusterData(data) {
                     systemInfo: nodeData.system || {},
                     sourceKey: nodeName,
                     sourceGpuId: gpuId,
+                    processCount: processCountForGpu(nodeData.processes, gpuId),
                     shouldUpdateDOM,
                     now,
                     nodeName
@@ -594,8 +606,11 @@ function handleClusterData(data) {
                 // Create card if doesn't exist
                 const existingCard = findDataElement(nodeGrid, '[data-gpu-id]', 'gpuId', fullGpuId);
                 if (!existingCard) {
-                    const card = createClusterGPUCard(nodeName, gpuId, gpuInfo);
+                    const card = createClusterGPUCard(nodeName, gpuId, gpuInfo, {
+                        processCount: processCountForGpu(nodeData.processes, gpuId)
+                    });
                     nodeGrid.appendChild(card);
+                    window.GPUHotSettings?.applyOverviewMetricVisibility?.();
                     bindOverviewGpuLabels(card, nodeName, gpuId, gpuInfo);
                     initOverviewMiniChart(fullGpuId, gpuInfo.utilization);
                     lastDOMUpdate[fullGpuId] = now;
@@ -665,9 +680,9 @@ function handleClusterData(data) {
 /**
  * Create GPU card for cluster view (includes node name)
  */
-function createClusterGPUCard(nodeName, gpuId, gpuInfo) {
+function createClusterGPUCard(nodeName, gpuId, gpuInfo, context = {}) {
     const fullGpuId = `${nodeName}-${gpuId}`;
-    const card = gpuCardElementFromMarkup(createCompactOverviewCard, fullGpuId, gpuInfo);
+    const card = gpuCardElementFromMarkup(createCompactOverviewCard, fullGpuId, gpuInfo, context);
     card.addEventListener('click', () => switchToView(`gpu-${fullGpuId}`));
     return card;
 }
