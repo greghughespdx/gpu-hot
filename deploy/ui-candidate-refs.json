@@ -42,7 +42,7 @@
     },
     {
       "name": "node and GPU ordering",
-      "commit": "807cca1d72106b6b6cb08239cb5f5fb0faf00244"
+      "commit": "84e9961cb3585e4c16b56fb1331e1ba01241dc62"
     },
     {
       "name": "node and GPU label overrides",
@@ -66,7 +66,7 @@
     },
     {
       "name": "Behind metrics fade lead-in",
-      "commit": "aab300c53e10aca52dd3dd14f655ec0521928fcf"
+      "commit": "0e975275d30185f59b195ae0e7129e269e0d3ab1"
     },
     {
       "name": "All page extra metrics",
