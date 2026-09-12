@@ -342,6 +342,34 @@ describe('collector text rendering', () => {
     });
 
     it.each([
+        ['object with a non-callable toString', JSON.parse('{"toString":"bad"}')],
+        ['array', [12]],
+        ['boolean', true],
+        ['nested object', { value: { amount: 12 } }]
+    ])('keeps rendering when a numeric field contains a %s', (_name, badValue) => {
+        const data = {
+            ...gpuInfo,
+            utilization: badValue,
+            memory_used: badValue,
+            power_draw: badValue,
+            fan_speed: badValue,
+            clock_graphics: badValue,
+            pcie_gen: badValue,
+            energy_consumption_wh: badValue
+        };
+        const cards = [
+            createCompactOverviewCard('0', data),
+            createEnhancedOverviewCard('0', data),
+            createGPUCard('0', data)
+        ];
+
+        cards.forEach(card => expect(card).toBeInstanceOf(Element));
+        expect(cards[1].textContent).toContain('Not reported');
+        expect(cards[2].querySelector('#clock-gr-0').textContent).toBe('Not reported');
+        expect(getMetricValue({ metric: badValue }, 'metric', 7)).toBe(7);
+    });
+
+    it.each([
         ['compact overview', createCompactOverviewCard],
         ['single-GPU overview', createEnhancedOverviewCard],
         ['detail card', createGPUCard]

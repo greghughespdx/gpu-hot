@@ -4,8 +4,15 @@
  */
 
 // Helper: format memory values
+function finiteCollectorNumber(value) {
+    if (typeof value !== 'number' && typeof value !== 'string') return NaN;
+    if (typeof value === 'string' && value.trim() === '') return NaN;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : NaN;
+}
+
 function formatMemory(mb) {
-    const value = Number(mb);
+    const value = finiteCollectorNumber(mb);
     if (!Number.isFinite(value)) return 'Not reported';
     if (value >= 1024) {
         return `${(value / 1024).toFixed(1)}`;
@@ -15,14 +22,14 @@ function formatMemory(mb) {
 
 // Helper: memory unit
 function formatMemoryUnit(mb) {
-    const value = Number(mb);
+    const value = finiteCollectorNumber(mb);
     if (!Number.isFinite(value)) return '';
     return value >= 1024 ? 'GB' : 'MB';
 }
 
 // Helper: format energy values
 function formatEnergy(wh) {
-    const value = Number(wh);
+    const value = finiteCollectorNumber(wh);
     if (!Number.isFinite(value)) return 'Not reported';
     if (value >= 1000) {
         return `${(value / 1000).toFixed(2)}kWh`;
@@ -33,8 +40,8 @@ function formatEnergy(wh) {
 // Helper: safely get metric value with default
 function getMetricValue(gpuInfo, key, defaultValue = 0) {
     if (!(key in gpuInfo) || gpuInfo[key] === null || gpuInfo[key] === undefined) return defaultValue;
-    if (typeof defaultValue !== 'number') return gpuInfo[key];
-    const value = Number(gpuInfo[key]);
+    if (typeof defaultValue !== 'number' && defaultValue !== null) return gpuInfo[key];
+    const value = finiteCollectorNumber(gpuInfo[key]);
     return Number.isFinite(value) ? value : defaultValue;
 }
 
@@ -45,8 +52,7 @@ function hasMetric(gpuInfo, key) {
 }
 
 function reportedNumber(value, fallback = 'Not reported') {
-    if (value === null || value === undefined || value === '') return fallback;
-    const number = Number(value);
+    const number = finiteCollectorNumber(value);
     return Number.isFinite(number) ? String(number) : fallback;
 }
 
