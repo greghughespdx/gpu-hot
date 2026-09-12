@@ -1,13 +1,18 @@
 # Install and configuration
 
 This covers what the pull requests add: AMD nodes, an optional fan mapping for
-passive cards, and a health endpoint for hub mode. NVIDIA nodes are unchanged.
+passive cards, and a health endpoint for hub mode. The NVIDIA installation
+method is unchanged.
 
 ## NVIDIA nodes
 
-Nothing changes. `docker-compose.yml` and `docker run --gpus all` still use the
-NVIDIA Container Toolkit, and the NVML and nvidia-smi paths are untouched. Every
-NVIDIA record now carries one extra field, `vendor`, set to `nvidia`.
+The installation method does not change: `docker-compose.yml` and
+`docker run --gpus all` still use the NVIDIA Container Toolkit. Three small
+things change in what a NVIDIA node reports. Every record carries a `vendor`
+field set to `nvidia`. A fan reading of zero is kept as a reading while a driver
+reporting no fan leaves the field absent, and the nvidia-smi fallback records a
+normalized PCI bus id. `/health` exists, and the container healthcheck points
+at it.
 
 ## AMD node, sysfs only
 
@@ -19,7 +24,8 @@ are not needed:
 NODE_NAME=$(hostname) docker compose -f docker-compose.amd.yml up --build -d
 ```
 
-`NODE_NAME` defaults to `gpu-hot-node` if unset. A card is treated as AMD only
+In the AMD compose file `NODE_NAME` defaults to `gpu-hot-node` if unset; the
+application itself falls back to the hostname. A card is treated as AMD only
 when its bound driver is exactly `amdgpu`.
 
 Reported from sysfs and hwmon: utilization, VRAM used, total and free,
@@ -122,8 +128,10 @@ grep . /sys/class/hwmon/hwmonN/fan*_input /sys/class/hwmon/hwmonN/pwm*
 ls -l /sys/class/drm/card*/device
 ```
 
-No extra container configuration is needed: Docker already mounts the host's
-`/sys` read-only, so `/sys/class/hwmon` is visible inside the container.
+Docker already mounts the host's `/sys` read-only, so `/sys/class/hwmon` is
+visible inside the container. The variable itself has to reach the container:
+the compose files pass `EXTERNAL_FANS` through when it is set in the
+environment, and `docker run` takes it as `-e EXTERNAL_FANS='...'`.
 
 For example, the controller this was developed against is the ARCTIC ACFAN00351A,
 a USB fan controller with ten channels that Linux exposes as the `arctic_fan`

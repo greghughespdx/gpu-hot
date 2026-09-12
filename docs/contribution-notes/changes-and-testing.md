@@ -1,7 +1,8 @@
 # Changes and testing
 
-Three branches, each cut from upstream main at `70b7919`. Line counts below are
-measured from the diffs.
+Three branches. A and B sit directly on upstream main at `70b7919`. C is stacked
+on A and carries A's commit as its first commit, so it opens after A merges.
+Line counts below are measured from the diffs.
 
 ## PR A: AMD collector
 
@@ -89,9 +90,10 @@ to answer a health check before anyone opens a browser.
 - `core/config.py` and `README.md`: the `EXTERNAL_FANS` variable and its
   documentation.
 
-Totals against PR A: 14 files, 1219 added and 13 removed lines. Against
-upstream main, which includes PR A's commit: 92 files, 2910 added and 22
-removed lines.
+Totals against PR A: 38 files, 1272 added and 13 removed lines, of which 24 are
+fixture files with 53 added lines; the 14 source, test and documentation files
+account for 1219 added lines. Against the stacked branch's base, upstream main
+including PR A: 92 files, 2910 added and 22 removed lines.
 
 Deliberately not changed: the mapping is off unless `EXTERNAL_FANS` is set, a
 card that reports its own fan keeps it unless the entry sets `override`, and no
@@ -136,8 +138,9 @@ Several are parameterized, so the executed counts in the table are higher.
 
 ## Fixtures
 
-The AMD tests run against a recorded sysfs tree at `tests/fixtures/amd/sys/`,
-43 small files, and a recorded `amd-smi` JSON document. The fan tests use their
+The AMD tests run against 43 fixture files under `tests/fixtures/amd/`: 34 in
+the recorded sysfs tree, 4 in a small synthetic compatibility sysfs tree, 4
+recorded `amd-smi` JSON documents, and a README. The fan tests use their
 own recorded hwmon tree. No AMD hardware, no ROCm and no GPU of any kind is
 needed to run the suite.
 
@@ -159,8 +162,8 @@ fan-control setting the speeds gpu-hot reads back.
 
 ## Live test matrix
 
-The fleet runs an integration build composed from exactly these three branches,
-so one deployment of that build exercises all three at once. Dates are the
+An integration build containing all three reviewed changes was deployed, so
+one deployment exercises all three at once. Dates are the
 deployment dates.
 
 | Branch | AMD node | NVIDIA node | Hub |
