@@ -224,4 +224,18 @@ describe('star prompt setting', () => {
         expect(cancel).toHaveBeenCalled();
         expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
     });
+
+    it('does not fetch or schedule again when an enabled prompt is already visible', () => {
+        globalThis.fetch.mockResolvedValue({ ok: false });
+        initStarPrompt();
+        vi.advanceTimersByTime(60000);
+        globalThis.fetch.mockClear();
+        const schedule = vi.spyOn(globalThis, 'setTimeout');
+
+        setStarPromptEnabled(true);
+
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(false);
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+        expect(schedule).not.toHaveBeenCalled();
+    });
 });

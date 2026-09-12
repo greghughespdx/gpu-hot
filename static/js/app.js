@@ -121,6 +121,7 @@ function setStarPromptEnabled(enabled) {
         toast?.classList.add('is-hidden');
         return;
     }
+    if (toast && !toast.classList.contains('is-hidden')) return;
     initStarPrompt();
 }
 
