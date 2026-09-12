@@ -15,9 +15,17 @@ function panelMarkup() {
         <div id="settings-overlay" hidden></div>
         <aside id="settings-panel" hidden inert aria-hidden="true">
             <button id="settings-close">Close</button>
+            <div id="settings-connection-details" hidden></div>
+            <label><input id="settings-move-connection-details" type="checkbox"></label>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
+        <div id="dashboard-status-home">
+            <div id="connection-details">
+                <span id="connection-status">Connected</span>
+                <span id="version-current">v1.9.2</span>
+            </div>
+        </div>
     `;
 }
 
@@ -75,11 +83,19 @@ describe('settings storage', () => {
 
     it('stores only allowlisted settings in a versioned envelope', () => {
         const api = loadSettingsModule();
-        expect(api.saveSettings({ unknown: 'value' })).toBe(true);
+        expect(api.saveSettings({ moveConnectionDetails: true, unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: { moveConnectionDetails: true }
         });
+    });
+
+    it('drops invalid values for the connection-details option', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { moveConnectionDetails: 'yes' }
+        }));
+        expect(loadSettingsModule().settings).toEqual({});
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -200,6 +216,73 @@ describe('settings panel', () => {
             .toBe('Settings could not be reset. Try again.');
         expect(document.getElementById('settings-panel').hidden).toBe(false);
     });
+
+    it('keeps connection details above the dashboard by default', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(document.getElementById('settings-move-connection-details').checked).toBe(false);
+        expect(document.getElementById('connection-details').parentElement.id)
+            .toBe('dashboard-status-home');
+        expect(document.getElementById('dashboard-status-home').hidden).toBe(false);
+        expect(document.getElementById('settings-connection-details').hidden).toBe(true);
+    });
+
+    it('moves the existing live status and version into settings when selected', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const option = document.getElementById('settings-move-connection-details');
+
+        option.checked = true;
+        option.dispatchEvent(new Event('change'));
+        document.getElementById('connection-status').textContent = 'Reconnecting...';
+        document.getElementById('version-current').textContent = 'v2.0.0';
+
+        expect(document.getElementById('connection-details').parentElement.id)
+            .toBe('settings-connection-details');
+        expect(document.getElementById('dashboard-status-home').hidden).toBe(true);
+        expect(document.getElementById('settings-connection-details').hidden).toBe(false);
+        expect(document.getElementById('connection-status').textContent).toBe('Reconnecting...');
+        expect(document.getElementById('version-current').textContent).toBe('v2.0.0');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+            .toEqual({ moveConnectionDetails: true });
+    });
+
+    it('applies a stored relocation and reset restores the default location', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { moveConnectionDetails: true }
+        }));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        expect(document.getElementById('connection-details').parentElement.id)
+            .toBe('settings-connection-details');
+
+        document.getElementById('settings-reset').click();
+
+        expect(document.getElementById('connection-details').parentElement.id)
+            .toBe('dashboard-status-home');
+        expect(document.getElementById('settings-move-connection-details').checked).toBe(false);
+        expect(localStorage.getItem(api.STORAGE_KEY)).toBeNull();
+    });
+
+    it('keeps the current location when the option cannot be saved', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+        const option = document.getElementById('settings-move-connection-details');
+        option.checked = true;
+
+        option.dispatchEvent(new Event('change'));
+
+        expect(option.checked).toBe(false);
+        expect(document.getElementById('connection-details').parentElement.id)
+            .toBe('dashboard-status-home');
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This display change could not be saved. Try again.');
+    });
 });
 
 describe('settings page contract', () => {
@@ -225,6 +308,18 @@ describe('settings page contract', () => {
         expect(panel.getAttribute('aria-labelledby')).toBe('settings-title');
     });
 
+    it('provides one movable connection region and its setting', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const details = parsed.querySelectorAll('#connection-details');
+        const option = parsed.querySelectorAll('#settings-move-connection-details');
+
+        expect(details).toHaveLength(1);
+        expect(option).toHaveLength(1);
+        expect(details[0].parentElement.id).toBe('dashboard-status-home');
+        expect(parsed.getElementById('settings-connection-details').hidden).toBe(true);
+        expect(option[0].getAttribute('type')).toBe('checkbox');
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -234,6 +329,12 @@ describe('settings page contract', () => {
     it('keeps the hidden panel out of layout', () => {
         expect(componentsCss).toMatch(
             /\.settings-panel\[hidden\] \{\s*display: none;\s*\}/
+        );
+    });
+
+    it('keeps relocated connection details within the phone-width panel', () => {
+        expect(componentsCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?\.settings-connection-details \.header-row \{[\s\S]*?width: 100%;/
         );
     });
 });

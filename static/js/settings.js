@@ -10,7 +10,9 @@
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
     const DEFAULT_SETTINGS = Object.freeze({});
-    const ALLOWED_SETTINGS = Object.freeze({});
+    const ALLOWED_SETTINGS = Object.freeze({
+        moveConnectionDetails: value => typeof value === 'boolean'
+    });
 
     function defaultSettings() {
         return { ...DEFAULT_SETTINGS };
@@ -73,6 +75,18 @@
         }
     }
 
+    function applyConnectionDetailsLocation(moveToSettings, documentRef) {
+        const dashboardHome = documentRef.getElementById('dashboard-status-home');
+        const settingsHome = documentRef.getElementById('settings-connection-details');
+        const details = documentRef.getElementById('connection-details');
+        if (!dashboardHome || !settingsHome || !details) return;
+
+        const destination = moveToSettings ? settingsHome : dashboardHome;
+        if (details.parentElement !== destination) destination.appendChild(details);
+        dashboardHome.hidden = moveToSettings;
+        settingsHome.hidden = !moveToSettings;
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -80,9 +94,27 @@
         const overlay = documentRef.getElementById('settings-overlay');
         const panel = documentRef.getElementById('settings-panel');
         const status = documentRef.getElementById('settings-status');
+        const moveConnectionDetails = documentRef.getElementById('settings-move-connection-details');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+
+        if (moveConnectionDetails) {
+            moveConnectionDetails.checked = settings.moveConnectionDetails === true;
+            applyConnectionDetailsLocation(moveConnectionDetails.checked, documentRef);
+            moveConnectionDetails.addEventListener('change', () => {
+                const previous = settings.moveConnectionDetails === true;
+                const requested = moveConnectionDetails.checked;
+                if (!saveSettings({ ...settings, moveConnectionDetails: requested })) {
+                    moveConnectionDetails.checked = previous;
+                    status.textContent = 'This display change could not be saved. Try again.';
+                    return;
+                }
+                settings.moveConnectionDetails = requested;
+                applyConnectionDetailsLocation(requested, documentRef);
+                status.textContent = '';
+            });
+        }
 
         function isOpen() {
             return !panel.hidden;
@@ -112,9 +144,16 @@
         closeButton.addEventListener('click', closePanel);
         overlay.addEventListener('click', closePanel);
         resetButton.addEventListener('click', () => {
-            status.textContent = resetSettings()
-                ? 'Settings reset.'
-                : 'Settings could not be reset. Try again.';
+            if (!resetSettings()) {
+                status.textContent = 'Settings could not be reset. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(key => delete settings[key]);
+            if (moveConnectionDetails) {
+                moveConnectionDetails.checked = false;
+                applyConnectionDetailsLocation(false, documentRef);
+            }
+            status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
             if (!isOpen()) return;
@@ -151,6 +190,7 @@
         loadSettings,
         saveSettings,
         resetSettings,
+        applyConnectionDetailsLocation,
         initSettingsPanel
     });
 

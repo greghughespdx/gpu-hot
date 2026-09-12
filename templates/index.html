@@ -68,8 +68,8 @@
 
         <!-- Main Content -->
         <main class="main">
-            <div class="header">
-                <div class="header-row">
+            <div class="header" id="dashboard-status-home">
+                <div class="header-row" id="connection-details">
                     <div class="header-status">
                         <div class="status-dot" id="status-dot"></div>
                         <span id="connection-status">Connecting</span>
@@ -142,11 +142,20 @@
     <aside class="settings-panel" id="settings-panel" role="dialog" aria-modal="true"
         aria-labelledby="settings-title" aria-hidden="true" inert hidden>
         <div class="settings-header">
-            <h2 id="settings-title">Settings</h2>
-            <button class="settings-close" id="settings-close" type="button" aria-label="Close settings">&times;</button>
+            <div class="settings-header-main">
+                <h2 id="settings-title">Settings</h2>
+                <button class="settings-close" id="settings-close" type="button" aria-label="Close settings">&times;</button>
+            </div>
+            <div class="settings-connection-details" id="settings-connection-details" hidden></div>
         </div>
         <div class="settings-body">
-            <p>No display options are available. Settings added here are stored in this browser.</p>
+            <label class="settings-option" for="settings-move-connection-details">
+                <input id="settings-move-connection-details" type="checkbox">
+                <span>
+                    <strong>Show connection and version here</strong>
+                    <small>This clears the space above the dashboard.</small>
+                </span>
+            </label>
             <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
             <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>

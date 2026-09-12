@@ -1020,10 +1020,17 @@
 
 .settings-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
     padding: var(--space-lg);
     border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-header-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .settings-header h2 {
@@ -1052,6 +1059,42 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+}
+
+.settings-connection-details[hidden] {
+    display: none;
+}
+
+.settings-connection-details .header-row {
+    min-height: 24px;
+    flex-wrap: wrap;
+}
+
+.settings-option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.settings-option input {
+    margin-top: 3px;
+}
+
+.settings-option span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.settings-option strong {
+    font-size: 13px;
+}
+
+.settings-option small {
+    color: var(--text-tertiary);
+    line-height: 1.4;
 }
 
 .settings-reset {
@@ -1246,6 +1289,10 @@
     .settings-panel {
         width: 100%;
         max-width: 100vw;
+    }
+
+    .settings-connection-details .header-row {
+        width: 100%;
     }
 
     .drawer::before {
