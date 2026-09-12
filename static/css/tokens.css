@@ -80,6 +80,76 @@
     --accent-glow: rgba(130, 200, 130, 0.6);
 }
 
+:root[data-theme="midnight"] {
+    --bg-primary: #080d16;
+    --bg-surface: #0e1624;
+    --bg-elevated: #152238;
+    --text-primary: #e8f0ff;
+    --text-secondary: rgba(232, 240, 255, 0.74);
+    --text-tertiary: rgba(232, 240, 255, 0.48);
+    --text-rgb: 232, 240, 255;
+    --neutral-rgb: 232, 240, 255;
+    --shadow-rgb: 0, 0, 0;
+    --accent: rgba(91, 141, 239, 0.24);
+    --accent-text: #8ab4ff;
+    --warning: #ffb84d;
+    --danger: #ff667a;
+    --ok: rgba(232, 240, 255, 0.58);
+    --metric-util: 112, 168, 255;
+    --metric-temp: 255, 184, 77;
+    --metric-mem: 82, 204, 255;
+    --metric-power: 104, 232, 164;
+    --metric-fan: 190, 156, 232;
+    --metric-clocks: 255, 220, 145;
+    --metric-efficiency: 152, 221, 190;
+    --metric-pcie: 167, 190, 224;
+    --metric-encoder-decoder: 54, 214, 200;
+    --companion-rgb: 255, 173, 71;
+    --toast-text: rgba(255, 207, 128, 0.94);
+    --toast-text-hover: #ffda9b;
+    --spark-stroke: rgba(232, 240, 255, 0.68);
+    --spark-stroke-secondary: rgba(232, 240, 255, 0.4);
+    --bar-track: rgba(232, 240, 255, 0.09);
+    --bar-fill: rgba(232, 240, 255, 0.28);
+    --border-subtle: rgba(232, 240, 255, 0.1);
+    --accent-glow: rgba(105, 202, 153, 0.72);
+}
+
+:root[data-theme="high-contrast"] {
+    --bg-primary: #000;
+    --bg-surface: #090909;
+    --bg-elevated: #151515;
+    --text-primary: #fff;
+    --text-secondary: rgba(255, 255, 255, 0.9);
+    --text-tertiary: rgba(255, 255, 255, 0.72);
+    --text-rgb: 255, 255, 255;
+    --neutral-rgb: 255, 255, 255;
+    --shadow-rgb: 0, 0, 0;
+    --accent: rgba(80, 170, 255, 0.38);
+    --accent-text: #a8d3ff;
+    --warning: #ffc400;
+    --danger: #ff5c5c;
+    --ok: rgba(255, 255, 255, 0.9);
+    --metric-util: 90, 170, 255;
+    --metric-temp: 255, 196, 0;
+    --metric-mem: 52, 210, 255;
+    --metric-power: 75, 245, 145;
+    --metric-fan: 214, 156, 255;
+    --metric-clocks: 255, 224, 118;
+    --metric-efficiency: 145, 235, 185;
+    --metric-pcie: 190, 210, 240;
+    --metric-encoder-decoder: 34, 230, 210;
+    --companion-rgb: 255, 180, 70;
+    --toast-text: #ffe0a6;
+    --toast-text-hover: #fff0d0;
+    --spark-stroke: rgba(255, 255, 255, 0.9);
+    --spark-stroke-secondary: rgba(255, 255, 255, 0.62);
+    --bar-track: rgba(255, 255, 255, 0.16);
+    --bar-fill: rgba(255, 255, 255, 0.48);
+    --border-subtle: rgba(255, 255, 255, 0.28);
+    --accent-glow: rgba(120, 255, 165, 0.9);
+}
+
 /* ============================================
    Reset
    ============================================ */

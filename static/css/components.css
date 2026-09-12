@@ -997,7 +997,7 @@
     position: fixed;
     inset: 0;
     z-index: 210;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(var(--shadow-rgb), 0.6);
 }
 
 .settings-panel[hidden] {
@@ -1046,12 +1046,35 @@
 .settings-close:hover,
 .settings-close:focus-visible {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--neutral-rgb), 0.04);
 }
 
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+}
+
+.settings-field {
+    display: grid;
+    gap: var(--space-sm);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.settings-field select {
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    font: inherit;
+}
+
+.settings-help {
+    margin-top: var(--space-sm);
+    color: var(--text-tertiary);
+    font-size: 12px;
 }
 
 .settings-reset {
@@ -1066,7 +1089,7 @@
 
 .settings-reset:hover,
 .settings-reset:focus-visible {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--neutral-rgb), 0.04);
 }
 
 .settings-status {

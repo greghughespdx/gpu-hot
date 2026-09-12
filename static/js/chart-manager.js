@@ -476,6 +476,26 @@ function initSidebarCharts() {
     }
 }
 
+function refreshChartColors() {
+    Object.keys(charts).forEach(gpuId => {
+        const hadOverviewChart = Boolean(charts[gpuId]?.overviewMini);
+        initGPUCharts(gpuId);
+        if (hadOverviewChart) {
+            const values = chartData[gpuId]?.utilization?.data || [];
+            const currentValue = [...values].reverse().find(value => value !== null) ?? 0;
+            initOverviewMiniChart(gpuId, currentValue);
+        }
+    });
+
+    Object.values(systemCharts).forEach(chart => {
+        try { chart.destroy(); } catch (error) { }
+    });
+    Object.keys(systemCharts).forEach(key => delete systemCharts[key]);
+    initSidebarCharts();
+}
+
+window.addEventListener('gpu-hot:themechange', refreshChartColors);
+
 // Sidebar-only update (CPU/RAM text + mini charts)
 function updateSystemInfo(systemInfo) {
     const cpuEl = document.getElementById('cpu-usage');

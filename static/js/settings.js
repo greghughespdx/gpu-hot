@@ -9,8 +9,11 @@
 
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
-    const DEFAULT_SETTINGS = Object.freeze({});
-    const ALLOWED_SETTINGS = Object.freeze({});
+    const THEMES = Object.freeze(['default', 'midnight', 'high-contrast']);
+    const DEFAULT_SETTINGS = Object.freeze({ theme: 'default' });
+    const ALLOWED_SETTINGS = Object.freeze({
+        theme: value => THEMES.includes(value)
+    });
 
     function defaultSettings() {
         return { ...DEFAULT_SETTINGS };
@@ -21,7 +24,7 @@
             return defaultSettings();
         }
 
-        const clean = {};
+        const clean = defaultSettings();
         Object.entries(ALLOWED_SETTINGS).forEach(([key, isAllowed]) => {
             if (isAllowed(candidate[key])) clean[key] = candidate[key];
         });
@@ -73,6 +76,22 @@
         }
     }
 
+    function applyTheme(theme, documentRef = global.document, announce = true) {
+        if (!documentRef) return 'default';
+        const selected = THEMES.includes(theme) ? theme : 'default';
+        if (selected === 'default') {
+            delete documentRef.documentElement.dataset.theme;
+        } else {
+            documentRef.documentElement.dataset.theme = selected;
+        }
+        if (announce && typeof global.dispatchEvent === 'function') {
+            global.dispatchEvent(new global.CustomEvent('gpu-hot:themechange', {
+                detail: { theme: selected }
+            }));
+        }
+        return selected;
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -80,9 +99,27 @@
         const overlay = documentRef.getElementById('settings-overlay');
         const panel = documentRef.getElementById('settings-panel');
         const status = documentRef.getElementById('settings-status');
+        const themeSelect = documentRef.getElementById('settings-theme');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+
+        if (themeSelect) {
+            themeSelect.value = settings.theme;
+            themeSelect.addEventListener('change', () => {
+                const previous = settings.theme;
+                const nextSettings = sanitizeSettings({ ...settings, theme: themeSelect.value });
+                if (!saveSettings(nextSettings)) {
+                    themeSelect.value = previous;
+                    status.textContent = 'This display change could not be saved. Try again.';
+                    return;
+                }
+                Object.assign(settings, nextSettings);
+                themeSelect.value = settings.theme;
+                applyTheme(settings.theme, documentRef);
+                status.textContent = '';
+            });
+        }
 
         function isOpen() {
             return !panel.hidden;
@@ -112,9 +149,15 @@
         closeButton.addEventListener('click', closePanel);
         overlay.addEventListener('click', closePanel);
         resetButton.addEventListener('click', () => {
-            status.textContent = resetSettings()
-                ? 'Settings reset.'
-                : 'Settings could not be reset. Try again.';
+            if (!resetSettings()) {
+                status.textContent = 'Settings could not be reset. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(key => delete settings[key]);
+            Object.assign(settings, defaultSettings());
+            if (themeSelect) themeSelect.value = settings.theme;
+            applyTheme(settings.theme, documentRef);
+            status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
             if (!isOpen()) return;
@@ -144,13 +187,16 @@
     }
 
     const settings = loadSettings();
+    if (global.document) applyTheme(settings.theme, global.document, false);
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
         STORAGE_VERSION,
+        THEMES,
         settings,
         loadSettings,
         saveSettings,
         resetSettings,
+        applyTheme,
         initSettingsPanel
     });
 

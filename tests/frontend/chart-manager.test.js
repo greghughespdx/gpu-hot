@@ -121,6 +121,36 @@ describe('chart color tokens', () => {
         expect(systemCharts.memory.data.datasets[0].borderColor)
             .toBe('rgba(255, 255, 255, 0.5)');
     });
+
+    it('rebuilds existing charts after the theme changes', () => {
+        document.body.innerHTML = `
+            <div><canvas id="chart-utilization-gpu0"></canvas></div>
+            <div><canvas id="overview-chart-gpu0"></canvas></div>
+            <canvas id="cpu-chart"></canvas>
+            <canvas id="memory-chart"></canvas>
+        `;
+        initGPUData('gpu0');
+        initGPUCharts('gpu0');
+        initOverviewMiniChart('gpu0', 0);
+        initSidebarCharts();
+        const originalDetail = charts.gpu0.utilization;
+        const originalOverview = charts.gpu0.overviewMini;
+        const originalCpu = systemCharts.cpu;
+        document.documentElement.style.setProperty('--neutral-rgb', '4, 5, 6');
+
+        window.dispatchEvent(new CustomEvent('gpu-hot:themechange'));
+
+        expect(charts.gpu0.utilization).not.toBe(originalDetail);
+        expect(charts.gpu0.overviewMini).not.toBe(originalOverview);
+        expect(systemCharts.cpu).not.toBe(originalCpu);
+        expect(charts.gpu0.utilization.data.datasets[0].borderColor)
+            .toBe('rgba(4, 5, 6, 0.6)');
+        expect(charts.gpu0.overviewMini.data.datasets[0].borderColor)
+            .toBe('rgba(4, 5, 6, 0.5)');
+        expect(systemCharts.cpu.data.datasets[0].borderColor)
+            .toBe('rgba(4, 5, 6, 0.5)');
+        document.documentElement.style.removeProperty('--neutral-rgb');
+    });
 });
 
 describe('calculateStats', () => {
