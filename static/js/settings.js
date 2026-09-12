@@ -28,6 +28,7 @@
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])
         ),
         theme: 'default',
+        showStarPrompt: true,
         ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, false]))
     });
     const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
@@ -108,6 +109,7 @@
         sidebarLabel: value => SIDEBAR_LABELS.includes(value),
         sidebarAutoHide: value => typeof value === 'boolean',
         sidebarPinned: value => typeof value === 'boolean',
+        showStarPrompt: value => typeof value === 'boolean',
         theme: value => THEMES.includes(value),
         sidebarOrder: isSidebarOrder,
         labelOverrides: normalizeLabelOverrides,
@@ -417,6 +419,7 @@
         const labelSelect = documentRef.getElementById('settings-sidebar-label');
         const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
         const pinned = documentRef.getElementById('settings-sidebar-pinned');
+        const showStarPrompt = documentRef.getElementById('settings-show-star-prompt');
         const themeSelect = documentRef.getElementById('settings-theme');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
@@ -578,6 +581,26 @@
             });
         });
 
+        if (showStarPrompt) {
+            showStarPrompt.checked = settings.showStarPrompt !== false;
+            showStarPrompt.addEventListener('change', () => {
+                const previous = settings.showStarPrompt !== false;
+                const nextSettings = sanitizeSettings({
+                    ...settings,
+                    showStarPrompt: showStarPrompt.checked
+                });
+                if (!saveSettings(nextSettings)) {
+                    showStarPrompt.checked = previous;
+                    status.textContent = 'This choice could not be saved. Try again.';
+                    return;
+                }
+                Object.keys(settings).forEach(key => delete settings[key]);
+                Object.assign(settings, nextSettings);
+                global.setStarPromptEnabled?.(settings.showStarPrompt);
+                status.textContent = '';
+            });
+        }
+
         function isOpen() {
             return !panel.hidden;
         }
@@ -638,6 +661,8 @@
                 input.checked = false;
             });
             global.GPUHotNotices?.settingsChanged?.();
+            if (showStarPrompt) showStarPrompt.checked = true;
+            global.setStarPromptEnabled?.(true);
             if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
             if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
             renderLabelControls(documentRef);
