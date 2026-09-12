@@ -97,6 +97,7 @@ describe('switchToView', () => {
     beforeEach(() => {
         setupDOM();
         global.currentTab = 'overview';
+        window.matchMedia = vi.fn(() => ({ matches: false }));
         updateProcesses([]);
     });
 
@@ -109,6 +110,43 @@ describe('switchToView', () => {
         switchToView('overview');
         const btn = document.querySelector('[data-view="overview"]');
         expect(btn.classList.contains('active')).toBe(true);
+    });
+
+    it('keeps the selected button visible in an overflowing phone bar', () => {
+        window.matchMedia.mockReturnValue({ matches: true });
+        const btn = document.createElement('button');
+        btn.className = 'sidebar-btn';
+        btn.dataset.view = 'gpu-node-b-1';
+        btn.scrollIntoView = vi.fn();
+        document.getElementById('view-selector').appendChild(btn);
+
+        const tab = document.createElement('div');
+        tab.id = 'tab-gpu-node-b-1';
+        tab.className = 'tab-content';
+        document.body.appendChild(tab);
+
+        switchToView('gpu-node-b-1');
+
+        expect(btn.scrollIntoView).toHaveBeenCalledWith({
+            block: 'nearest',
+            inline: 'nearest'
+        });
+    });
+
+    it('does not scroll the selected button in the desktop bar', () => {
+        const btn = document.createElement('button');
+        btn.className = 'sidebar-btn';
+        btn.dataset.view = 'gpu-node-b-1';
+        btn.scrollIntoView = vi.fn();
+        document.getElementById('view-selector').appendChild(btn);
+        const tab = document.createElement('div');
+        tab.id = 'tab-gpu-node-b-1';
+        tab.className = 'tab-content';
+        document.body.appendChild(tab);
+
+        switchToView('gpu-node-b-1');
+
+        expect(btn.scrollIntoView).not.toHaveBeenCalled();
     });
 
     it('does nothing for null viewName', () => {

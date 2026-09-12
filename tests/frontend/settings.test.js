@@ -1066,7 +1066,7 @@ describe('settings page contract', () => {
 
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
         );
     });
 
@@ -1078,7 +1078,7 @@ describe('settings page contract', () => {
 
     it('keeps relocated connection details within the phone-width panel', () => {
         expect(componentsCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?\.settings-connection-details \.header-row \{[\s\S]*?width: 100%;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.settings-connection-details \.header-row \{[\s\S]*?width: 100%;/
         );
     });
 
@@ -1096,7 +1096,7 @@ describe('settings page contract', () => {
             /\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 180px 1fr;\s*\}/
         );
         expect(componentsCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 1fr;\s*\}/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 1fr;\s*\}/
         );
     });
 
@@ -1121,10 +1121,67 @@ describe('settings page contract', () => {
     it('keeps left bar width and auto-hide effects out of the phone layout', () => {
         expect(layoutCss).toMatch(/\.sidebar \{[\s\S]*?width: var\(--sidebar-width\);/);
         expect(layoutCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
         );
         expect(layoutCss).toMatch(
-            /@media \(max-width: 768px\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
+        );
+    });
+
+    it('makes every phone navigation button horizontally reachable', () => {
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-nav \{[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: hidden;/
+        );
+        expect(layoutCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-bottom \{[\s\S]*?flex-direction: row;/
+        );
+    });
+
+    it('keeps the settings body scrollable within the dynamic viewport', () => {
+        expect(componentsCss).toMatch(
+            /\.settings-panel \{[\s\S]*?height: 100vh;[\s\S]*?height: 100dvh;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.settings-body \{[\s\S]*?flex: 1;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/
+        );
+        const baseBody = componentsCss.match(/\.settings-body \{([\s\S]*?)\}/)?.[1];
+        expect(baseBody).not.toContain('overflow-y: auto');
+    });
+
+    it('keeps system readouts visible and metrics packed in phone landscape', () => {
+        const responsiveBlock = componentsCss.match(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+        const landscapeBlock = componentsCss.match(
+            /@media \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+
+        expect(responsiveBlock).toMatch(/\.system-info \{[\s\S]*?flex-direction: row;/);
+        expect(responsiveBlock).toMatch(/\.system-metric \{[\s\S]*?width: auto;/);
+        expect(landscapeBlock).not.toContain('repeat(4, minmax(0, 1fr))');
+    });
+
+    it('keeps the system readouts inside the phone bar and reserves the same viewport space', () => {
+        const responsiveBlock = layoutCss.match(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+        const componentBlock = componentsCss.match(
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/
+        )?.[1];
+
+        expect(responsiveBlock).toContain('--phone-sidebar-height: 56px');
+        expect(responsiveBlock).toMatch(/\.sidebar \{[\s\S]*?height: var\(--phone-sidebar-height\);/);
+        expect(responsiveBlock).toMatch(/\.main \{[\s\S]*?margin-bottom: var\(--phone-sidebar-height\);/);
+        expect(componentBlock).toMatch(/\.system-info \{[\s\S]*?max-height: 100%;/);
+        expect(componentBlock).toMatch(/\.system-metric \{[\s\S]*?max-height: 100%;/);
+    });
+
+    it('stacks overview cards and wraps names in phone landscape', () => {
+        expect(componentsCss).toMatch(
+            /@media \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-card,[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.overview-gpu-name p\.gpu-uuid \{[\s\S]*?overflow-wrap: anywhere;/
         );
     });
 });

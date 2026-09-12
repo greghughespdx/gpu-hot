@@ -369,7 +369,11 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
    Responsive — Mobile
    ============================================ */
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 480px) and (orientation: landscape) {
+    :root {
+        --phone-sidebar-height: 56px;
+    }
+
     .sidebar {
         position: fixed;
         top: auto;
@@ -377,7 +381,7 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
         left: 0;
         right: 0;
         width: 100%;
-        height: 48px;
+        height: var(--phone-sidebar-height);
         flex-direction: row;
         padding: 0 var(--space-sm);
         border-right: none;
@@ -392,6 +396,10 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
     .sidebar-nav {
         flex-direction: row;
         gap: var(--space-xs);
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
     }
 
     .sidebar-btn {
@@ -409,7 +417,7 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
     html.sidebar-auto-hide:not(.sidebar-pinned) .main,
     .main {
         margin-left: 0;
-        margin-bottom: 48px;
+        margin-bottom: var(--phone-sidebar-height);
         padding: var(--space-lg) var(--space-md) var(--space-xl);
     }
 }
