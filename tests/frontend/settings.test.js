@@ -8,6 +8,13 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
 const template = readFileSync(join(testDir, '../../templates/index.html'), 'utf8');
 const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
+const defaults = {
+    'overview.utilization': true,
+    'overview.temperature': true,
+    'overview.memory': true,
+    'overview.power': true,
+    'overview.chart': true
+};
 
 function panelMarkup() {
     document.body.innerHTML = `
@@ -15,6 +22,11 @@ function panelMarkup() {
         <div id="settings-overlay" hidden></div>
         <aside id="settings-panel" hidden inert aria-hidden="true">
             <button id="settings-close">Close</button>
+            <input type="checkbox" data-overview-setting="utilization">
+            <input type="checkbox" data-overview-setting="temperature">
+            <input type="checkbox" data-overview-setting="memory">
+            <input type="checkbox" data-overview-setting="power">
+            <input type="checkbox" data-overview-setting="chart">
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -41,7 +53,7 @@ describe('settings storage', () => {
         ['newer version', JSON.stringify({ version: 2, settings: { future: true } })]
     ])('uses defaults for %s', (_label, value) => {
         if (value !== null) localStorage.setItem('gpu-hot.settings.v1', value);
-        expect(loadSettingsModule().settings).toEqual({});
+        expect(loadSettingsModule().settings).toEqual(defaults);
     });
 
     it('does not overwrite settings written by a newer version', () => {
@@ -49,7 +61,7 @@ describe('settings storage', () => {
         localStorage.setItem('gpu-hot.settings.v1', future);
         const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
-        expect(loadSettingsModule().settings).toEqual({});
+        expect(loadSettingsModule().settings).toEqual(defaults);
         expect(setItem).not.toHaveBeenCalled();
         expect(localStorage.getItem('gpu-hot.settings.v1')).toBe(future);
     });
@@ -66,10 +78,10 @@ describe('settings storage', () => {
             settings: { unknown: 'value' }
         }));
         const api = loadSettingsModule();
-        expect(api.settings).toEqual({});
+        expect(api.settings).toEqual(defaults);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: defaults
         });
     });
 
@@ -78,7 +90,23 @@ describe('settings storage', () => {
         expect(api.saveSettings({ unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: defaults
+        });
+    });
+
+    it('keeps only boolean metric choices and fills missing defaults', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                'overview.utilization': false,
+                'overview.temperature': 'no',
+                unknown: true
+            }
+        }));
+
+        expect(loadSettingsModule().settings).toEqual({
+            ...defaults,
+            'overview.utilization': false
         });
     });
 
@@ -87,7 +115,7 @@ describe('settings storage', () => {
             throw new Error('read failed');
         });
         const api = loadSettingsModule();
-        expect(api.settings).toEqual({});
+        expect(api.settings).toEqual(defaults);
         getItem.mockRestore();
 
         vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
@@ -187,6 +215,73 @@ describe('settings panel', () => {
         expect(document.getElementById('settings-panel').hidden).toBe(false);
     });
 
+    it('persists metric choices and applies them to every All page row', () => {
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="overview-gpu-card">
+                <div data-overview-metric="temperature"></div>
+                <div data-overview-metric="power"></div>
+            </div>
+            <div class="overview-gpu-card">
+                <div data-overview-metric="temperature"></div>
+                <div data-overview-metric="power"></div>
+            </div>
+        `);
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const temperature = document.querySelector('[data-overview-setting="temperature"]');
+
+        expect(temperature.checked).toBe(true);
+        temperature.click();
+
+        expect(document.querySelectorAll('[data-overview-metric="temperature"]:not([hidden])'))
+            .toHaveLength(0);
+        expect(document.querySelectorAll('[data-overview-metric="power"]:not([hidden])'))
+            .toHaveLength(2);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings['overview.temperature'])
+            .toBe(false);
+    });
+
+    it('keeps the previous choice when storage rejects a change', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+        const power = document.querySelector('[data-overview-setting="power"]');
+
+        power.click();
+
+        expect(power.checked).toBe(true);
+        expect(api.isOverviewMetricVisible('power')).toBe(true);
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This setting could not be saved. Try again.');
+    });
+
+    it('reset restores every metric and the chart column', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { ...defaults, 'overview.chart': false, 'overview.memory': false }
+        }));
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="overview-gpu-card overview-chart-hidden">
+                <div data-overview-metric="memory" hidden></div>
+                <div data-overview-metric="chart" hidden></div>
+            </div>
+        `);
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(document.querySelector('.overview-gpu-card').classList.contains('overview-chart-hidden'))
+            .toBe(true);
+
+        document.getElementById('settings-reset').click();
+
+        expect(document.querySelectorAll('[data-overview-setting]:not(:checked)')).toHaveLength(0);
+        expect(document.querySelectorAll('[data-overview-metric][hidden]')).toHaveLength(0);
+        expect(document.querySelector('.overview-gpu-card').classList.contains('overview-chart-hidden'))
+            .toBe(false);
+    });
+
     it('explains a reset failure and keeps the panel open', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -225,6 +320,15 @@ describe('settings page contract', () => {
         expect(panel.getAttribute('aria-labelledby')).toBe('settings-title');
     });
 
+    it('offers each All page metric once', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const metrics = Array.from(parsed.querySelectorAll('[data-overview-setting]'))
+            .map(input => input.dataset.overviewSetting);
+
+        expect(metrics).toEqual(['utilization', 'temperature', 'memory', 'power', 'chart']);
+        expect(new Set(metrics).size).toBe(5);
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -234,6 +338,18 @@ describe('settings page contract', () => {
     it('keeps the hidden panel out of layout', () => {
         expect(componentsCss).toMatch(
             /\.settings-panel\[hidden\] \{\s*display: none;\s*\}/
+        );
+    });
+
+    it('keeps hidden metrics out of layout and removes the hidden chart column', () => {
+        expect(componentsCss).toMatch(
+            /\[data-overview-metric\]\[hidden\] \{\s*display: none;\s*\}/
+        );
+        expect(componentsCss).toMatch(
+            /\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 180px 1fr;\s*\}/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(max-width: 768px\)[\s\S]*?\.overview-gpu-card\.overview-chart-hidden \{\s*grid-template-columns: 1fr;\s*\}/
         );
     });
 });

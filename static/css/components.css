@@ -19,6 +19,14 @@
     min-width: 0;
 }
 
+.overview-gpu-card.overview-chart-hidden {
+    grid-template-columns: 180px 1fr;
+}
+
+[data-overview-metric][hidden] {
+    display: none;
+}
+
 .overview-gpu-card:hover {
     background: rgba(255, 255, 255, 0.03);
     transform: translateX(2px);
@@ -1054,6 +1062,27 @@
     color: var(--text-secondary);
 }
 
+.settings-group {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.settings-group legend {
+    margin-bottom: var(--space-sm);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.settings-group label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+}
+
 .settings-reset {
     margin-top: var(--space-md);
     padding: var(--space-sm) var(--space-md);
@@ -1232,6 +1261,10 @@
         grid-template-columns: 140px 1fr 160px;
     }
 
+    .overview-gpu-card.overview-chart-hidden {
+        grid-template-columns: 140px 1fr;
+    }
+
     .sparklines-grid {
         grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     }
@@ -1275,6 +1308,10 @@
         grid-template-columns: 1fr;
         gap: var(--space-md);
         padding: var(--space-md) 0;
+    }
+
+    .overview-gpu-card.overview-chart-hidden {
+        grid-template-columns: 1fr;
     }
 
     .overview-metrics {
