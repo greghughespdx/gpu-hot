@@ -150,6 +150,13 @@
     background: rgba(255, 255, 255, 0.04);
 }
 
+.settings-button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
 /* ============================================
    Main Content
    ============================================ */
