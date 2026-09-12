@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "result_branch": "ui/candidate",
+  "composition": "merged",
+  "upstream_base": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
+  "source_refs": [
+    {
+      "name": "accepted integration",
+      "commit": "225e84cc4dbce5189b87e9a51d8516eb03eb4840"
+    },
+    {
+      "name": "per-GPU process panel",
+      "commit": "e7ea010601494d4878125c4197361d4f7b93848f"
+    },
+    {
+      "name": "settings foundation",
+      "commit": "fba714826f4f089f285446565c168873eb462abd"
+    }
+  ],
+  "upstream_review": {
+    "checked_at": "2026-09-12T08:18:00Z",
+    "latest_commit": "70b7919784a8cb054e04ef65a34e6539dc8e92b2",
+    "relevant_issue": 26,
+    "relevant_open_pull_requests": [74, 75]
+  }
+}
