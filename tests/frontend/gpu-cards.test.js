@@ -535,4 +535,20 @@ describe('collector text rendering', () => {
             expect(container.querySelector('[title]').title).toBe(hostileText);
         }
     });
+
+    it('stays safe when the candidate binds the card identity and label', () => {
+        const card = gpuCardElementFromMarkup(createCompactOverviewCard, 'node-a-0', {
+            ...gpuInfo,
+            name: 'Operator label',
+            uuid: hostileText
+        });
+
+        expect(card.dataset.gpuId).toBe('node-a-0');
+        expect(card.querySelector('.overview-gpu-name h2').textContent).toBe('GPU node-a-0');
+        expect(card.querySelector('.overview-gpu-name p').textContent).toBe('Operator label');
+        expect(card.querySelector('.gpu-uuid').textContent).toBe(hostileText);
+        expect(card.querySelector('.gpu-uuid').title).toBe(hostileText);
+        expect(card.querySelector('img')).toBeNull();
+        expect(card.hasAttribute('onclick')).toBe(false);
+    });
 });
