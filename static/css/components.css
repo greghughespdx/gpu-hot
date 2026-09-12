@@ -111,6 +111,32 @@
     max-height: 48px !important;
 }
 
+@media (min-width: 1201px) {
+    html.overview-chart-width-wide .overview-gpu-card {
+        grid-template-columns: 180px 1fr 320px;
+    }
+
+    html.overview-chart-width-full .overview-gpu-card {
+        grid-template-columns: 180px 1fr;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+    html.overview-chart-width-wide .overview-gpu-card {
+        grid-template-columns: 140px 1fr 240px;
+    }
+
+    html.overview-chart-width-full .overview-gpu-card {
+        grid-template-columns: 140px 1fr;
+    }
+}
+
+@media (min-width: 769px) {
+    html.overview-chart-width-full .overview-mini-chart {
+        grid-column: 1 / -1;
+    }
+}
+
 /* ============================================
    Aggregate VRAM Row
    ============================================ */
@@ -1052,6 +1078,22 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+}
+
+.settings-field {
+    display: grid;
+    gap: var(--space-sm);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.settings-field select {
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
 }
 
 .settings-reset {

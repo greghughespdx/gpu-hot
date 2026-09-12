@@ -15,9 +15,17 @@ function panelMarkup() {
         <div id="settings-overlay" hidden></div>
         <aside id="settings-panel" hidden inert aria-hidden="true">
             <button id="settings-close">Close</button>
+            <select id="settings-overview-chart-width">
+                <option value="auto">Automatic</option>
+                <option value="wide">Wide</option>
+                <option value="full">Full row</option>
+            </select>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
+        <div class="overview-gpu-card">
+            <div class="overview-mini-chart"><canvas id="overview-chart-0"></canvas></div>
+        </div>
     `;
 }
 
@@ -31,6 +39,10 @@ describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
+        document.documentElement.classList.remove(
+            'overview-chart-width-wide',
+            'overview-chart-width-full'
+        );
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -75,11 +87,30 @@ describe('settings storage', () => {
 
     it('stores only allowlisted settings in a versioned envelope', () => {
         const api = loadSettingsModule();
-        expect(api.saveSettings({ unknown: 'value' })).toBe(true);
+        expect(api.saveSettings({ overviewMiniChartWidth: 'wide', unknown: 'value' })).toBe(true);
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY))).toEqual({
             version: 1,
-            settings: {}
+            settings: { overviewMiniChartWidth: 'wide' }
         });
+    });
+
+    it('drops unsupported chart widths', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'huge' }
+        }));
+        expect(loadSettingsModule().settings).toEqual({});
+    });
+
+    it('applies a stored width class while the head script is evaluated', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'wide' }
+        }));
+
+        loadSettingsModule();
+
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
     });
 
     it('returns defaults when storage reads fail and reports write failures', () => {
@@ -113,6 +144,10 @@ describe('settings panel', () => {
     beforeEach(() => {
         localStorage.clear();
         panelMarkup();
+        document.documentElement.classList.remove(
+            'overview-chart-width-wide',
+            'overview-chart-width-full'
+        );
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -187,6 +222,85 @@ describe('settings panel', () => {
         expect(document.getElementById('settings-panel').hidden).toBe(false);
     });
 
+    it('keeps the current chart width by default', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
+        expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
+    });
+
+    it('persists a wider chart and asks the chart to resize', () => {
+        const resize = vi.fn();
+        const getChart = vi.fn(() => ({ resize }));
+        const originalGetChart = Chart.getChart;
+        Chart.getChart = getChart;
+        try {
+            const api = loadSettingsModule();
+            api.initSettingsPanel();
+            const select = document.getElementById('settings-overview-chart-width');
+
+            select.value = 'wide';
+            select.dispatchEvent(new Event('change'));
+
+            expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
+            expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
+            expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+                .toEqual({ overviewMiniChartWidth: 'wide' });
+            expect(getChart).toHaveBeenCalledWith(document.getElementById('overview-chart-0'));
+            expect(resize).toHaveBeenCalledOnce();
+        } finally {
+            Chart.getChart = originalGetChart;
+        }
+    });
+
+    it('switches between wide and full without leaving both classes', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const select = document.getElementById('settings-overview-chart-width');
+
+        select.value = 'wide';
+        select.dispatchEvent(new Event('change'));
+        select.value = 'full';
+        select.dispatchEvent(new Event('change'));
+
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
+        expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(true);
+    });
+
+    it('restores automatic width on reset', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { overviewMiniChartWidth: 'full' }
+        }));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        document.getElementById('settings-reset').click();
+
+        expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
+        expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
+        expect(localStorage.getItem(api.STORAGE_KEY)).toBeNull();
+    });
+
+    it('keeps the current width when the change cannot be saved', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+        const select = document.getElementById('settings-overview-chart-width');
+
+        select.value = 'wide';
+        select.dispatchEvent(new Event('change'));
+
+        expect(select.value).toBe('auto');
+        expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This display change could not be saved. Try again.');
+    });
+
     it('explains a reset failure and keeps the panel open', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -225,6 +339,14 @@ describe('settings page contract', () => {
         expect(panel.getAttribute('aria-labelledby')).toBe('settings-title');
     });
 
+    it('offers the three mini chart widths once', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const select = parsed.getElementById('settings-overview-chart-width');
+
+        expect(Array.from(select.options).map(option => option.value))
+            .toEqual(['auto', 'wide', 'full']);
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/
@@ -234,6 +356,24 @@ describe('settings page contract', () => {
     it('keeps the hidden panel out of layout', () => {
         expect(componentsCss).toMatch(
             /\.settings-panel\[hidden\] \{\s*display: none;\s*\}/
+        );
+    });
+
+    it('defines wider and full-row chart layouts only above phone width', () => {
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 1201px\)[\s\S]*?overview-chart-width-wide[\s\S]*?180px 1fr 320px;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 1201px\)[\s\S]*?overview-chart-width-full[\s\S]*?180px 1fr;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\) and \(max-width: 1200px\)[\s\S]*?overview-chart-width-wide[\s\S]*?140px 1fr 240px;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\) and \(max-width: 1200px\)[\s\S]*?overview-chart-width-full[\s\S]*?140px 1fr;/
+        );
+        expect(componentsCss).toMatch(
+            /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-full \.overview-mini-chart \{[\s\S]*?grid-column: 1 \/ -1;/
         );
     });
 });

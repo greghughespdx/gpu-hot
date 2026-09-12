@@ -10,7 +10,10 @@
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
     const DEFAULT_SETTINGS = Object.freeze({});
-    const ALLOWED_SETTINGS = Object.freeze({});
+    const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
+    const ALLOWED_SETTINGS = Object.freeze({
+        overviewMiniChartWidth: value => CHART_WIDTHS.includes(value)
+    });
 
     function defaultSettings() {
         return { ...DEFAULT_SETTINGS };
@@ -73,6 +76,25 @@
         }
     }
 
+    function resizeOverviewMiniCharts(documentRef) {
+        if (!global.Chart || typeof global.Chart.getChart !== 'function') return;
+        documentRef.querySelectorAll('.overview-mini-chart canvas').forEach(canvas => {
+            const chart = global.Chart.getChart(canvas);
+            if (chart && typeof chart.resize === 'function') {
+                try { chart.resize(); } catch (error) { }
+            }
+        });
+    }
+
+    function applyOverviewMiniChartWidth(width, documentRef = global.document, resize = true) {
+        if (!documentRef) return;
+        const selected = CHART_WIDTHS.includes(width) ? width : 'auto';
+        const root = documentRef.documentElement;
+        root.classList.toggle('overview-chart-width-wide', selected === 'wide');
+        root.classList.toggle('overview-chart-width-full', selected === 'full');
+        if (resize) resizeOverviewMiniCharts(documentRef);
+    }
+
     function initSettingsPanel(documentRef = global.document) {
         const openButton = documentRef.getElementById('settings-open');
         const closeButton = documentRef.getElementById('settings-close');
@@ -80,9 +102,26 @@
         const overlay = documentRef.getElementById('settings-overlay');
         const panel = documentRef.getElementById('settings-panel');
         const status = documentRef.getElementById('settings-status');
+        const chartWidth = documentRef.getElementById('settings-overview-chart-width');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+
+        if (chartWidth) {
+            chartWidth.value = settings.overviewMiniChartWidth || 'auto';
+            chartWidth.addEventListener('change', () => {
+                const previous = settings.overviewMiniChartWidth || 'auto';
+                const requested = chartWidth.value;
+                if (!saveSettings({ ...settings, overviewMiniChartWidth: requested })) {
+                    chartWidth.value = previous;
+                    status.textContent = 'This display change could not be saved. Try again.';
+                    return;
+                }
+                settings.overviewMiniChartWidth = requested;
+                applyOverviewMiniChartWidth(requested, documentRef);
+                status.textContent = '';
+            });
+        }
 
         function isOpen() {
             return !panel.hidden;
@@ -112,9 +151,14 @@
         closeButton.addEventListener('click', closePanel);
         overlay.addEventListener('click', closePanel);
         resetButton.addEventListener('click', () => {
-            status.textContent = resetSettings()
-                ? 'Settings reset.'
-                : 'Settings could not be reset. Try again.';
+            if (!resetSettings()) {
+                status.textContent = 'Settings could not be reset. Try again.';
+                return;
+            }
+            Object.keys(settings).forEach(key => delete settings[key]);
+            if (chartWidth) chartWidth.value = 'auto';
+            applyOverviewMiniChartWidth('auto', documentRef);
+            status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {
             if (!isOpen()) return;
@@ -144,6 +188,13 @@
     }
 
     const settings = loadSettings();
+    if (global.document) {
+        applyOverviewMiniChartWidth(
+            settings.overviewMiniChartWidth || 'auto',
+            global.document,
+            false
+        );
+    }
     global.GPUHotSettings = Object.freeze({
         STORAGE_KEY,
         STORAGE_VERSION,
@@ -151,6 +202,7 @@
         loadSettings,
         saveSettings,
         resetSettings,
+        applyOverviewMiniChartWidth,
         initSettingsPanel
     });
 
