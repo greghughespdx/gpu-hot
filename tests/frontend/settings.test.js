@@ -200,6 +200,7 @@ describe('settings panel', () => {
             settings: { sidebarOrder: [JSON.stringify(['node-a', '0'])] }
         }));
         window.applySidebarOrder = vi.fn();
+        window.applyDashboardOrder = vi.fn();
         const api = loadSettingsModule();
         api.initSettingsPanel();
         document.getElementById('settings-open').click();
@@ -209,6 +210,7 @@ describe('settings panel', () => {
         expect(document.getElementById('settings-panel').hidden).toBe(false);
         expect(api.settings).toEqual({});
         expect(window.applySidebarOrder).toHaveBeenCalledOnce();
+        expect(window.applyDashboardOrder).toHaveBeenCalledOnce();
     });
 
     it('explains a reset failure and keeps the panel open', () => {

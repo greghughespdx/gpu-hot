@@ -141,6 +141,7 @@
             }
             Object.keys(settings).forEach(key => delete settings[key]);
             if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
+            if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
             status.textContent = 'Settings reset.';
         });
         panel.addEventListener('keydown', event => {

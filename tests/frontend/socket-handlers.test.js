@@ -257,6 +257,41 @@ describe('sidebar order identity', () => {
         }
     });
 
+    it('registers rendered node groups and GPU cards with the shared order model', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        window.initializeDashboardOrdering(document);
+        try {
+            handleClusterData({
+                mode: 'hub',
+                nodes: {
+                    'node-a': {
+                        status: 'online',
+                        gpus: {
+                            0: {
+                                name: 'Test GPU', utilization: 25, temperature: 40,
+                                memory_used: 10, memory_total: 100, power_draw: 20,
+                                fan_speed: 30, clock_graphics: 100, clock_sm: 100,
+                                clock_memory: 100, power_limit: 200
+                            }
+                        },
+                        system: {},
+                        processes: []
+                    }
+                }
+            });
+
+            const group = document.querySelector('.node-group');
+            const card = group.querySelector('.overview-gpu-card');
+            expect(group.dataset.layoutKind).toBe('node');
+            expect(group.dataset.orderNode).toBe('node-a');
+            expect(card.dataset.layoutKind).toBe('gpu');
+            expect(card.dataset.layoutOrderKey).toBe(JSON.stringify(['node-a', '0']));
+        } finally {
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
+    });
+
     it('keeps the node name and bare GPU id from a single-node payload', () => {
         const originalAnimationFrame = global.requestAnimationFrame;
         global.requestAnimationFrame = vi.fn();
@@ -279,6 +314,34 @@ describe('sidebar order identity', () => {
 
             expect(pendingSocketUpdates.get('0')).toMatchObject({
                 nodeName: 'node-a',
+                sourceGpuId: '0'
+            });
+        } finally {
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
+    });
+
+    it('uses the shared stable fallback when a single-node payload has no name', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        try {
+            handleSocketMessage({
+                data: JSON.stringify({
+                    gpus: {
+                        0: {
+                            name: 'Test GPU', utilization: 25, temperature: 40,
+                            memory_used: 10, memory_total: 100, power_draw: 20,
+                            fan_speed: 30, clock_graphics: 100, clock_sm: 100,
+                            clock_memory: 100, power_limit: 200
+                        }
+                    },
+                    system: {},
+                    processes: []
+                })
+            });
+
+            expect(pendingSocketUpdates.get('0')).toMatchObject({
+                nodeName: 'GPU Server',
                 sourceGpuId: '0'
             });
         } finally {
