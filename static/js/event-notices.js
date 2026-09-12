@@ -270,8 +270,36 @@
         );
     }
 
+    function anyNoticeOptionEnabled() {
+        return Object.keys(EVENT_TYPES).some(optionEnabled);
+    }
+
+    function snapshotOnlineRosters(data) {
+        if (data.mode === 'hub') {
+            if (!isObject(data.nodes)) return;
+            const nodeEntries = Object.entries(data.nodes);
+            if (nodeEntries.length > MAX_NODES) return;
+            nodeEntries.forEach(([rawNode, nodeData]) => {
+                const node = boundedString(rawNode);
+                if (node && isObject(nodeData) && nodeData.status === 'online'
+                    && isCompleteGpuMap(nodeData.gpus)) {
+                    lastOnlineRosters.set(node, new Set(Object.keys(nodeData.gpus)));
+                }
+            });
+            return;
+        }
+        if (!isCompleteGpuMap(data.gpus)) return;
+        const node = boundedString(data.node_name || global.DEFAULT_NODE_NAME || 'GPU Server');
+        if (node) lastOnlineRosters.set(node, new Set(Object.keys(data.gpus)));
+    }
+
     function observePayload(data) {
         if (!isObject(data)) return;
+        if (!anyNoticeOptionEnabled() && activeByIdentity.size === 0
+            && suppressedActive.size === 0) {
+            snapshotOnlineRosters(data);
+            return;
+        }
         if (data.mode === 'hub') {
             if (!isObject(data.nodes)) return;
             const nodeEntries = Object.entries(data.nodes);

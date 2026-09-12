@@ -61,7 +61,10 @@ describe('event notices', () => {
 
     it('keeps every option off by default without showing or writing notices', () => {
         const setItem = vi.spyOn(Storage.prototype, 'setItem');
+        const stringify = vi.spyOn(JSON, 'stringify');
         const api = loadNotices();
+
+        stringify.mockClear();
 
         api.processPayload(hub({
             offline: { status: 'offline' },
@@ -74,6 +77,34 @@ describe('event notices', () => {
         expect(api.notices).toEqual([]);
         expect(document.getElementById('event-notices').hidden).toBe(true);
         expect(setItem).not.toHaveBeenCalled();
+        expect(stringify).not.toHaveBeenCalled();
+    });
+
+    it('keeps a cheap roster while options are off for later missing-GPU detection', () => {
+        const api = loadNotices();
+        api.processPayload(hub({ node: online({ '0': {}, '1': {} }) }));
+
+        window.GPUHotSettings.settings.noticeGpuMissing = true;
+        api.settingsChanged();
+        api.processPayload(hub({ node: online({ '0': {} }) }));
+
+        expect(api.notices).toHaveLength(1);
+        expect(api.notices[0]).toMatchObject({ eventType: 'gpuMissing', node: 'node', gpu: '1' });
+    });
+
+    it('still closes an active notice after every option is turned off', () => {
+        const api = loadNotices({ noticeGpuThrottle: true });
+        api.processPayload(hub({ node: online({
+            '0': { vendor: 'nvidia', throttle_reasons: 'HW Thermal' }
+        }) }));
+
+        window.GPUHotSettings.settings.noticeGpuThrottle = false;
+        api.processPayload(hub({ node: online({
+            '0': { vendor: 'nvidia', throttle_reasons: 'None' }
+        }) }));
+
+        expect(api.notices).toHaveLength(1);
+        expect(api.notices[0].endedAt).not.toBeNull();
     });
 
     it.each([
