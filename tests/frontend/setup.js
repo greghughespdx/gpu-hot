@@ -96,6 +96,7 @@ for (const file of loadOrder) {
         if (typeof initGPUCharts !== 'undefined') globalThis.initGPUCharts = initGPUCharts;
         if (typeof initOverviewMiniChart !== 'undefined') globalThis.initOverviewMiniChart = initOverviewMiniChart;
         if (typeof initSidebarCharts !== 'undefined') globalThis.initSidebarCharts = initSidebarCharts;
+        if (typeof refreshChartColors !== 'undefined') globalThis.refreshChartColors = refreshChartColors;
         if (typeof isMobile !== 'undefined') globalThis.isMobile = isMobile;
         if (typeof formatMemory !== 'undefined') globalThis.formatMemory = formatMemory;
         if (typeof formatMemoryUnit !== 'undefined') globalThis.formatMemoryUnit = formatMemoryUnit;

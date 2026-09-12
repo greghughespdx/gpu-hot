@@ -14,8 +14,10 @@ const defaults = {
     'overview.temperature': true,
     'overview.memory': true,
     'overview.power': true,
-    'overview.chart': true
+    'overview.chart': true,
+    theme: 'default'
 };
+const tokensCss = readFileSync(join(testDir, '../../static/css/tokens.css'), 'utf8');
 
 function panelMarkup() {
     document.body.innerHTML = `
@@ -47,6 +49,11 @@ function panelMarkup() {
             </select>
             <input id="settings-sidebar-auto-hide" type="checkbox">
             <input id="settings-sidebar-pinned" type="checkbox">
+            <select id="settings-theme">
+                <option value="default">Default</option>
+                <option value="midnight">Midnight</option>
+                <option value="high-contrast">High contrast</option>
+            </select>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
         </aside>
@@ -233,6 +240,109 @@ describe('settings storage', () => {
             throw new Error('remove failed');
         });
         expect(api.resetSettings()).toBe(false);
+    });
+});
+
+describe('theme settings', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        document.documentElement.removeAttribute('data-theme');
+        panelMarkup();
+    });
+    afterEach(() => {
+        vi.restoreAllMocks();
+        document.documentElement.removeAttribute('data-theme');
+    });
+
+    it('keeps the default theme attribute-free', () => {
+        const api = loadSettingsModule();
+
+        expect(api.THEMES).toEqual(['default', 'midnight', 'high-contrast']);
+        expect(api.settings.theme).toBe('default');
+        expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    });
+
+    it.each(['midnight', 'high-contrast'])('applies saved %s during module load', theme => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { theme }
+        }));
+
+        const api = loadSettingsModule();
+
+        expect(api.settings.theme).toBe(theme);
+        expect(document.documentElement.dataset.theme).toBe(theme);
+    });
+
+    it('applies the saved theme before registering deferred panel setup', () => {
+        const applyPosition = source.indexOf(
+            'applyTheme(settings.theme, global.document, false)'
+        );
+        const readyPosition = source.indexOf("global.document.readyState === 'loading'");
+
+        expect(applyPosition).toBeGreaterThan(-1);
+        expect(readyPosition).toBeGreaterThan(applyPosition);
+    });
+
+    it('ignores an unknown saved theme', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { theme: 'unknown' }
+        }));
+
+        const api = loadSettingsModule();
+
+        expect(api.settings.theme).toBe('default');
+        expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    });
+
+    it('saves and applies a selected theme', () => {
+        const event = vi.fn();
+        window.addEventListener('gpu-hot:themechange', event, { once: true });
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const select = document.getElementById('settings-theme');
+
+        select.value = 'midnight';
+        select.dispatchEvent(new Event('change'));
+
+        expect(api.settings.theme).toBe('midnight');
+        expect(document.documentElement.dataset.theme).toBe('midnight');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings.theme).toBe('midnight');
+        expect(event).toHaveBeenCalledOnce();
+    });
+
+    it('keeps the current theme when saving fails', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const select = document.getElementById('settings-theme');
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('quota exceeded');
+        });
+
+        select.value = 'midnight';
+        select.dispatchEvent(new Event('change'));
+
+        expect(select.value).toBe('default');
+        expect(api.settings.theme).toBe('default');
+        expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This display change could not be saved. Try again.');
+    });
+
+    it('reset restores the default theme and picker', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { theme: 'high-contrast' }
+        }));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+
+        document.getElementById('settings-reset').click();
+
+        expect(api.settings.theme).toBe('default');
+        expect(document.getElementById('settings-theme').value).toBe('default');
+        expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
     });
 });
 
@@ -631,6 +741,22 @@ describe('settings page contract', () => {
         expect(gear).toHaveLength(1);
         expect(bottomBar.lastElementChild).toBe(gear[0]);
         expect(gear[0].getAttribute('aria-controls')).toBe('settings-panel');
+    });
+
+    it('offers only the default and two dark demonstration themes', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const options = Array.from(parsed.querySelectorAll('#settings-theme option'));
+
+        expect(options.map(option => option.value)).toEqual([
+            'default', 'midnight', 'high-contrast'
+        ]);
+        expect(tokensCss.match(/:root\[data-theme=/g)).toHaveLength(2);
+        expect(tokensCss).not.toMatch(/data-theme=["']light/);
+    });
+
+    it('defines both demonstration themes through root data attributes', () => {
+        expect(tokensCss).toMatch(/:root\[data-theme="midnight"\]\s*\{/);
+        expect(tokensCss).toMatch(/:root\[data-theme="high-contrast"\]\s*\{/);
     });
 
     it('marks the slide-over as a hidden modal dialog', () => {

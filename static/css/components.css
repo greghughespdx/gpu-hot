@@ -1052,7 +1052,7 @@
     position: fixed;
     inset: 0;
     z-index: 210;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(var(--shadow-rgb), 0.6);
 }
 
 .settings-panel[hidden] {
@@ -1108,7 +1108,7 @@
 .settings-close:hover,
 .settings-close:focus-visible {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--neutral-rgb), 0.04);
 }
 
 .settings-body {
@@ -1176,7 +1176,6 @@ html.settings-connection-in-panel #dashboard-status-home {
     gap: var(--space-sm);
     cursor: pointer;
 }
-
 .settings-field {
     display: grid;
     gap: var(--space-sm);
@@ -1191,6 +1190,13 @@ html.settings-connection-in-panel #dashboard-status-home {
     border-radius: 6px;
     background: var(--bg-elevated);
     color: var(--text-primary);
+    font: inherit;
+}
+
+.settings-help {
+    margin-top: var(--space-sm);
+    color: var(--text-tertiary);
+    font-size: 12px;
 }
 
 .settings-reset {
@@ -1205,7 +1211,7 @@ html.settings-connection-in-panel #dashboard-status-home {
 
 .settings-reset:hover,
 .settings-reset:focus-visible {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--neutral-rgb), 0.04);
 }
 
 .settings-status {

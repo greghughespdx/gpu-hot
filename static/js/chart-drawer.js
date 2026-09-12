@@ -360,6 +360,10 @@ function createDrawerChart() {
     drawerChart = new Chart(canvas, config);
 }
 
+window.addEventListener('gpu-hot:themechange', () => {
+    if (drawerOpen) createDrawerChart();
+});
+
 // ============================================
 // Companion selector chips
 // ============================================

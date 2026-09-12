@@ -69,6 +69,10 @@ function loadChartDrawer() {
             set(v) { drawerCompanionType = v; },
             configurable: true
         });
+        Object.defineProperty(globalThis, 'drawerChart', {
+            get() { return drawerChart; },
+            configurable: true
+        });
     })();`;
     vm.runInThisContext(wrappedCode, { filename: 'chart-drawer.js' });
 
@@ -469,5 +473,14 @@ describe('event listeners', () => {
         expect(drawerOpen).toBe(true);
         document.getElementById('drawer-close').click();
         expect(drawerOpen).toBe(false);
+    });
+
+    it('rebuilds an open drawer chart after the theme changes', () => {
+        openChartDrawer('gpu0', 'utilization');
+        const originalChart = drawerChart;
+
+        window.dispatchEvent(new CustomEvent('gpu-hot:themechange'));
+
+        expect(drawerChart).not.toBe(originalChart);
     });
 });
