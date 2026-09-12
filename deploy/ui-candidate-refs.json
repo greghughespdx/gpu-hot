@@ -67,6 +67,10 @@
     {
       "name": "All page extra metrics",
       "commit": "5fdc808af4b38ca2fd512050adc040e71b2d5018"
+    },
+    {
+      "name": "collector text rendering safety",
+      "commit": "103dc0e961233174633c82e967c4f096d1b476ff"
     }
   ],
   "upstream_review": {
