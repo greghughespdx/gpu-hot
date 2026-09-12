@@ -108,6 +108,7 @@ for (const file of loadOrder) {
         if (typeof formatFanRpm !== 'undefined') globalThis.formatFanRpm = formatFanRpm;
         if (typeof setFanRpm !== 'undefined') globalThis.setFanRpm = setFanRpm;
         if (typeof bulletClass !== 'undefined') globalThis.bulletClass = bulletClass;
+        if (typeof gpuCardElementFromMarkup !== 'undefined') globalThis.gpuCardElementFromMarkup = gpuCardElementFromMarkup;
         if (typeof createAggregateCard !== 'undefined') globalThis.createAggregateCard = createAggregateCard;
         if (typeof updateOverviewCard !== 'undefined') globalThis.updateOverviewCard = updateOverviewCard;
         if (typeof createCompactOverviewCard !== 'undefined') globalThis.createCompactOverviewCard = createCompactOverviewCard;

@@ -1119,6 +1119,46 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+    overflow-y: auto;
+}
+
+.settings-group h3 {
+    margin: 0 0 var(--space-xs);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.settings-help {
+    margin: 0 0 var(--space-md);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.settings-label-list {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.settings-label-field {
+    display: grid;
+    gap: var(--space-xs);
+    font-size: 12px;
+}
+
+.settings-label-field input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.settings-label-field input:focus-visible {
+    border-color: var(--accent);
+    outline: 1px solid var(--accent);
 }
 
 .settings-connection-details[hidden] {
