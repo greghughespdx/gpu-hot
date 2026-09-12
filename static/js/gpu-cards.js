@@ -112,9 +112,10 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
         ? ' hidden' : '';
     const chartHidden = metricHidden('chart');
     const chartClass = chartHidden ? ' overview-chart-hidden' : '';
+    const visibleMetricCount = window.GPUHotSettings?.visibleOverviewMetricCount?.() ?? 4;
 
     return `
-        <div class="overview-gpu-card${chartClass}" data-gpu-id="${gpuId}" onclick="switchToView('gpu-${gpuId}')">
+        <div class="overview-gpu-card${chartClass}" data-gpu-id="${gpuId}" data-overview-visible-metrics="${visibleMetricCount}" onclick="switchToView('gpu-${gpuId}')">
             <div class="overview-gpu-name">
                 <h2>GPU ${gpuId}</h2>
                 <p>${getMetricValue(gpuInfo, 'name', 'Unknown GPU')}</p>

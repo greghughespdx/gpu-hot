@@ -29,9 +29,10 @@
         ),
         theme: 'default',
         showStarPrompt: true,
+        overviewMiniChartBehindDim: 30,
         ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, false]))
     });
-    const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full']);
+    const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full', 'behind']);
     const SIDEBAR_WIDTHS = Object.freeze({
         standard: null,
         comfortable: '72px',
@@ -105,6 +106,7 @@
         ),
         moveConnectionDetails: value => typeof value === 'boolean',
         overviewMiniChartWidth: value => CHART_WIDTHS.includes(value),
+        overviewMiniChartBehindDim: value => Number.isInteger(value) && value >= 10 && value <= 100,
         sidebarWidth: value => Object.prototype.hasOwnProperty.call(SIDEBAR_WIDTHS, value),
         sidebarLabel: value => SIDEBAR_LABELS.includes(value),
         sidebarAutoHide: value => typeof value === 'boolean',
@@ -202,6 +204,12 @@
         return settings[`overview.${metric}`] !== false;
     }
 
+    function visibleOverviewMetricCount() {
+        return OVERVIEW_METRICS
+            .filter(metric => metric !== 'chart' && isOverviewMetricVisible(metric))
+            .length;
+    }
+
     function applyOverviewMetricVisibility(documentRef = global.document) {
         if (!documentRef) return;
         OVERVIEW_METRICS.forEach(metric => {
@@ -212,6 +220,7 @@
         });
         documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
             card.classList.toggle('overview-chart-hidden', !isOverviewMetricVisible('chart'));
+            card.dataset.overviewVisibleMetrics = String(visibleOverviewMetricCount());
         });
     }
 
@@ -277,7 +286,17 @@
         const root = documentRef.documentElement;
         root.classList.toggle('overview-chart-width-wide', selected === 'wide');
         root.classList.toggle('overview-chart-width-full', selected === 'full');
+        root.classList.toggle('overview-chart-width-behind', selected === 'behind');
         if (resize) resizeOverviewMiniCharts(documentRef);
+    }
+
+    function applyOverviewMiniChartBehindDim(value, documentRef = global.document) {
+        if (!documentRef) return;
+        const selected = ALLOWED_SETTINGS.overviewMiniChartBehindDim(value) ? value : 30;
+        documentRef.documentElement.style.setProperty(
+            '--overview-chart-behind-dim',
+            String(selected / 100)
+        );
     }
 
     function applySidebarSettings(documentRef = global.document) {
@@ -415,6 +434,9 @@
         const status = documentRef.getElementById('settings-status');
         const moveConnectionDetails = documentRef.getElementById('settings-move-connection-details');
         const chartWidth = documentRef.getElementById('settings-overview-chart-width');
+        const chartBehindDim = documentRef.getElementById('settings-overview-chart-behind-dim');
+        const chartBehindDimField = documentRef.getElementById('settings-overview-chart-behind-dim-field');
+        const chartBehindDimValue = documentRef.getElementById('settings-overview-chart-behind-dim-value');
         const widthSelect = documentRef.getElementById('settings-sidebar-width');
         const labelSelect = documentRef.getElementById('settings-sidebar-label');
         const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
@@ -508,7 +530,11 @@
         applyOverviewMetricVisibility(documentRef);
 
         if (chartWidth) {
+            const syncBehindDimControl = () => {
+                if (chartBehindDimField) chartBehindDimField.hidden = chartWidth.value !== 'behind';
+            };
             chartWidth.value = settings.overviewMiniChartWidth || 'auto';
+            syncBehindDimControl();
             chartWidth.addEventListener('change', () => {
                 const previous = settings.overviewMiniChartWidth || 'auto';
                 const nextSettings = sanitizeSettings({
@@ -525,6 +551,40 @@
                 Object.assign(settings, nextSettings);
                 chartWidth.value = requested;
                 applyOverviewMiniChartWidth(requested, documentRef);
+                syncBehindDimControl();
+                status.textContent = '';
+            });
+        }
+
+        if (chartBehindDim) {
+            const syncBehindDimValue = value => {
+                chartBehindDim.value = String(value);
+                if (chartBehindDimValue) chartBehindDimValue.textContent = `${value}%`;
+            };
+            syncBehindDimValue(settings.overviewMiniChartBehindDim || 30);
+            chartBehindDim.addEventListener('input', () => {
+                const requested = Number(chartBehindDim.value);
+                if (ALLOWED_SETTINGS.overviewMiniChartBehindDim(requested) && chartBehindDimValue) {
+                    chartBehindDimValue.textContent = `${requested}%`;
+                }
+            });
+            chartBehindDim.addEventListener('change', () => {
+                const previous = settings.overviewMiniChartBehindDim || 30;
+                const requested = Number(chartBehindDim.value);
+                const nextSettings = sanitizeSettings({
+                    ...settings,
+                    overviewMiniChartBehindDim: requested
+                });
+                if (!ALLOWED_SETTINGS.overviewMiniChartBehindDim(requested)
+                    || !saveSettings(nextSettings)) {
+                    syncBehindDimValue(previous);
+                    status.textContent = 'This display change could not be saved. Try again.';
+                    return;
+                }
+                Object.keys(settings).forEach(key => delete settings[key]);
+                Object.assign(settings, nextSettings);
+                syncBehindDimValue(settings.overviewMiniChartBehindDim);
+                applyOverviewMiniChartBehindDim(settings.overviewMiniChartBehindDim, documentRef);
                 status.textContent = '';
             });
         }
@@ -653,6 +713,10 @@
             applyOverviewMetricVisibility(documentRef);
             if (chartWidth) chartWidth.value = 'auto';
             applyOverviewMiniChartWidth('auto', documentRef);
+            if (chartBehindDim) chartBehindDim.value = '30';
+            if (chartBehindDimValue) chartBehindDimValue.textContent = '30%';
+            if (chartBehindDimField) chartBehindDimField.hidden = true;
+            applyOverviewMiniChartBehindDim(30, documentRef);
             syncSidebarControls();
             applySidebarSettings(documentRef);
             if (themeSelect) themeSelect.value = settings.theme;
@@ -718,6 +782,7 @@
             global.document,
             false
         );
+        applyOverviewMiniChartBehindDim(settings.overviewMiniChartBehindDim, global.document);
         applySidebarSettings(global.document);
         applyTheme(settings.theme, global.document, false);
     }
@@ -731,8 +796,10 @@
         resetSettings,
         applyConnectionDetailsLocation,
         isOverviewMetricVisible,
+        visibleOverviewMetricCount,
         applyOverviewMetricVisibility,
         applyOverviewMiniChartWidth,
+        applyOverviewMiniChartBehindDim,
         applySidebarSettings,
         applyTheme,
         applyDisplayLabels,

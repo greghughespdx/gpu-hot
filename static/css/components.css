@@ -78,7 +78,7 @@
 
 .overview-metrics {
     display: flex;
-    gap: var(--space-xl);
+    gap: var(--overview-metric-gap);
     flex-wrap: nowrap;
     min-width: 0;
 }
@@ -87,7 +87,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: 72px;
+    min-width: var(--overview-metric-width);
 }
 
 .overview-metric-value {
@@ -124,6 +124,28 @@
     max-height: 48px !important;
 }
 
+.settings-field[hidden] {
+    display: none;
+}
+
+.settings-range-row {
+    display: grid;
+    grid-template-columns: 1fr 44px;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.settings-range-row input {
+    width: 100%;
+}
+
+.settings-range-row output {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: right;
+}
+
 @media (min-width: 1201px) {
     html.overview-chart-width-wide .overview-gpu-card {
         grid-template-columns: 180px 1fr 320px;
@@ -155,6 +177,61 @@
 @media (min-width: 769px) {
     html.overview-chart-width-full .overview-mini-chart {
         grid-column: 1 / -1;
+    }
+
+    html.overview-chart-width-behind .overview-gpu-name {
+        grid-column: 1;
+        grid-row: 1;
+        z-index: 2;
+    }
+
+    html.overview-chart-width-behind .overview-metrics {
+        grid-column: 2;
+        grid-row: 1;
+        z-index: 2;
+    }
+
+    html.overview-chart-width-behind .overview-mini-chart {
+        grid-column: 2 / 4;
+        grid-row: 1;
+        z-index: 1;
+        pointer-events: none;
+        -webkit-mask-image: linear-gradient(to right,
+            rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 0,
+            rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) var(--overview-chart-behind-fade-start),
+            rgba(var(--shadow-rgb), 1) var(--overview-chart-behind-fade-end),
+            rgba(var(--shadow-rgb), 1) 100%);
+        mask-image: linear-gradient(to right,
+            rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 0,
+            rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) var(--overview-chart-behind-fade-start),
+            rgba(var(--shadow-rgb), 1) var(--overview-chart-behind-fade-end),
+            rgba(var(--shadow-rgb), 1) 100%);
+    }
+
+    html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="1"] {
+        --overview-chart-behind-fade-start: 0px;
+        --overview-chart-behind-fade-end: var(--overview-metric-width);
+    }
+
+    html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="2"] {
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+    }
+
+    html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="3"] {
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+    }
+
+    html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="4"] {
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+    }
+
+    html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="0"] .overview-mini-chart {
+        grid-column: 3;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
 }
 
@@ -1588,6 +1665,20 @@ html.settings-connection-in-panel #dashboard-status-home {
 
     .overview-mini-chart {
         height: 40px;
+    }
+
+    html.overview-chart-width-behind .overview-mini-chart {
+        grid-column: 1;
+        grid-row: auto;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+
+    html.overview-chart-width-behind .overview-gpu-name,
+    html.overview-chart-width-behind .overview-metrics {
+        grid-column: auto;
+        grid-row: auto;
+        z-index: auto;
     }
 
     .metrics-grid,
