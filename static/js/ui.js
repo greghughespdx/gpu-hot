@@ -254,12 +254,26 @@ function applyDashboardOrder(documentRef = document) {
     });
 }
 
+function addDashboardOrderGrip(item, label, kind) {
+    if (!label) return;
+    const host = kind === 'node' ? item : label;
+    if (host.querySelector(':scope > .dashboard-order-grip')) return;
+    const grip = item.ownerDocument.createElement('span');
+    grip.className = 'dashboard-order-grip';
+    grip.dataset.dashboardOrderGrip = kind;
+    grip.title = kind === 'node' ? 'Move this node' : 'Move this GPU';
+    grip.setAttribute('aria-hidden', 'true');
+    if (kind === 'node') label.after(grip);
+    else label.prepend(grip);
+}
+
 function registerDashboardNode(group, nodeName) {
     if (!group) return;
     group.dataset.layoutKind = 'node';
     group.dataset.orderNode = String(nodeName);
     group.tabIndex = 0;
     group.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight');
+    addDashboardOrderGrip(group, group.querySelector(':scope > .node-label'), 'node');
     applyDashboardOrder(group.ownerDocument);
 }
 
@@ -271,6 +285,7 @@ function registerDashboardGpu(card, nodeName, gpuId) {
     card.dataset.orderNode = String(nodeName);
     card.tabIndex = 0;
     card.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight');
+    addDashboardOrderGrip(card, card.querySelector(':scope > .overview-gpu-name'), 'gpu');
     if (!defaultSidebarOrder.includes(key)) defaultSidebarOrder.push(key);
     const saved = savedSidebarOrder();
     if (saved.length > 0 && !saved.includes(key)) saveSidebarOrder([...saved, key]);
@@ -291,12 +306,10 @@ function persistDashboardOrder(documentRef) {
 
 function beginDashboardMove(event) {
     if (event.isPrimary === false) return;
-    const grabTarget = event.target.closest(
-        '.node-group[data-layout-kind="node"] > .node-label, '
-        + '.overview-gpu-card[data-layout-kind="gpu"] > .overview-gpu-name'
-    );
+    const grabTarget = event.target.closest('.dashboard-order-grip');
     const item = grabTarget?.closest('[data-layout-kind]');
     if (!item || (event.button !== undefined && event.button !== 0)) return;
+    event.preventDefault();
     const kind = item.dataset.layoutKind;
     const container = item.parentElement;
     const elements = kind === 'node' ? dashboardGroups(item.ownerDocument) : dashboardCards(item.closest('.node-group'));
@@ -310,7 +323,7 @@ function beginDashboardMove(event) {
         moved: false,
         initialElements: elements
     };
-    if (typeof item.setPointerCapture === 'function') item.setPointerCapture(event.pointerId);
+    if (typeof grabTarget.setPointerCapture === 'function') grabTarget.setPointerCapture(event.pointerId);
 }
 
 function continueDashboardMove(event, documentRef) {
@@ -391,6 +404,11 @@ function initializeDashboardOrdering(documentRef = document) {
         if (activeDashboardMove?.pointerId === event.pointerId) finishDashboardMove(documentRef, true);
     });
     container.addEventListener('click', event => {
+        if (event.target.closest('.dashboard-order-grip')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
         const item = event.target.closest('[data-layout-kind]');
         const key = item?.dataset.layoutOrderKey || (item ? `node:${item.dataset.orderNode}` : null);
         if (!key || key !== suppressedDashboardClickKey) return;

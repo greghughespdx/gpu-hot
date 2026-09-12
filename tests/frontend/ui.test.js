@@ -588,13 +588,14 @@ describe('All page ordering', () => {
         second.getBoundingClientRect = () => ({ top: 100, height: 50, left: 0, width: 300 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
 
-        dispatchPointer(first.querySelector('.node-label'), 'pointerdown', {
+        const grip = first.querySelector('.dashboard-order-grip');
+        dispatchPointer(grip, 'pointerdown', {
             pointerId: 20, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first.querySelector('.node-label'), 'pointermove', {
+        dispatchPointer(grip, 'pointermove', {
             pointerId: 20, pointerType: 'mouse', clientX: 10, clientY: 140
         });
-        dispatchPointer(first.querySelector('.node-label'), 'pointerup', {
+        dispatchPointer(grip, 'pointerup', {
             pointerId: 20, pointerType: 'mouse'
         });
 
@@ -611,13 +612,14 @@ describe('All page ordering', () => {
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerdown', {
+        const grip = first.querySelector('.dashboard-order-grip');
+        dispatchPointer(grip, 'pointerdown', {
             pointerId: 21, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointermove', {
+        dispatchPointer(grip, 'pointermove', {
             pointerId: 21, pointerType: 'touch', clientX: 170, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerup', {
+        dispatchPointer(grip, 'pointerup', {
             pointerId: 21, pointerType: 'touch'
         });
 
@@ -631,13 +633,14 @@ describe('All page ordering', () => {
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerdown', {
+        const grip = first.querySelector('.dashboard-order-grip');
+        dispatchPointer(grip, 'pointerdown', {
             pointerId: 22, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointermove', {
+        dispatchPointer(grip, 'pointermove', {
             pointerId: 22, pointerType: 'touch', clientX: 170, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointercancel', {
+        dispatchPointer(grip, 'pointercancel', {
             pointerId: 22, pointerType: 'touch'
         });
 
@@ -677,22 +680,22 @@ describe('All page ordering', () => {
     it('suppresses navigation without writing when an All page drag returns to its starting position', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
-        const firstName = first.querySelector('.overview-gpu-name');
+        const firstGrip = first.querySelector('.dashboard-order-grip');
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
         const navigate = vi.fn();
         first.addEventListener('click', navigate);
 
-        dispatchPointer(firstName, 'pointerdown', {
+        dispatchPointer(firstGrip, 'pointerdown', {
             pointerId: 23, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(firstName, 'pointermove', {
+        dispatchPointer(firstGrip, 'pointermove', {
             pointerId: 23, pointerType: 'mouse', clientX: 170, clientY: 10
         });
-        dispatchPointer(firstName, 'pointermove', {
+        dispatchPointer(firstGrip, 'pointermove', {
             pointerId: 23, pointerType: 'mouse', clientX: 110, clientY: 10
         });
-        dispatchPointer(firstName, 'pointerup', { pointerId: 23, pointerType: 'mouse' });
+        dispatchPointer(firstGrip, 'pointerup', { pointerId: 23, pointerType: 'mouse' });
 
         expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
@@ -700,7 +703,7 @@ describe('All page ordering', () => {
         expect(navigate).not.toHaveBeenCalled();
     });
 
-    it('starts pointer ordering only from a node label or GPU name', () => {
+    it('starts pointer ordering only from a grip handle', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
         const metrics = document.createElement('div');
@@ -709,16 +712,56 @@ describe('All page ordering', () => {
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(metrics, 'pointerdown', {
-            pointerId: 24, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
+        [first.querySelector('.overview-gpu-name'), metrics].forEach((target, index) => {
+            const pointerId = 24 + index;
+            dispatchPointer(target, 'pointerdown', {
+                pointerId, pointerType: 'touch', button: 0, clientX: 10, clientY: 10
+            });
+            dispatchPointer(target, 'pointermove', {
+                pointerId, pointerType: 'touch', clientX: 170, clientY: 10
+            });
+            dispatchPointer(target, 'pointerup', { pointerId, pointerType: 'touch' });
         });
-        dispatchPointer(metrics, 'pointermove', {
-            pointerId: 24, pointerType: 'touch', clientX: 170, clientY: 10
-        });
-        dispatchPointer(metrics, 'pointerup', { pointerId: 24, pointerType: 'touch' });
 
         expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('adds one grip per ordering label and consumes grip clicks without navigation', () => {
+        const group = addDashboardNode('node-a', ['0']);
+        const card = group.querySelector('.overview-gpu-card');
+        const nodeGrip = group.querySelector(':scope > .dashboard-order-grip');
+        const gpuGrip = card.querySelector(':scope > .overview-gpu-name > .dashboard-order-grip');
+        const navigate = vi.fn();
+        card.addEventListener('click', navigate);
+
+        window.registerDashboardNode(group, 'node-a');
+        window.registerDashboardGpu(card, 'node-a', '0');
+
+        expect(group.querySelectorAll(':scope > .dashboard-order-grip')).toHaveLength(1);
+        expect(card.querySelectorAll(':scope > .overview-gpu-name > .dashboard-order-grip')).toHaveLength(1);
+        expect(nodeGrip.dataset.dashboardOrderGrip).toBe('node');
+        expect(gpuGrip.dataset.dashboardOrderGrip).toBe('gpu');
+        const down = dispatchPointer(gpuGrip, 'pointerdown', {
+            pointerId: 26, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(gpuGrip, 'pointerup', { pointerId: 26, pointerType: 'mouse' });
+        gpuGrip.click();
+
+        expect(down.defaultPrevented).toBe(true);
+        expect(navigate).not.toHaveBeenCalled();
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+    });
+
+    it('keeps the node grip when label binding replaces the label text', () => {
+        const group = addDashboardNode('node-a', ['0']);
+        const label = group.querySelector(':scope > .node-label');
+        const grip = group.querySelector(':scope > .dashboard-order-grip');
+
+        label.textContent = 'Renamed node';
+
+        expect(group.querySelector(':scope > .dashboard-order-grip')).toBe(grip);
+        expect(label.textContent).toBe('Renamed node');
     });
 
     it('ignores a second non-primary touch', () => {
@@ -727,14 +770,15 @@ describe('All page ordering', () => {
         second.getBoundingClientRect = () => ({ top: 0, height: 60, left: 100, width: 80 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
 
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerdown', {
+        const grip = first.querySelector('.dashboard-order-grip');
+        dispatchPointer(grip, 'pointerdown', {
             pointerId: 30, pointerType: 'touch', isPrimary: false,
             button: 0, clientX: 10, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointermove', {
+        dispatchPointer(grip, 'pointermove', {
             pointerId: 30, pointerType: 'touch', clientX: 170, clientY: 10
         });
-        dispatchPointer(first.querySelector('.overview-gpu-name'), 'pointerup', {
+        dispatchPointer(grip, 'pointerup', {
             pointerId: 30, pointerType: 'touch'
         });
 
@@ -774,6 +818,24 @@ describe('All page ordering', () => {
 });
 
 describe('ordering interaction styles', () => {
+    it('places each grip inside contiguous label padding', () => {
+        const layoutStyles = document.createElement('style');
+        layoutStyles.textContent = layoutCss;
+        document.head.appendChild(layoutStyles);
+        document.body.innerHTML = '<div id="overview-container"></div>';
+        const group = addDashboardNode('node-a', ['0']);
+        const nodeLabel = group.querySelector(':scope > .node-label');
+        const nodeGrip = group.querySelector(':scope > .dashboard-order-grip');
+        const gpuName = group.querySelector('.overview-gpu-name');
+        const gpuGrip = gpuName.querySelector(':scope > .dashboard-order-grip');
+
+        expect(getComputedStyle(nodeLabel).paddingLeft).toBe('18px');
+        expect(getComputedStyle(gpuName).paddingLeft).toBe('18px');
+        expect(getComputedStyle(nodeGrip).left).toBe('0px');
+        expect(getComputedStyle(gpuGrip).left).toBe('0px');
+        layoutStyles.remove();
+    });
+
     it('keeps resting cursors unchanged and shows grabbing across the ordering surface during a move', () => {
         const layoutStyles = document.createElement('style');
         const componentStyles = document.createElement('style');
@@ -794,23 +856,24 @@ describe('ordering interaction styles', () => {
         const cards = document.querySelectorAll('.overview-gpu-card');
         const card = cards[0];
         const neighbor = cards[1];
-        const name = document.querySelector('.overview-gpu-name');
-        card.setPointerCapture = vi.fn();
         neighbor.getBoundingClientRect = () => ({ left: 130, top: 0, width: 130, height: 60 });
         document.elementFromPoint = vi.fn(() => neighbor);
         window.registerDashboardGpu(card, 'node', '0');
         window.registerDashboardGpu(neighbor, 'node', '1');
         window.initializeDashboardOrdering();
+        const grip = card.querySelector('.dashboard-order-grip');
+        grip.setPointerCapture = vi.fn();
 
         expect(getComputedStyle(card).cursor).toBe('pointer');
         expect(getComputedStyle(neighbor).cursor).toBe('pointer');
-        dispatchPointer(name, 'pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 20 });
-        dispatchPointer(name, 'pointermove', { pointerId: 1, clientX: 40, clientY: 20 });
+        expect(getComputedStyle(grip).userSelect).toBe('none');
+        dispatchPointer(grip, 'pointerdown', { pointerId: 1, button: 0, clientX: 10, clientY: 20 });
+        dispatchPointer(grip, 'pointermove', { pointerId: 1, clientX: 40, clientY: 20 });
         expect(getComputedStyle(card).cursor).toBe('grabbing');
-        expect(getComputedStyle(name).cursor).toBe('grabbing');
+        expect(getComputedStyle(grip).cursor).toBe('grabbing');
         expect(getComputedStyle(neighbor).cursor).toBe('grabbing');
         expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(true);
-        dispatchPointer(name, 'pointerup', { pointerId: 1, clientX: 40, clientY: 20 });
+        dispatchPointer(grip, 'pointerup', { pointerId: 1, clientX: 40, clientY: 20 });
         expect(getComputedStyle(neighbor).cursor).toBe('pointer');
         expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(false);
         layoutStyles.remove();
