@@ -825,8 +825,9 @@ describe('settings panel', () => {
         expect(card.querySelector('[data-overview-metric="fan-speed"]').hidden).toBe(false);
         expect(card.querySelector('[data-overview-metric="graphics-clock"]').hidden).toBe(false);
         expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
-            .toBe('560px');
-        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end')).toBe('660px');
+            .toBe('calc(560px + var(--overview-chart-behind-lead-in))');
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end'))
+            .toBe('calc(660px + var(--overview-chart-behind-lead-in))');
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
             .toMatchObject({ 'overview.fan-speed': true, 'overview.graphics-clock': true });
     });
@@ -1508,6 +1509,7 @@ describe('settings page contract', () => {
 
     it('layers Behind metrics only on desktop and respects the visible metric count', () => {
         expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.3;/);
+        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: 32px;/);
         expect(componentsCss).toMatch(
             /overview-chart-width-behind \.overview-metrics \{[^}]*z-index: 2;[^}]*\}/
         );
@@ -1515,16 +1517,16 @@ describe('settings page contract', () => {
             /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[\s\S]*?grid-column: 2 \/ 4;[\s\S]*?mask-image:/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="1"[\s\S]*?--overview-chart-behind-fade-start: 0px;[\s\S]*?--overview-chart-behind-fade-end: var\(--overview-metric-width\);/
+            /data-overview-visible-metrics="1"[\s\S]*?--overview-chart-behind-fade-start: var\(--overview-chart-behind-lead-in\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="2"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="2"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="3"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-metric-gap\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="3"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="4"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\)[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="4"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\)[^;]*var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
         );
         expect(componentsCss).toMatch(
             /data-overview-visible-metrics="0"[\s\S]*?\.overview-mini-chart \{[\s\S]*?grid-column: 3;[\s\S]*?mask-image: none;/
