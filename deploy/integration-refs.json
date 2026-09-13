@@ -13,6 +13,10 @@
     {
       "name": "generic deployment overlays",
       "commit": "bdad0555048e1249378d3335d53b4d163a1360a7"
+    },
+    {
+      "name": "known server model fields in node collectors",
+      "commit": "b982f88b8ef38cd2e90cd5f8f3c43a593b57406a"
     }
   ],
   "upstream_review": {
