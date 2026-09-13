@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = document.createElement('output');
     result.id = 'setup-copy-test-result';
     document.body.append(result);
-    const direct = new URLSearchParams(location.search).has('direct');
+    const params = new URLSearchParams(location.search);
+    const direct = params.has('direct');
+    const blocked = params.has('blocked');
     const failures = [];
     if (window.isSecureContext || navigator.clipboard !== undefined) {
         failures.push('not a plain HTTP clipboard context');
@@ -27,8 +29,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     let legacyCalls = 0;
     document.execCommand = command => {
         legacyCalls++;
-        selectedCode = document.activeElement.value;
-        return command === 'copy';
+        const selected = document.activeElement;
+        if (!document.getElementById('settings-panel').contains(selected)
+            || selected.className !== 'settings-copy-buffer'
+            || selected.selectionStart !== 0
+            || selected.selectionEnd !== selected.value.length) {
+            failures.push('copy selection lost inside panel');
+        }
+        selectedCode = selected.value;
+        return command === 'copy' && !blocked;
     };
     if (direct) {
         Object.defineProperty(navigator, 'clipboard', {
@@ -36,14 +45,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             value: { writeText: async code => { selectedCode = code; } }
         });
     }
+    document.getElementById('settings-open').click();
+    if (document.getElementById('settings-panel').hidden) failures.push('panel did not open');
     document.getElementById('settings-copy-setup').click();
     await new Promise(resolve => setTimeout(resolve, 100));
     if (!window.GPUHotSettings.decodeSetupCode(selectedCode)) failures.push('no copied code');
     if (legacyCalls !== (direct ? 0 : 1)) failures.push('wrong copy path');
-    if (document.getElementById('settings-setup-status').textContent !== 'Copied to clipboard') {
+    const dialog = document.getElementById('settings-copy-dialog');
+    const status = document.getElementById('settings-setup-status').textContent;
+    if (blocked) {
+        const field = document.getElementById('settings-copy-code');
+        if (!dialog.open || !field.readOnly || field.value !== selectedCode
+            || document.activeElement !== field || field.selectionStart !== 0
+            || field.selectionEnd !== field.value.length) {
+            failures.push('failed copy did not open selected code dialog');
+        }
+        if (status === 'Copied to clipboard') failures.push('false success status');
+        document.getElementById('settings-copy-close').click();
+        if (dialog.open) failures.push('copy dialog did not close');
+    } else if (status !== 'Copied to clipboard' || dialog.open) {
         failures.push('missing success status');
     }
-    if (document.querySelector('.settings-copy-buffer, .settings-copy-code')) {
+    if (document.querySelector('.settings-copy-buffer')) {
         failures.push('temporary copy field left behind');
     }
     result.textContent = failures.length ? failures.join(', ') : 'PASS';
@@ -100,16 +123,25 @@ def main() -> None:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            for name, suffix in (('HTTP fallback', ''), ('direct API', '?direct')):
+            for name, suffix in (
+                ('HTTP fallback', ''),
+                ('direct API', '?direct'),
+                ('blocked copy dialog', '?blocked'),
+            ):
                 with tempfile.TemporaryDirectory(prefix='gpu-hot-copy-') as profile:
                     url = f'http://{host}:{server.server_port}/templates/index.html{suffix}'
-                    browser = subprocess.run(
-                        [browser_binary(), '--headless=new', '--disable-gpu',
-                         '--no-first-run', '--disable-background-networking',
-                         f'--user-data-dir={profile}', '--virtual-time-budget=3000',
-                         '--dump-dom', url],
-                        capture_output=True, text=True, timeout=30, check=True,
-                    )
+                    try:
+                        browser = subprocess.run(
+                            [browser_binary(), '--headless=new', '--disable-gpu',
+                             '--no-first-run', '--disable-background-networking',
+                             f'--user-data-dir={profile}', '--virtual-time-budget=3000',
+                             '--dump-dom', url],
+                            capture_output=True, text=True, timeout=30, check=True,
+                        )
+                    except subprocess.TimeoutExpired as error:
+                        raise AssertionError(
+                            f'{name}: headless browser timed out; stderr={error.stderr!r}'
+                        ) from error
                     match = re.search(r'<output id="setup-copy-test-result">([^<]*)</output>', browser.stdout)
                     verdict = unescape(match.group(1)) if match else 'no browser verdict'
                     if verdict != 'PASS':
