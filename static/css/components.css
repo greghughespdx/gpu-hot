@@ -1385,13 +1385,7 @@ html.settings-connection-in-panel #dashboard-status-home {
 }
 
 .settings-group + .settings-group {
-    position: relative;
     margin-top: 12px;
-    padding-top: 12px;
-}
-
-.settings-group + .settings-group::before {
-    content: none;
 }
 
 .settings-group label {
