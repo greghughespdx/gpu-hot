@@ -114,6 +114,7 @@ function finishSidebarMove(nav, cancelled) {
             restoreVisibleSidebarOrder(nav, initialOrder);
         } else if (orderChanged) {
             applyDashboardOrder(nav.ownerDocument);
+            if (typeof renderProcessesForView === 'function') renderProcessesForView(currentTab);
             shouldApplyOrder = true;
         }
     }
@@ -200,7 +201,10 @@ function moveSidebarButtonByKey(event, nav) {
     const initialOrder = buttons.map(entry => entry.dataset.sidebarOrderKey);
     nav.insertBefore(button, offset < 0 ? target : target.nextSibling);
     if (!persistVisibleSidebarOrder(nav)) restoreVisibleSidebarOrder(nav, initialOrder);
-    else applyDashboardOrder(nav.ownerDocument);
+    else {
+        applyDashboardOrder(nav.ownerDocument);
+        if (typeof renderProcessesForView === 'function') renderProcessesForView(currentTab);
+    }
     button.focus();
     event.preventDefault();
 }
@@ -306,7 +310,10 @@ function restoreDashboardOrder(container, elements) {
 function persistDashboardOrder(documentRef) {
     const visible = visibleDashboardOrder(documentRef);
     const saved = saveSidebarOrder(mergedSidebarOrder(visible));
-    if (saved) applySidebarOrder(documentRef);
+    if (saved) {
+        applySidebarOrder(documentRef);
+        if (typeof renderProcessesForView === 'function') renderProcessesForView(currentTab);
+    }
     return saved;
 }
 

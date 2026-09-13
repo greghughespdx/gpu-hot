@@ -624,6 +624,8 @@ describe('All page ordering', () => {
             </div>
             <div id="overview-container"></div>
             <div id="tab-overview"></div>
+            <div id="processes-container"></div>
+            <span id="process-count"></span>
         `;
         window.GPUHotSettings = { settings: {}, saveSettings: vi.fn(() => true) };
         global.registeredGPUs = new Set();
@@ -641,6 +643,11 @@ describe('All page ordering', () => {
         addOrderedGpu('node-a', '0');
         addOrderedGpu('node-a', '1');
         addOrderedGpu('node-b', '0');
+        updateProcesses([
+            { name: 'A0', node_name: 'node-a', gpu_id: '0', gpu_key: 'node-a-0', memory: 1 },
+            { name: 'B0', node_name: 'node-b', gpu_id: '0', gpu_key: 'node-b-0', memory: 1 },
+            { name: 'A1', node_name: 'node-a', gpu_id: '1', gpu_key: 'node-a-1', memory: 1 }
+        ]);
         second.getBoundingClientRect = () => ({ top: 100, height: 50, left: 0, width: 300 });
         document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
 
@@ -660,6 +667,8 @@ describe('All page ordering', () => {
         ]);
         expect(gpuButtonKeys()).toEqual(dashboardKeys());
         expect(window.GPUHotSettings.settings.sidebarOrder).toEqual(dashboardKeys());
+        expect([...document.querySelectorAll('.process-name')].map(cell => cell.textContent))
+            .toEqual(['B0', 'A0', 'A1']);
     });
 
     it('keeps a node grip attached through half-second live order updates', () => {

@@ -1275,6 +1275,38 @@ function appendProcessCell(row, className, value) {
     cell.className = className;
     cell.textContent = String(value);
     row.appendChild(cell);
+    return cell;
+}
+
+function processIdentity(process) {
+    const nodeName = String(process.node_name || window.DEFAULT_NODE_NAME || 'GPU Server');
+    const gpuId = String(process.gpu_id ?? '');
+    return { nodeName, gpuId };
+}
+
+function processCard(process) {
+    const { nodeName, gpuId } = processIdentity(process);
+    const key = JSON.stringify([nodeName, gpuId]);
+    const card = Array.from(document.querySelectorAll('[data-layout-order-key]'))
+        .find(element => element.dataset.layoutOrderKey === key)
+        || Array.from(document.querySelectorAll('.single-gpu-overview[data-gpu-id]'))
+            .find(element => element.dataset.gpuId === gpuId);
+    const model = card?.querySelector('.overview-gpu-name p, .gpu-detail-name')?.textContent?.trim();
+    return { nodeName, gpuId, label: model || `GPU ${gpuId || 'Unknown'}` };
+}
+
+function processesInDashboardOrder(processes) {
+    const positions = new Map();
+    document.querySelectorAll('#overview-container [data-layout-order-key]').forEach((card, index) => {
+        positions.set(card.dataset.layoutOrderKey, index);
+    });
+    return processes.map((process, index) => ({ process, index })).sort((left, right) => {
+        const leftCard = processIdentity(left.process);
+        const rightCard = processIdentity(right.process);
+        const leftPosition = positions.get(JSON.stringify([leftCard.nodeName, leftCard.gpuId])) ?? Number.MAX_SAFE_INTEGER;
+        const rightPosition = positions.get(JSON.stringify([rightCard.nodeName, rightCard.gpuId])) ?? Number.MAX_SAFE_INTEGER;
+        return leftPosition - rightPosition || left.index - right.index;
+    }).map(entry => entry.process);
 }
 
 function appendProcessHeader(container) {
@@ -1283,6 +1315,7 @@ function appendProcessHeader(container) {
 
     for (const [className, label] of [
         ['process-system-heading', 'System'],
+        ['process-card-heading', 'Card'],
         ['process-name-heading', 'Process'],
         ['process-pid-heading', 'PID'],
         ['process-memory-heading', 'VRAM']
@@ -1311,7 +1344,11 @@ function showEmptyProcesses(container, viewName) {
 function createProcessRow(process) {
     const row = document.createElement('div');
     row.className = 'process-item';
-    appendProcessCell(row, 'process-system', process.node_name || 'This system');
+    const card = processCard(process);
+    const systemCell = appendProcessCell(row, 'process-system', process.node_name || 'This system');
+    window.GPUHotSettings?.bindNodeLabel?.(systemCell, card.nodeName);
+    const cardCell = appendProcessCell(row, 'process-card', card.label);
+    window.GPUHotSettings?.bindGpuLabel?.(cardCell, card.nodeName, card.gpuId, card.label);
     appendProcessCell(row, 'process-name', process.name || 'Unknown process');
     appendProcessCell(row, 'process-pid', process.pid ?? 'Unknown');
     appendProcessCell(row, 'process-memory', `${formatMemory(process.memory)}${formatMemoryUnit(process.memory)}`);
@@ -1332,6 +1369,7 @@ function renderProcessesForView(viewName) {
 
     const processTable = document.createDocumentFragment();
     appendProcessHeader(processTable);
-    visibleProcesses.forEach(process => processTable.appendChild(createProcessRow(process)));
+    processesInDashboardOrder(visibleProcesses)
+        .forEach(process => processTable.appendChild(createProcessRow(process)));
     container.replaceChildren(processTable);
 }
