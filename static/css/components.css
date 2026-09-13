@@ -1406,9 +1406,18 @@ html.settings-connection-in-panel #dashboard-status-home {
 }
 
 .settings-group + .settings-group {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-subtle);
+    position: relative;
+    margin-top: 20px;
+}
+
+.settings-group + .settings-group::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-subtle);
 }
 
 .settings-group legend {
