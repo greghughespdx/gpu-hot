@@ -679,7 +679,7 @@ class AMDCollector:
         memory_mib = self._process_memory_mib(process_info)
         if memory_mib is not None:
             process_record["memory"] = memory_mib
-        model = model_for_pid(process_info["pid"])
+        model = model_for_pid(process_info["pid"], memory_mib)
         if model:
             process_record["model"] = model
         return process_record

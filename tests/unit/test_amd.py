@@ -74,6 +74,26 @@ class TestAMDCollection:
             record = collector._build_process_record({'pid': 18679, 'name': 'llama-server'}, '0')
         assert record['model'] == 'qwen38-q4'
 
+    def test_amd_ollama_record_uses_reported_gpu_memory(self, tmp_path, monkeypatch):
+        monkeypatch.setenv('OLLAMA_MODELS', str(tmp_path))
+        monkeypatch.setenv('GPU_HOT_OLLAMA_API', 'http://ollama-amd-test')
+        process = MagicMock()
+        process.cmdline.return_value = [
+            '/usr/lib/ollama/llama-server', '--model',
+            '/root/.ollama/models/blobs/sha256-e7b273f9636059a689e3ddcab3716e4f65abe0143ac978e46673ad0e52d09efb'
+        ]
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = json.dumps({'models': [
+            {'name': 'gpt-oss-32k:latest', 'digest': 'first', 'size_vram': 16 * 1024 ** 3},
+            {'name': 'gemma3', 'digest': 'second', 'size_vram': 5 * 1024 ** 3},
+        ]}).encode()
+        process_info = {'pid': 18679, 'name': 'llama-server',
+                        'memory_usage': {'vram_mem': {'value': 16384, 'unit': 'MiB'}}}
+        with patch('psutil.Process', return_value=process), patch('core.process_models.request.urlopen', return_value=response):
+            record = _collector()._build_process_record(process_info, '0')
+        assert record['model'] == 'gpt-oss-32k:latest'
+
     def test_fixture_values_and_units(self):
         data, processes = _collector().collect()
         assert processes == []

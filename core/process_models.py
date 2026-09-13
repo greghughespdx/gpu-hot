@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from functools import lru_cache
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -22,6 +23,9 @@ OLLAMA_BLOB = re.compile(r"sha256-([0-9a-f]{64})\Z")
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_MANIFEST_FILES = 512
 MAX_RUNNING_BYTES = 1024 * 1024
+DEFAULT_OLLAMA_API = "http://127.0.0.1:11434"
+MAX_VRAM_ERROR_RATIO = 0.25
+MIN_RUNNER_UP_GAP_RATIO = 0.10
 
 
 def _option(args: Sequence[str], *names: str) -> str | None:
@@ -81,7 +85,7 @@ def _matching_manifests(root_name: str, blob_digest: str, time_slot: int) -> tup
 
 
 @lru_cache(maxsize=32)
-def _running_models(api_base: str, time_slot: int) -> tuple[tuple[str, str], ...]:
+def _running_models(api_base: str, time_slot: int) -> tuple[tuple[str, str, int | None], ...]:
     endpoint = f"{api_base.rstrip('/')}/api/ps"
     try:
         call = request.Request(endpoint, headers={"Accept": "application/json"})
@@ -97,46 +101,66 @@ def _running_models(api_base: str, time_slot: int) -> tuple[tuple[str, str], ...
         models = payload.get("models", [])
         if not isinstance(models, list):
             return ()
-        return tuple((model["name"], model["digest"])
-                     for model in models if isinstance(model, dict)
-                     and isinstance(model.get("name"), str)
-                     and isinstance(model.get("digest"), str))
+        running = []
+        for model in models:
+            if not isinstance(model, dict):
+                continue
+            name, digest = model.get("name"), model.get("digest")
+            if not isinstance(name, str) or not name or not isinstance(digest, str):
+                continue
+            vram = model.get("size_vram")
+            running.append((name, digest, vram if type(vram) is int and vram > 0 else None))
+        return tuple(running)
     except (error.URLError, TimeoutError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return ()
 
 
-def _common_model_base(names: Sequence[str]) -> str | None:
-    bases = [name.rsplit(":", 1)[0] for name in names]
-    prefix = os.path.commonprefix(bases).rstrip("-_.")
-    if prefix and all(base == prefix or base.startswith((prefix + "-", prefix + "_", prefix + "."))
-                      for base in bases):
-        return prefix
-    return None
+def _ollama_manifest_root() -> Path:
+    model_root = os.environ.get("OLLAMA_MODELS", "").strip()
+    return (Path(model_root).expanduser() if model_root else Path.home() / ".ollama" / "models") / "manifests"
 
 
-def _ollama_model_name(model_path: str) -> str:
+def _model_from_gpu_memory(
+    gpu_memory_mib: float | None, running: tuple[tuple[str, str, int | None], ...]
+) -> str | None:
+    if gpu_memory_mib is None or not math.isfinite(gpu_memory_mib) or gpu_memory_mib <= 0:
+        return None
+    if len(running) < 2 or any(vram is None for _, _, vram in running):
+        return None
+    used_bytes = gpu_memory_mib * 1024 * 1024
+    distances = sorted((abs(vram - used_bytes), name, vram) for name, _, vram in running)
+    closest, runner_up = distances[:2]
+    if closest[0] > closest[2] * MAX_VRAM_ERROR_RATIO:
+        return None
+    if runner_up[0] - closest[0] < used_bytes * MIN_RUNNER_UP_GAP_RATIO:
+        return None
+    return closest[1]
+
+
+def _ollama_model_name(model_path: str, gpu_memory_mib: float | None = None) -> str:
     fallback = Path(model_path).name
     blob = OLLAMA_BLOB.fullmatch(fallback)
-    root = os.environ.get("GPU_HOT_OLLAMA_MANIFESTS", "").strip()
-    if not blob or not root:
+    if not blob:
         return fallback
-    matches = _matching_manifests(root, f"sha256:{blob.group(1)}", int(time.monotonic() // 30))
-    if len(matches) == 1:
-        return matches[0][0]
-    if len(matches) > 1:
-        api = os.environ.get("GPU_HOT_OLLAMA_API", "").strip()
-        if api:
-            running = _running_models(api, int(time.monotonic() // 5))
-            active = {name for name, digest in running
-                      if any(digest == manifest_digest and name == alias
-                             for alias, manifest_digest in matches)}
-            if len(active) == 1:
-                return active.pop()
-        return _common_model_base([name for name, _ in matches]) or fallback
-    return fallback
+    api = os.environ.get("GPU_HOT_OLLAMA_API", "").strip() or DEFAULT_OLLAMA_API
+    running = _running_models(api, int(time.monotonic() // 5))
+    manifests = _matching_manifests(
+        str(_ollama_manifest_root()), f"sha256:{blob.group(1)}", int(time.monotonic() // 30)
+    )
+    manifest_digests = {digest for _, digest in manifests}
+    active = {name for name, digest, _ in running if digest in manifest_digests}
+    if len(active) == 1:
+        return active.pop()
+    if len(manifests) == 1:
+        return manifests[0][0]
+    if len(running) == 1:
+        return running[0][0]
+    return _model_from_gpu_memory(gpu_memory_mib, running) or fallback
 
 
-def model_from_command_line(argv: list[str] | tuple[str, ...]) -> str | None:
+def model_from_command_line(
+    argv: list[str] | tuple[str, ...], gpu_memory_mib: float | None = None
+) -> str | None:
     """Return a reported model for llama.cpp, Ollama, or vLLM servers."""
     if not argv or not all(isinstance(arg, str) for arg in argv):
         return None
@@ -147,12 +171,12 @@ def model_from_command_line(argv: list[str] | tuple[str, ...]) -> str | None:
         if not model:
             return None
         if "/ollama/" in argv[0]:
-            return _ollama_model_name(model)
+            return _ollama_model_name(model, gpu_memory_mib)
         return _option(argv[1:], "--alias") or Path(model).name
 
     if executable == "ollama" and len(argv) > 1 and argv[1] == "runner":
         model = _option(argv[2:], *MODEL_FLAGS[executable])
-        return _ollama_model_name(model) if model else None
+        return _ollama_model_name(model, gpu_memory_mib) if model else None
 
     if executable == "vllm" and len(argv) > 1 and argv[1] == "serve":
         model = _option(argv[2:], *MODEL_FLAGS[executable]) or (
@@ -166,9 +190,9 @@ def model_from_command_line(argv: list[str] | tuple[str, ...]) -> str | None:
     return None
 
 
-def model_for_pid(pid: int | str) -> str | None:
+def model_for_pid(pid: int | str, gpu_memory_mib: float | None = None) -> str | None:
     """Read process arguments when visible; unknown and inaccessible stay empty."""
     try:
-        return model_from_command_line(psutil.Process(int(pid)).cmdline())
+        return model_from_command_line(psutil.Process(int(pid)).cmdline(), gpu_memory_mib)
     except (ValueError, TypeError, OverflowError, psutil.Error, OSError):
         return None

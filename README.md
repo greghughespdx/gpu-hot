@@ -45,6 +45,8 @@ Open `http://localhost:1312`
 
 **Process monitoring:** Add `--init --pid=host` to see process names. Note: This allows the container to access host process information.
 
+**Ollama model names:** Detection is automatic. If Ollama runs outside the collector container, set `GPU_HOT_OLLAMA_API` to its reachable address, such as `http://host:11434`.
+
 ### NVIDIA, AMD, and hub nodes
 
 The normal `docker-compose.yml` and `docker run --gpus all` commands use the
