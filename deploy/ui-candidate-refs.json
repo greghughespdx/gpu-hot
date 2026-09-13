@@ -107,6 +107,30 @@
     {
       "name": "settings section rhythm",
       "commit": "1d141807806cc259db6540232573111777f67a58"
+    },
+    {
+      "name": "left bar Escape cancel",
+      "commit": "872c4daa8709f59f850c0976e95c257a608fc98a"
+    },
+    {
+      "name": "name draft preservation",
+      "commit": "fa57f1064940ebad44529a9ef1458926af841f9e"
+    },
+    {
+      "name": "node names on display surfaces",
+      "commit": "bfb4cca4e36aae88b92da16a20a1fed7f193933d"
+    },
+    {
+      "name": "settings hairline placement",
+      "commit": "141c020c610e9e4cb646aed629057416ab0ea133"
+    },
+    {
+      "name": "General settings order",
+      "commit": "2f7cf57e26f344422dceceb70c0abcea3f3c0dc9"
+    },
+    {
+      "name": "process table order and card name",
+      "commit": "ed955a23fa45f4943def582d84e06aba270c0d56"
     }
   ],
   "upstream_review": {

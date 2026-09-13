@@ -250,6 +250,23 @@ describe('updateProcesses', () => {
         expect(document.querySelector('.process-card').textContent).toBe('Custom raw-node 2');
     });
 
+    it('composes real node and GPU name settings in one process row', () => {
+        localStorage.clear();
+        vm.runInThisContext(settingsSource, { filename: 'settings.js' });
+        window.GPUHotSettings.settings.labelOverrides = [
+            { kind: 'node', node: 'raw-node', label: 'Compute' },
+            { kind: 'gpu', node: 'raw-node', gpu: '2', label: 'Training card' }
+        ];
+
+        updateProcesses([{
+            name: 'work', node_name: 'raw-node', gpu_id: '2', gpu_key: 'raw-node-2', memory: 1
+        }]);
+
+        expect(document.querySelector('.process-system').textContent).toBe('Compute');
+        expect(document.querySelector('.process-card').textContent).toBe('Training card');
+        expect(document.querySelector('.process-name').textContent).toBe('work');
+    });
+
     it('uses the single-GPU model and keeps text safe on a local page', () => {
         document.getElementById('overview-container').innerHTML =
             '<article class="single-gpu-overview" data-gpu-id="0"><span class="gpu-detail-name">Local Card</span></article>';
