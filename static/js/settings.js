@@ -64,6 +64,8 @@
     const MAX_LABEL_IDENTITY_LENGTH = 256;
     const MAX_LABEL_LENGTH = 80;
     const labelTargets = new Map();
+    const pendingLabelDrafts = new Map();
+    const detachingLabelInputs = new WeakSet();
 
     function isSidebarOrderKey(candidate) {
         if (typeof candidate !== 'string' || candidate.length > MAX_SIDEBAR_ORDER_KEY_LENGTH) return false;
@@ -449,18 +451,40 @@
         });
     }
 
+    function prepareLabelFieldRemoval(field, documentRef) {
+        const input = field.querySelector('input');
+        if (!input) return;
+        if (documentRef.activeElement === input
+            && input.value !== (overrideMap().get(field.dataset.labelKey) || '')) {
+            const key = field.dataset.labelKey;
+            if (pendingLabelDrafts.has(key) || pendingLabelDrafts.size < MAX_LABEL_OVERRIDES) {
+                pendingLabelDrafts.set(key, {
+                    value: input.value,
+                    start: input.selectionStart,
+                    end: input.selectionEnd
+                });
+            }
+        }
+        // Chromium can emit change when an edited input is detached.
+        detachingLabelInputs.add(input);
+    }
+
     function renderLabelControls(documentRef = global.document) {
         const list = documentRef?.getElementById('settings-label-list');
         if (!list) return;
-        list.replaceChildren();
         const overrides = overrideMap();
         if (labelTargets.size === 0) {
+            list.querySelectorAll('.settings-label-field').forEach(field => {
+                prepareLabelFieldRemoval(field, documentRef);
+            });
+            list.replaceChildren();
             const empty = documentRef.createElement('p');
             empty.className = 'settings-help';
             empty.textContent = 'Connected GPUs will appear here.';
             list.appendChild(empty);
             return;
         }
+        list.querySelector('.settings-help')?.remove();
 
         const targetsByNode = new Map();
         labelTargets.forEach(target => {
@@ -469,13 +493,24 @@
         });
 
         targetsByNode.forEach((targets, nodeName) => {
-            const group = documentRef.createElement('div');
-            group.className = 'settings-label-node';
-            group.dataset.node = nodeName;
-            const heading = documentRef.createElement('h4');
-            heading.textContent = nodeDisplayLabel(nodeName);
-            group.appendChild(heading);
+            let group = Array.from(list.querySelectorAll('.settings-label-node'))
+                .find(element => element.dataset.node === nodeName);
+            if (!group) {
+                group = documentRef.createElement('div');
+                group.className = 'settings-label-node';
+                group.dataset.node = nodeName;
+                const heading = documentRef.createElement('h4');
+                heading.textContent = nodeDisplayLabel(nodeName);
+                group.appendChild(heading);
+                list.appendChild(group);
+            }
             targets.forEach(target => {
+                const existing = Array.from(group.querySelectorAll('.settings-label-field'))
+                    .find(element => element.dataset.labelKey === target.key);
+                if (existing) {
+                    existing.querySelector('input').placeholder = target.fallback;
+                    return;
+                }
                 const field = documentRef.createElement('label');
                 field.className = 'settings-label-field';
                 field.dataset.labelKey = target.key;
@@ -487,8 +522,11 @@
                 input.type = 'text';
                 input.maxLength = MAX_LABEL_LENGTH;
                 input.placeholder = target.fallback;
-                input.value = overrides.get(target.key) || '';
+                const draft = pendingLabelDrafts.get(target.key);
+                input.value = draft ? draft.value : (overrides.get(target.key) || '');
+                if (draft) input.setSelectionRange(draft.start, draft.end);
                 input.addEventListener('change', () => {
+                    if (detachingLabelInputs.has(input)) return;
                     const previousLabel = overrideMap().get(target.key) || '';
                     const label = input.value.trim().slice(0, MAX_LABEL_LENGTH);
                     input.value = label;
@@ -509,6 +547,7 @@
                         if (status) status.textContent = 'Labels could not be saved. Try again.';
                         return;
                     }
+                    pendingLabelDrafts.delete(target.key);
                     Object.keys(settings).forEach(key => delete settings[key]);
                     Object.assign(settings, nextSettings);
                     applyDisplayLabels(documentRef);
@@ -520,8 +559,8 @@
                 field.append(caption, input);
                 group.appendChild(field);
             });
-            list.appendChild(group);
         });
+        refreshLabelControlNames(documentRef);
         updateSettingsPanelOverflow(documentRef);
     }
 
@@ -530,13 +569,25 @@
         const displayedKeys = new Set(Array.from(documentRef.querySelectorAll('[data-display-label-key]'))
             .filter(element => !element.closest('#settings-panel'))
             .map(element => element.dataset.displayLabelKey));
-        let changed = false;
+        const removedKeys = new Set();
         labelTargets.forEach((target, key) => {
             if (displayedKeys.has(key)) return;
             labelTargets.delete(key);
-            changed = true;
+            removedKeys.add(key);
         });
-        if (changed) renderLabelControls(documentRef);
+        if (removedKeys.size === 0) return;
+        if (labelTargets.size === 0) {
+            renderLabelControls(documentRef);
+            return;
+        }
+        documentRef.querySelectorAll('#settings-label-list .settings-label-field').forEach(field => {
+            if (!removedKeys.has(field.dataset.labelKey)) return;
+            const group = field.closest('.settings-label-node');
+            prepareLabelFieldRemoval(field, documentRef);
+            field.remove();
+            if (!group.querySelector('.settings-label-field')) group.remove();
+        });
+        updateSettingsPanelOverflow(documentRef);
     }
 
     function updateSettingsPanelOverflow(documentRef = global.document) {
@@ -860,6 +911,12 @@
             global.setStarPromptEnabled?.(true);
             if (typeof global.applySidebarOrder === 'function') global.applySidebarOrder();
             if (typeof global.applyDashboardOrder === 'function') global.applyDashboardOrder();
+            pendingLabelDrafts.clear();
+            const labelList = documentRef.getElementById('settings-label-list');
+            labelList?.querySelectorAll('.settings-label-field').forEach(field => {
+                detachingLabelInputs.add(field.querySelector('input'));
+            });
+            labelList?.replaceChildren();
             renderLabelControls(documentRef);
             applyDisplayLabels(documentRef);
             status.textContent = 'Settings reset.';
