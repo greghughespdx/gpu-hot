@@ -529,6 +529,7 @@
             element.hidden = settings['overview.showCardId'] === false;
         });
         global.refreshOverviewProcessModels?.();
+        global.refreshDetailProcessModels?.();
         OVERVIEW_METRICS.forEach(metric => {
             const visible = isOverviewMetricVisible(metric);
             documentRef.querySelectorAll(`[data-overview-metric="${metric}"]`).forEach(element => {
@@ -606,6 +607,7 @@
                 element.textContent = displayLabel(key, element.dataset.displayLabelTextDefault);
             }
         });
+        global.refreshDetailProcessModels?.();
         scheduleOverviewBehindMasks(documentRef);
     }
 

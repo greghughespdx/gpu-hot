@@ -606,6 +606,7 @@ function updateSidebarLabels() {
             );
         }
     });
+    window.refreshDetailProcessModels?.();
 }
 
 function keepSidebarButtonVisible(button) {
@@ -728,6 +729,7 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
             sourceGpuId,
             `GPU ${displayedGpuIdentity(gpuId, nodeName, sourceGpuId)}`
         );
+        window.refreshDetailProcessModels?.();
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
     } else if (existingCard) {

@@ -1225,6 +1225,46 @@ describe('label override integration', () => {
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
     });
 
+    it('adds the reported model to the detail title only while Show model is on', () => {
+        const settings = loadSettingsModule();
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false, nodeName: 'node-a', sourceGpuId: '0'
+        });
+        const title = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
+        updateProcesses([{ gpu_key: 'node-a-0', node_name: 'node-a', gpu_id: '0',
+            name: 'llama-server', model: 'Qwen3.8-27B', memory: 100 }]);
+        expect(title.textContent).toBe('GPU node-a-0');
+        settings.settings['overview.showModel'] = true;
+        settings.applyOverviewMetricVisibility(document);
+        expect(title.textContent).toBe('GPU node-a-0 - Qwen3.8-27B');
+        expect(title.querySelector('.gpu-detail-model-suffix').textContent).toBe(' - Qwen3.8-27B');
+        updateProcesses([{ gpu_key: 'node-a-0', model: '/models/Next.gguf', memory: 100 }]);
+        expect(title.textContent).toBe('GPU node-a-0 - Next.gguf');
+        updateProcesses([]);
+        expect(title.textContent).toBe('GPU node-a-0');
+        settings.settings['overview.showModel'] = false;
+        settings.applyOverviewMetricVisibility(document);
+        expect(title.querySelector('.gpu-detail-model-suffix')).toBeNull();
+    });
+
+    it('keeps a custom card name ahead of the model after a label refresh', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({ version: 1, settings: {
+            labelOverrides: [{ kind: 'gpu', node: 'node-a', gpu: '0', label: 'Training card' }],
+            'overview.showModel': true
+        } }));
+        const settings = loadSettingsModule();
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false, nodeName: 'node-a', sourceGpuId: '0'
+        });
+        updateProcesses([{ gpu_key: 'node-a-0', model: 'Qwen3.8-27B', memory: 100 }]);
+        const title = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
+        expect(title.textContent).toBe('Training card - Qwen3.8-27B');
+        settings.applyDisplayLabels(document);
+        expect(title.textContent).toBe('Training card - Qwen3.8-27B');
+        updateSidebarLabels();
+        expect(title.textContent).toBe('Training card - Qwen3.8-27B');
+    });
+
     it('uses one saved GPU override for navigation and headings', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
