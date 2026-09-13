@@ -12,7 +12,8 @@ build/
 .gitignore
 *.md
 !README.md
-docs/
+docs/*
+!docs/demo.html
 *.png
 LICENSE
 .DS_Store

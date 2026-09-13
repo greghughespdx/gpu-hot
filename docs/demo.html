@@ -1,52 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPU Hot - Interactive Demo</title>
+    <title>GPU Hot Demo</title>
+    <meta name="description"
+        content="Simulated four-node GPU monitoring dashboard with live-style updates and settings">
+    <link rel="icon" href="../static/favicon.svg" type="image/svg+xml">
 
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Application Styles (modular, from CDN) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/css/tokens.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/css/layout.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/css/components.css">
-
+    <!-- Application Styles (modular) -->
+    <link rel="stylesheet" href="../static/css/tokens.css">
+    <link rel="stylesheet" href="../static/css/layout.css">
+    <link rel="stylesheet" href="../static/css/components.css">
     <style>
-    /* Demo-specific notice */
-    .demo-notice {
-        position: fixed;
-        top: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 193, 7, 0.12);
-        border: 1px solid rgba(255, 193, 7, 0.25);
-        border-radius: 6px;
-        padding: 6px 16px;
-        color: rgba(255, 193, 7, 0.85);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        z-index: 1000;
-        pointer-events: none;
-    }
+        .demo-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            padding: var(--space-xs) var(--space-md);
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px;
+        }
+        .demo-banner a { color: var(--text-secondary); }
+        .demo-banner a[aria-current="page"] { color: var(--text-primary); font-weight: 700; }
     </style>
+    <script>
+        // The setup parameter is consumed by settings.js before the first paint.
+        const demoPreset = new URL(location.href).searchParams.get('preset');
+        if (demoPreset === 'default' || demoPreset === 'features') {
+            // A demo preset replaces the previous demo mode without an import prompt.
+            try {
+                localStorage.removeItem('gpu-hot.settings.v1');
+                localStorage.removeItem('gpu-hot.notices.v1');
+            } catch (error) { }
+            const selected = demoPreset === 'features' ? {
+                theme: 'midnight',
+                'overview.fan-speed': true,
+                'overview.graphics-clock': true,
+                'overview.memory-used': true,
+                'overview.throttle-status': true,
+                'overview.showModel': true,
+                overviewMiniChartWidth: 'behind',
+                noticeGpuThrottle: true,
+                noticeNodeOffline: true,
+                labelOverrides: [
+                    { kind: 'node', node: 'truenas-a10m', label: 'Studio' },
+                    { kind: 'gpu', node: 'inf1', gpu: '0', label: 'Qwen server' }
+                ],
+                sidebarOrder: [JSON.stringify(['inf1', '0']), JSON.stringify(['truenas-a10m', '0'])]
+            } : {};
+            const bytes = new TextEncoder().encode(JSON.stringify({ version: 1, settings: selected }));
+            let binary = '';
+            bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+            const code = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            const url = new URL(location.href);
+            url.searchParams.delete('preset');
+            url.searchParams.set('setup', code);
+            history.replaceState(history.state, '', url);
+        }
+    </script>
+    <script src="../static/js/settings.js"></script>
 </head>
-<body>
-    <div class="demo-notice">INTERACTIVE DEMO — SIMULATED DATA</div>
 
+<body>
+    <div class="demo-banner" role="note">
+        <span id="demo-mode-label">Default mode with simulated data</span>
+        <a href="?preset=default" id="demo-default">Default</a>
+        <a href="?preset=features" id="demo-features">New features</a>
+        <a href="./demo.html" id="demo-reset">Reset</a>
+    </div>
     <div class="studio">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-logo">GPU</div>
 
             <nav class="sidebar-nav" id="view-selector">
-                <button class="sidebar-btn active" data-view="overview" onclick="switchToView('overview')" title="All GPUs">All</button>
+                <button class="sidebar-btn active" data-view="overview" onclick="switchToView('overview')"
+                    title="All GPUs">All</button>
             </nav>
 
             <div class="sidebar-bottom">
+                <!-- System info -->
                 <div class="system-info">
                     <div class="system-metric">
                         <canvas class="system-metric-chart" id="cpu-chart"></canvas>
@@ -60,24 +103,39 @@
                     </div>
                 </div>
 
-                <a href="https://github.com/psalias2006/gpu-hot" target="_blank" rel="noopener noreferrer" class="sidebar-link" title="GitHub">
+                <!-- GitHub link -->
+                <a href="https://github.com/psalias2006/gpu-hot" target="_blank" rel="noopener noreferrer"
+                    class="sidebar-link" title="GitHub">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                     </svg>
                 </a>
+
+                <button class="sidebar-link settings-button" id="settings-open" type="button"
+                    aria-label="Open settings" aria-controls="settings-panel" aria-expanded="false" title="Settings">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.7 1.7 0 000 1.9l.1.1-2.5 2.5-.1-.1a1.7 1.7 0 00-1.9 0 1.7 1.7 0 00-1 1.6v.2h-4V21a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9 0l-.1.1L4.5 17l.1-.1a1.7 1.7 0 000-1.9A1.7 1.7 0 003 14H2.8v-4H3a1.7 1.7 0 001.6-1 1.7 1.7 0 000-1.9L4.5 7 7 4.5l.1.1a1.7 1.7 0 001.9 0A1.7 1.7 0 0010 3v-.2h4V3a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9 0l.1-.1L19.5 7l-.1.1a1.7 1.7 0 000 1.9 1.7 1.7 0 001.6 1h.2v4H21a1.7 1.7 0 00-1.6 1z"></path>
+                    </svg>
+                </button>
             </div>
         </aside>
 
         <!-- Main Content -->
         <main class="main">
-            <div class="header">
-                <div class="header-row">
+            <div class="header" id="dashboard-status-home">
+                <div class="header-row" id="connection-details">
                     <div class="header-status">
-                        <div class="status-dot connected" id="status-dot"></div>
-                        <span id="connection-status">Demo Mode</span>
+                        <div class="status-dot" id="status-dot"></div>
+                        <span id="connection-status">Connecting</span>
                     </div>
                     <div class="version-info" id="version-info">
-                        <span id="version-current">demo</span>
+                        <span id="version-current"></span>
+                        <span class="update-badge" id="update-badge" style="display: none;">
+                            <a href="#" id="update-link" target="_blank" rel="noopener noreferrer">Update</a>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -85,6 +143,10 @@
             <!-- Overview Tab -->
             <div id="tab-overview" class="tab-content active">
                 <div id="overview-container" class="overview-grid">
+                    <div class="loading">
+                        <div class="loading-dot"></div>
+                        <span>Waiting for GPU data...</span>
+                    </div>
                 </div>
             </div>
 
@@ -101,6 +163,10 @@
                 </div>
                 <div class="processes-content" id="processes-content">
                     <div class="processes-inner" id="processes-container">
+                        <div class="loading">
+                            <div class="loading-dot"></div>
+                            <span>Loading processes...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -129,269 +195,310 @@
         </div>
     </div>
 
-    <!-- Application Scripts (from CDN) -->
-    <script src="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/js/chart-config.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/js/chart-manager.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/js/gpu-cards.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/js/ui.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/psalias2006/gpu-hot@main/static/js/chart-drawer.js"></script>
+    <div class="settings-overlay" id="settings-overlay" hidden></div>
+    <aside class="settings-panel" id="settings-panel" role="dialog" aria-modal="true"
+        aria-labelledby="settings-title" aria-hidden="true" inert hidden>
+        <div class="settings-header">
+            <div class="settings-header-main">
+                <h2 id="settings-title" class="settings-visually-hidden">Settings</h2>
+                <button class="settings-close" id="settings-close" type="button" aria-label="Close settings">&times;</button>
+            </div>
+            <div class="settings-connection-details" id="settings-connection-details" hidden></div>
+        </div>
+        <div class="settings-body">
+            <section class="settings-group" aria-labelledby="settings-general-title">
+                <h3 id="settings-general-title">General</h3>
+                <label class="settings-row settings-row-select" for="settings-theme">
+                    <span>Theme</span>
+                    <select id="settings-theme">
+                        <option value="default">Default</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="high-contrast">High contrast</option>
+                    </select>
+                </label>
+                <label class="settings-option settings-check-row" for="settings-move-connection-details">
+                    <input id="settings-move-connection-details" type="checkbox">
+                    <span>Move connection details into this panel</span>
+                </label>
+                <div class="settings-setup-actions">
+                    <button id="settings-copy-setup" type="button">Copy setup code</button>
+                    <button id="settings-paste-setup" type="button">Paste setup code</button>
+                </div>
+            </section>
+            <section class="settings-group" aria-labelledby="settings-metrics-title">
+                <h3 id="settings-metrics-title">All page metrics</h3>
+                <p class="settings-note settings-note-under-heading">Drag to reorder</p>
+                <div class="settings-subgroup settings-metric-list">
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="utilization"> Utilization</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="temperature"> Temperature</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory"> Memory</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="power"> Power</label>
+                    <label class="settings-check-row settings-chart-row"><input type="checkbox" data-overview-setting="chart"> Mini chart</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="fan-speed"> Fan speed</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="graphics-clock"> Graphics clock</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-clock"> Memory clock</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-used"> Memory used in GB</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="power-limit"> Power limit</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-temperature"> Memory temperature</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="throttle-status"> Throttle status</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="process-count"> Process count</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="pcie-generation"> PCIe generation</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="pcie-width"> PCIe width</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-display="showModel"> Show model</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-display="showCardId"> Show card ID</label>
+                </div>
+                <div class="settings-subgroup settings-subgroup-after">
+                    <label class="settings-row settings-row-select" for="settings-overview-chart-width">
+                        <span>Mini chart width</span>
+                        <select id="settings-overview-chart-width">
+                            <option value="auto">Automatic</option>
+                            <option value="wide">Wide</option>
+                            <option value="full">Full row</option>
+                            <option value="behind">Behind metrics</option>
+                        </select>
+                    </label>
+                    <label class="settings-row settings-row-slider" id="settings-overview-chart-behind-dim-field" for="settings-overview-chart-behind-dim" hidden>
+                        <span>Opacity</span>
+                        <span class="settings-range-row">
+                            <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" step="1" value="25">
+                            <output id="settings-overview-chart-behind-dim-value" for="settings-overview-chart-behind-dim">25%</output>
+                        </span>
+                    </label>
+                </div>
+            </section>
+            <section class="settings-group" aria-labelledby="settings-leftbar-title">
+                <h3 id="settings-leftbar-title">Left bar</h3>
+                <label class="settings-row settings-row-select" for="settings-sidebar-width">
+                    <span>Width</span>
+                    <select id="settings-sidebar-width">
+                        <option value="standard">Standard</option>
+                        <option value="comfortable">Comfortable</option>
+                        <option value="wide">Wide</option>
+                    </select>
+                </label>
+                <label class="settings-option settings-check-row">
+                    <input id="settings-sidebar-auto-hide" type="checkbox">
+                    <span>Hide the left bar when not in use</span>
+                </label>
+            </section>
+            <section class="settings-group" aria-labelledby="settings-labels-title">
+                <h3 id="settings-labels-title">Names</h3>
+                <label class="settings-row settings-row-select" for="settings-sidebar-label">
+                    <span>GPU name style</span>
+                    <select id="settings-sidebar-label">
+                        <option value="index">Index</option>
+                        <option value="node-index">Node and index</option>
+                        <option value="short-name">Short name</option>
+                    </select>
+                </label>
+                <div class="settings-label-list" id="settings-label-list"></div>
+            </section>
+            <section class="settings-group" aria-labelledby="settings-notices-title">
+                <h3 id="settings-notices-title">Event notices</h3>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuThrottle"> GPU throttling</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuMissing"> GPU missing</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeNodeOffline"> Node offline</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeExternalFanStopped"> External fan stopped</label>
+            </section>
+            <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
+            <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
+        </div>
+    </aside>
 
-    <!-- Demo Data Generator (replaces socket-handlers.js + app.js) -->
+    <section class="event-notices" id="event-notices" role="log" aria-live="polite"
+        aria-label="Event notices" hidden>
+        <div class="event-notices-header">
+            <h2>Event notices</h2>
+            <button type="button" id="event-notices-clear">Clear all</button>
+        </div>
+        <div id="event-notices-list"></div>
+    </section>
+
+    <!-- Star toast -->
+    <div class="star-toast is-hidden" id="star-toast" role="status" aria-live="polite">
+        <button class="star-toast-close" type="button" data-action="dismiss" aria-label="Close">&times;</button>
+        <div class="star-toast-title">Star on GitHub</div>
+        <div class="star-toast-text">Help others discover GPU Hot</div>
+        <div class="star-toast-progress-wrap is-hidden" id="star-progress-wrap">
+            <div class="star-toast-progress-bar">
+                <div class="star-toast-progress-fill" id="star-progress-fill"></div>
+            </div>
+            <div class="star-toast-milestone" id="star-toast-milestone"></div>
+        </div>
+        <button class="star-toast-btn" type="button" data-action="star">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path
+                    d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z" />
+            </svg>
+            Star
+        </button>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="../static/js/chart-config.js"></script>
+    <script src="../static/js/chart-manager.js"></script>
+    <script src="../static/js/gpu-cards.js"></script>
+    <script src="../static/js/ui.js"></script>
+    <script src="../static/js/event-notices.js"></script>
     <script>
-    // ============================================================================
-    // DEMO DATA GENERATOR - Simulates realistic GPU data
-    // ============================================================================
+        // This page supplies a hub-shaped feed without opening a network socket.
+        (function installDemoFeed() {
+            const nativeFetch = window.fetch.bind(window);
+            window.fetch = (input, options) => {
+                const url = new URL(input, location.href);
+                if (url.pathname.endsWith('/api/version')) {
+                    return Promise.resolve(new Response(JSON.stringify({ current: 'demo', update_available: false }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                }
+                if (url.hostname === 'api.github.com' && url.pathname === '/repos/psalias2006/gpu-hot') {
+                    return Promise.resolve(new Response(JSON.stringify({ stargazers_count: 0 }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                }
+                return nativeFetch(input, options);
+            };
 
-    const GPU_NAMES = [
-        'NVIDIA GeForce RTX 4060 Ti',
-        'NVIDIA GeForce RTX 4080',
-    ];
-
-    const PROCESS_NAMES = [
-        'python3',
-        'pytorch_train.py',
-        'tensorflow',
-        'chrome',
-        'code',
-    ];
-
-    class DemoDataGenerator {
-        constructor(numGPUs = 1) {
-            this.numGPUs = numGPUs;
-            this.gpuStates = [];
-            this.time = 0;
-
-            for (let i = 0; i < numGPUs; i++) {
-                this.gpuStates.push({
-                    baseUtil: 0 + Math.random() * 5,
-                    baseTemp: 30 + Math.random() * 5,
-                    basePower: 10 + Math.random() * 10,
-                    baseMemUsed: 500 + Math.random() * 100,
-                    memTotal: 16384,
-                    totalEnergy: 0
-                });
+            function gpu(name, vendor, id, tick, missing = false) {
+                const drift = Math.round(8 * Math.sin(tick / 4 + id));
+                const utilization = Math.max(0, Math.min(100, 38 + id * 7 + drift));
+                const record = {
+                    name, vendor, brand: vendor === 'amd' ? 'Radeon Pro' : 'NVIDIA',
+                    uuid: `DEMO-${id}`, utilization,
+                    temperature: 44 + id + Math.round(drift / 3),
+                    memory_used: 2048 + id * 768 + tick % 9 * 24,
+                    memory_total: 16384, memory_free: 12288,
+                    power_draw: 70 + id * 12 + drift, power_limit: 250,
+                    fan_speed: 42 + id, fan_rpm: 1200 + id * 60,
+                    clock_graphics: 1350 + id * 65 + drift * 4,
+                    clock_memory: 7500 + id * 120,
+                    clock_sm: 1335 + id * 65, clock_sm_max: 1800,
+                    clock_video: 1150, temperature_memory: 58 + id,
+                    pcie_gen: 4, pcie_width: 16, pcie_gen_max: 4, pcie_width_max: 16,
+                    encoder_sessions: 1, encoder_utilization: 12 + id,
+                    decoder_sessions: 1, decoder_utilization: 8 + id,
+                    performance_state: 'P2', throttle_reasons: vendor === 'amd' ? 'UNTHROTTLED' : 'None'
+                };
+                if (missing) {
+                    ['fan_speed', 'fan_rpm', 'temperature_memory', 'encoder_utilization',
+                        'decoder_utilization', 'power_limit', 'performance_state'].forEach(key => delete record[key]);
+                }
+                return record;
             }
-        }
 
-        generateGPUData() {
-            this.time += 1;
-            const gpus = {};
-
-            for (let i = 0; i < this.numGPUs; i++) {
-                const state = this.gpuStates[i];
-
-                const noise = () => (Math.random() - 0.5) * 3;
-                const wave = Math.sin(this.time * 0.03 + i) * 8;
-
-                const burstCycle = 120;
-                const burstPhase = (this.time + i * 40) % burstCycle;
-                const burst = burstPhase < 40 ? Math.sin(burstPhase / 40 * Math.PI) * 85 : 0;
-
-                const utilization = Math.max(0, Math.min(100, state.baseUtil + wave + noise() + burst));
-                const temperature = Math.max(25, Math.min(90, 30 + utilization * 0.55 + noise() * 0.5));
-
-                const idlePower = 11.5;
-                const powerDraw = utilization > 3 ?
-                    Math.max(idlePower, Math.min(165, idlePower + (utilization / 100) * 150 + wave + noise() * 2)) :
-                    idlePower;
-
-                const memoryUsed = Math.max(512, Math.min(state.memTotal, state.baseMemUsed + wave * 20 + noise() * 50));
-
-                const idleGraphicsClock = 210;
-                const maxGraphicsClock = 2610;
-                const idleMemoryClock = 405;
-                const maxMemoryClock = 10501;
-
-                const clockGraphics = utilization > 3 ?
-                    Math.round(idleGraphicsClock + (utilization / 100) * (maxGraphicsClock - idleGraphicsClock)) :
-                    idleGraphicsClock;
-                const clockMemory = utilization > 3 ?
-                    Math.round(idleMemoryClock + (utilization / 100) * (maxMemoryClock - idleMemoryClock)) :
-                    idleMemoryClock;
-                const clockSm = Math.round(clockGraphics * 1.0);
-                const clockSmMax = 3105;
-                const clockVideo = Math.round(clockGraphics * 0.95);
-
-                const pcieGen = utilization > 10 ? 4 : utilization > 5 ? 2 : 1;
-                const pcieWidth = utilization > 10 ? 16 : 8;
-
-                if (!state.totalEnergy) state.totalEnergy = 0;
-                state.totalEnergy += (powerDraw * (0.5 / 3600));
-
-                const bar1Used = Math.round(memoryUsed * 0.0004);
-                const bar1Total = Math.round(state.memTotal * 0.016);
-                const computeProcesses = utilization > 20 ? Math.floor(utilization / 30) : 0;
-                const graphicsProcesses = utilization > 10 ? Math.floor(Math.random() * 2) : utilization > 5 ? 2 : 0;
-
-                gpus[i] = {
-                    name: GPU_NAMES[i % GPU_NAMES.length],
-                    utilization: Math.round(utilization),
-                    temperature: Math.round(temperature),
-                    memory_used: Math.round(memoryUsed),
-                    memory_total: state.memTotal,
-                    power_draw: powerDraw,
-                    power_limit: 165,
-                    fan_speed: temperature < 40 ? 0 : Math.round(Math.max(0, Math.min(100, (temperature - 35) * 2))),
-                    clock_graphics: clockGraphics,
-                    clock_memory: clockMemory,
-                    clock_sm: clockSm,
-                    clock_sm_max: clockSmMax,
-                    clock_video: clockVideo,
-                    memory_utilization: Math.round(utilization * 0.7),
-                    pcie_gen: pcieGen,
-                    pcie_width: pcieWidth,
-                    pcie_link_gen_max: 4,
-                    pcie_link_width_max: 8,
-                    pcie_tx_throughput: Math.round((utilization / 100) * 50 + Math.random() * 5),
-                    pcie_rx_throughput: Math.round((utilization / 100) * 30 + Math.random() * 3),
-                    performance_state: utilization > 70 ? 'P0' : utilization > 40 ? 'P2' : utilization > 3 ? 'P5' : 'P8',
-                    throttle_reasons: utilization > 90 ? 'Active' : 'None',
-                    driver_version: '580.126.09',
-                    energy_consumption_wh: state.totalEnergy,
-                    brand: 'GRID',
-                    architecture: 'Ada Lovelace',
-                    memory_free: state.memTotal - Math.round(memoryUsed),
-                    bar1_memory_used: bar1Used,
-                    bar1_memory_total: bar1Total,
-                    compute_processes_count: computeProcesses,
-                    graphics_processes_count: graphicsProcesses,
-                    pcie_gen_max: 4,
-                    pcie_width_max: 8,
-                    _fallback_mode: false
+            function system(tick) {
+                return {
+                    cpu_percent: 24 + tick % 9, memory_percent: 52 + tick % 5,
+                    memory_total_gb: 128, memory_used_gb: 67,
+                    cpu_count: 32, load_avg_1: 1.4, load_avg_5: 1.2, load_avg_15: 1.1
                 };
             }
 
-            return gpus;
-        }
+            function generateHubPayload(tick) {
+                const inf1First = gpu('NVIDIA RTX A6000', 'nvidia', 1, tick);
+                inf1First.throttle_reasons = 'HW Thermal';
+                const truenas = gpu('AMD Radeon Pro V620', 'amd', 0, tick);
+                truenas.fan_source = 'external';
+                return {
+                    mode: 'hub',
+                    nodes: {
+                        'truenas-a10m': {
+                            status: 'online', system: system(tick),
+                            gpus: { '0': truenas },
+                            processes: [{ pid: 421, gpu_id: '0', name: 'ollama runner',
+                                memory: 3584, model: 'sha256-e7b273' }]
+                        },
+                        inf1: {
+                            status: 'online', system: system(tick),
+                            gpus: {
+                                '0': inf1First,
+                                '1': gpu('NVIDIA RTX A6000', 'nvidia', 2, tick)
+                            },
+                            processes: [
+                                { pid: 696825, gpu_id: '0', name: 'llama-server', memory: 8192,
+                                    model: 'qwen38-q4' },
+                                { pid: 696825, gpu_id: '1', name: 'llama-server', memory: 6144,
+                                    model: 'qwen38-q4' }
+                            ]
+                        },
+                        inf2: {
+                            status: 'online', system: system(tick),
+                            gpus: {
+                                '0': gpu('NVIDIA RTX 4090', 'nvidia', 3, tick),
+                                '1': gpu('NVIDIA RTX 4090', 'nvidia', 4, tick)
+                            },
+                            processes: [{ pid: 808, gpu_id: '0', name: 'vllm', memory: 10240,
+                                model: 'Llama-3.3-70B-Instruct' }]
+                        },
+                        'p4000-vm': {
+                            status: 'online', system: system(tick),
+                            gpus: { '0': gpu('NVIDIA Quadro P4000', 'nvidia', 5, tick, true) },
+                            processes: []
+                        },
+                        'http://offline-node.example.invalid:1313': tick === 0
+                            ? {
+                                status: 'online', system: system(tick),
+                                gpus: { '0': gpu('Example GPU', 'nvidia', 6, tick) },
+                                processes: []
+                            }
+                            : { status: 'offline', gpus: {}, processes: [] }
+                    }
+                };
+            }
 
-        generateProcesses() {
-            const numProcesses = Math.floor(Math.random() * 3);
-            const processes = [];
+            class DemoWebSocket {
+                static CONNECTING = 0;
+                static OPEN = 1;
+                static CLOSED = 3;
 
-            for (let i = 0; i < numProcesses; i++) {
-                processes.push({
-                    pid: 1000 + Math.floor(Math.random() * 30000),
-                    name: PROCESS_NAMES[Math.floor(Math.random() * PROCESS_NAMES.length)],
-                    memory: Math.round(500 + Math.random() * 3000)
+                constructor() {
+                    this.readyState = DemoWebSocket.CONNECTING;
+                    this.tick = 0;
+                    setTimeout(() => {
+                        if (this.readyState === DemoWebSocket.CLOSED) return;
+                        this.readyState = DemoWebSocket.OPEN;
+                        this.onopen?.();
+                        this.emit();
+                        this.timer = setInterval(() => this.emit(), 500);
+                    }, 100);
+                }
+
+                emit() {
+                    if (this.readyState !== DemoWebSocket.OPEN) return;
+                    this.onmessage?.({ data: JSON.stringify(generateHubPayload(this.tick++)) });
+                }
+
+                send() {}
+                close() {
+                    clearInterval(this.timer);
+                    this.readyState = DemoWebSocket.CLOSED;
+                }
+            }
+
+            window.WebSocket = DemoWebSocket;
+            window.GPUHotDemo = Object.freeze({ generateHubPayload });
+            document.addEventListener('DOMContentLoaded', () => {
+                const current = window.GPUHotSettings?.settings;
+                const mode = current?.theme === 'midnight' && current?.overviewMiniChartWidth === 'behind'
+                    ? 'features' : 'default';
+                document.getElementById('demo-mode-label').textContent = mode === 'features'
+                    ? 'New features with simulated data' : 'Default mode with simulated data';
+                document.getElementById(`demo-${mode}`)?.setAttribute('aria-current', 'page');
+                document.getElementById('demo-reset')?.addEventListener('click', event => {
+                    event.preventDefault();
+                    window.GPUHotSettings?.resetSettings();
+                    try { localStorage.removeItem('gpu-hot.notices.v1'); } catch (error) { }
+                    location.assign('./demo.html');
                 });
-            }
-
-            return processes;
-        }
-
-        generateSystemInfo() {
-            const cpuBase = 10 + Math.random() * 20;
-            const cpuNoise = (Math.random() - 0.5) * 10;
-            const cpuPercent = Math.max(5, Math.min(95, cpuBase + cpuNoise));
-            const memBase = 30 + Math.random() * 20;
-            const memPercent = Math.max(20, Math.min(85, memBase + (Math.random() - 0.5) * 5));
-
-            const memTotalGb = 125.56;
-            const memUsedGb = Math.round(memTotalGb * (memPercent / 100) * 100) / 100;
-
-            if (!this._netSent) this._netSent = 500000000;
-            if (!this._netRecv) this._netRecv = 800000000;
-            if (!this._diskRead) this._diskRead = 2000000000;
-            if (!this._diskWrite) this._diskWrite = 1000000000;
-            this._netSent += Math.round((0.5 + Math.random() * 2) * 1024);
-            this._netRecv += Math.round((0.2 + Math.random() * 1.5) * 1024);
-            this._diskRead += Math.round(Math.random() * 5 * 1024);
-            this._diskWrite += Math.round(Math.random() * 3 * 1024);
-
-            const load1 = Math.max(0, 0.15 + Math.sin(this.time * 0.02) * 0.1 + (Math.random() - 0.5) * 0.08);
-            const load5 = Math.max(0, 0.20 + Math.sin(this.time * 0.01) * 0.08);
-            const load15 = Math.max(0, 0.25 + Math.sin(this.time * 0.005) * 0.05);
-
-            return {
-                cpu_percent: cpuPercent,
-                memory_percent: memPercent,
-                memory_total_gb: memTotalGb,
-                memory_used_gb: memUsedGb,
-                memory_available_gb: Math.round((memTotalGb - memUsedGb) * 100) / 100,
-                cpu_count: 16,
-                swap_percent: Math.max(0, Math.min(100, 2 + (Math.random() - 0.5) * 3)),
-                cpu_freq_current: Math.round(2400 + Math.random() * 600),
-                cpu_freq_max: 3600,
-                load_avg_1: Math.round(load1 * 100) / 100,
-                load_avg_5: Math.round(load5 * 100) / 100,
-                load_avg_15: Math.round(load15 * 100) / 100,
-                net_bytes_sent: this._netSent,
-                net_bytes_recv: this._netRecv,
-                disk_read_bytes: this._diskRead,
-                disk_write_bytes: this._diskWrite,
-                timestamp: new Date().toISOString()
-            };
-        }
-
-        generateFullData() {
-            return {
-                gpus: this.generateGPUData(),
-                processes: this.generateProcesses(),
-                system: this.generateSystemInfo()
-            };
-        }
-    }
-
-    // ============================================================================
-    // DEMO APPLICATION
-    // ============================================================================
-
-    const dataGenerator = new DemoDataGenerator(1);
-
-    function handleGPUDataUpdate(data) {
-        const overviewContainer = document.getElementById('overview-container');
-
-        if (!data.gpus || Object.keys(data.gpus).length === 0) {
-            overviewContainer.innerHTML = '<div class="loading">No GPU data available</div>';
-            return;
-        }
-
-        Object.keys(data.gpus).forEach(gpuId => {
-            const gpuInfo = data.gpus[gpuId];
-
-            if (!chartData[gpuId]) {
-                initGPUData(gpuId);
-            }
-
-            const existingOverview = overviewContainer.querySelector(`[data-gpu-id="${gpuId}"]`);
-            if (!existingOverview) {
-                overviewContainer.insertAdjacentHTML('beforeend', createEnhancedOverviewCard(gpuId, gpuInfo));
-                initOverviewMiniChart(gpuId, gpuInfo.utilization);
-            } else {
-                updateOverviewCard(gpuId, gpuInfo, true);
-            }
-
-            ensureGPUTab(gpuId, gpuInfo, true);
-
-            // Update per-GPU system charts
-            if (data.system) {
-                updateGPUSystemCharts(gpuId, data.system, '_demo', true);
-            }
-        });
-
-        if (data.processes) {
-            updateProcesses(data.processes);
-        }
-
-        if (data.system) {
-            updateSystemInfo(data.system);
-        }
-
-        const gpuCount = Object.keys(data.gpus).length;
-        const gpuIds = Object.keys(data.gpus);
-        autoSwitchSingleGPU(gpuCount, gpuIds);
-    }
-
-    function updateDemo() {
-        const data = dataGenerator.generateFullData();
-        handleGPUDataUpdate(data);
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('GPU Hot Demo initialized');
-        updateDemo();
-        setInterval(updateDemo, 500);
-    });
+            });
+        })();
     </script>
+    <script src="../static/js/socket-handlers.js"></script>
+    <script src="../static/js/chart-drawer.js"></script>
+    <script src="../static/js/app.js"></script>
 </body>
+
 </html>
