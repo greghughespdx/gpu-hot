@@ -1553,6 +1553,12 @@ describe('settings page contract', () => {
         expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
         expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
         expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
+        expect(Array.from(sections[0].querySelectorAll('select, input'), control => control.id))
+            .toEqual(['settings-theme', 'settings-move-connection-details', 'settings-show-star-prompt']);
+        expect(sections[0].querySelector('[for="settings-move-connection-details"] strong').textContent)
+            .toBe('Move connection details into this panel');
+        expect(sections[0].querySelector('.settings-help').textContent)
+            .toBe('This choice is stored in this browser.');
         expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
         expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
         expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 10px;[^}]*padding-top: 10px;[^}]*border-top: 1px solid var\(--border-subtle\);/);
