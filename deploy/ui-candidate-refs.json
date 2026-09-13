@@ -175,6 +175,22 @@
     {
       "name": "settings layout",
       "commit": "960a25dab194388f60846940dc0e837ef0e4fd84"
+    },
+    {
+      "name": "wrapped chart fade",
+      "commit": "5966ea328bb27ddff1b43509da55b9fbcf0ef888"
+    },
+    {
+      "name": "phone metric alignment",
+      "commit": "a9ce8aa8c85acb3bb3c75490eb59d7938b772b41"
+    },
+    {
+      "name": "setup code HTTP copy fallback",
+      "commit": "16ab7006c2464c9e834f28e23d346ae4ee9b5d68"
+    },
+    {
+      "name": "detail model title",
+      "commit": "fc6635a14c82abd2bc26ff26a7ed3571140baec3"
     }
   ],
   "upstream_review": {
