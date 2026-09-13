@@ -17,6 +17,8 @@ def source_files(root: Path) -> list[Path]:
         path.relative_to(root) for path in root.iterdir()
         if path.is_file() and path.suffix in SOURCE_SUFFIXES
     ]
+    if (root / "docs" / "demo.html").is_file():
+        files.append(Path("docs/demo.html"))
     for folder in SOURCE_DIRS:
         directory = root / folder
         if not directory.is_dir():
