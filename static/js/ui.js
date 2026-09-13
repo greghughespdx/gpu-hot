@@ -291,9 +291,44 @@ function beginDashboardMove(event) {
         startX: event.clientX,
         startY: event.clientY,
         moved: false,
-        initialElements: elements
+        initialElements: elements,
+        ghost: null,
+        moveAnimations: new Map()
     };
     if (typeof grabTarget.setPointerCapture === 'function') grabTarget.setPointerCapture(event.pointerId);
+}
+
+function showDashboardMoveGhost(move, documentRef) {
+    const box = move.item.getBoundingClientRect();
+    const ghost = move.item.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+    ghost.classList.remove('dashboard-ordering');
+    ghost.classList.add('dashboard-order-ghost');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.inert = true;
+    ghost.style.left = `${box.left}px`;
+    ghost.style.top = `${box.top}px`;
+    ghost.style.width = `${box.width}px`;
+    ghost.style.height = `${box.height}px`;
+    documentRef.body.appendChild(ghost);
+    move.ghost = ghost;
+    move.container.closest('#overview-container')?.setPointerCapture?.(move.pointerId);
+}
+
+function animateDashboardGap(move, oldPositions) {
+    Array.from(move.container.children).forEach(element => {
+        if (element === move.item || !oldPositions.has(element)) return;
+        const before = oldPositions.get(element);
+        const after = element.getBoundingClientRect();
+        const x = before.left - after.left;
+        const y = before.top - after.top;
+        if ((!x && !y) || typeof element.animate !== 'function') return;
+        move.moveAnimations.set(element, element.animate([
+            { transform: `translate(${x}px, ${y}px)` },
+            { transform: 'translate(0, 0)' }
+        ], { duration: 150, easing: 'ease-out' }));
+    });
 }
 
 function continueDashboardMove(event, documentRef) {
@@ -303,10 +338,14 @@ function continueDashboardMove(event, documentRef) {
         event.clientY - activeDashboardMove.startY
     );
     if (!activeDashboardMove.moved && distance < SIDEBAR_MOVE_THRESHOLD) return;
+    if (!activeDashboardMove.moved) {
+        showDashboardMoveGhost(activeDashboardMove, documentRef);
+        activeDashboardMove.item.classList.add('dashboard-ordering');
+    }
     activeDashboardMove.moved = true;
-    activeDashboardMove.item.classList.add('dashboard-ordering');
     activeDashboardMove.container.closest('#overview-container')
         ?.classList.add('dashboard-ordering-active');
+    activeDashboardMove.ghost.style.transform = `translate(${event.clientX - activeDashboardMove.startX}px, ${event.clientY - activeDashboardMove.startY}px)`;
     const target = documentRef.elementFromPoint(event.clientX, event.clientY)
         ?.closest(`[data-layout-kind="${activeDashboardMove.kind}"]`);
     if (!target || target === activeDashboardMove.item || target.parentElement !== activeDashboardMove.container) {
@@ -318,16 +357,26 @@ function continueDashboardMove(event, documentRef) {
         > Math.abs(event.clientY - activeDashboardMove.startY)
         ? event.clientX >= box.left + box.width / 2
         : event.clientY >= box.top + box.height / 2;
+    const reference = after ? target.nextSibling : target;
+    if (reference === activeDashboardMove.item || activeDashboardMove.item.nextSibling === reference) {
+        event.preventDefault();
+        return;
+    }
+    activeDashboardMove.moveAnimations.forEach(animation => animation.cancel());
+    activeDashboardMove.moveAnimations.clear();
+    const oldPositions = new Map(Array.from(activeDashboardMove.container.children)
+        .map(element => [element, element.getBoundingClientRect()]));
     activeDashboardMove.container.insertBefore(
         activeDashboardMove.item,
-        after ? target.nextSibling : target
+        reference
     );
+    animateDashboardGap(activeDashboardMove, oldPositions);
     event.preventDefault();
 }
 
 function finishDashboardMove(documentRef, cancelled) {
     if (!activeDashboardMove) return;
-    const { item, container, initialElements, moved } = activeDashboardMove;
+    const { item, container, initialElements, moved, ghost, moveAnimations } = activeDashboardMove;
     const currentElements = Array.from(container.children)
         .filter(element => element.dataset.layoutKind === activeDashboardMove.kind);
     const unchanged = currentElements.length === initialElements.length
@@ -340,6 +389,8 @@ function finishDashboardMove(documentRef, cancelled) {
         setTimeout(() => { suppressedDashboardClickKey = null; }, 0);
     }
     item.classList.remove('dashboard-ordering');
+    ghost?.remove();
+    moveAnimations.forEach(animation => animation.cancel());
     container.closest('#overview-container')?.classList.remove('dashboard-ordering-active');
     activeDashboardMove = null;
     applyDashboardOrder(documentRef);
