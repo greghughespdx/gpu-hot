@@ -102,6 +102,7 @@ function moveSidebarButton(button, target, pointerEvent, nav) {
 function finishSidebarMove(nav, cancelled) {
     if (!activeSidebarMove) return;
     const { button, initialOrder, moved } = activeSidebarMove;
+    let shouldApplyOrder = false;
     if (activeSidebarMove.longPressTimer !== null) {
         clearTimeout(activeSidebarMove.longPressTimer);
     }
@@ -113,6 +114,7 @@ function finishSidebarMove(nav, cancelled) {
             restoreVisibleSidebarOrder(nav, initialOrder);
         } else if (orderChanged) {
             applyDashboardOrder(nav.ownerDocument);
+            shouldApplyOrder = true;
         }
     }
     if (moved && !cancelled) {
@@ -121,7 +123,7 @@ function finishSidebarMove(nav, cancelled) {
     }
     button.classList.remove('sidebar-ordering');
     activeSidebarMove = null;
-    applySidebarOrder(nav.ownerDocument);
+    if (shouldApplyOrder) applySidebarOrder(nav.ownerDocument);
 }
 
 function beginSidebarMove(event, nav) {
