@@ -781,27 +781,53 @@
         const themeSelect = documentRef.getElementById('settings-theme');
         const copySetup = documentRef.getElementById('settings-copy-setup');
         const pasteSetup = documentRef.getElementById('settings-paste-setup');
+        const setupStatus = documentRef.getElementById('settings-setup-status');
+        const setupDialog = documentRef.getElementById('settings-setup-dialog');
+        const setupCode = documentRef.getElementById('settings-setup-code');
+        const setupDialogStatus = documentRef.getElementById('settings-setup-dialog-status');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
-        copySetup?.addEventListener('click', async () => {
-            const code = exportSetupCode();
-            try {
-                if (!global.navigator?.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                await global.navigator.clipboard.writeText(code);
-                status.textContent = 'Setup code copied.';
-            } catch (error) {
-                global.prompt('Copy setup code', code);
-                status.textContent = 'Copy the setup code shown.';
-            }
-        });
-        pasteSetup?.addEventListener('click', () => {
-            const code = global.prompt('Paste setup code');
-            if (code === null) return;
+        let setupFadeTimer;
+        let setupClearTimer;
+        function showSetupStatus(message) {
+            if (!setupStatus) return;
+            global.clearTimeout(setupFadeTimer);
+            global.clearTimeout(setupClearTimer);
+            setupStatus.textContent = message;
+            setupStatus.classList.add('is-visible');
+        }
+        function fadeSetupStatus() {
+            setupFadeTimer = global.setTimeout(() => {
+                setupStatus.classList.remove('is-visible');
+                setupClearTimer = global.setTimeout(() => { setupStatus.textContent = ''; }, 300);
+            }, 2200);
+        }
+        function closeSetupDialog() {
+            if (!setupDialog?.open) return;
+            if (typeof setupDialog.close === 'function') setupDialog.close();
+            else setupDialog.removeAttribute('open');
+            setupDialog.hidden = true;
+            pasteSetup?.focus();
+        }
+        function openSetupDialog() {
+            if (!setupDialog || !setupCode || !setupDialogStatus) return;
+            setupCode.value = '';
+            setupDialogStatus.textContent = '';
+            setupDialog.hidden = false;
+            if (typeof setupDialog.showModal === 'function') setupDialog.showModal();
+            else setupDialog.setAttribute('open', '');
+            setupCode.focus();
+        }
+        function reportImportError(target, message) {
+            if (target === setupStatus) showSetupStatus(message);
+            else if (target) target.textContent = message;
+        }
+        function importSetupCode(code, feedback) {
             const imported = decodeSetupCode(code.trim());
             if (!imported) {
-                status.textContent = 'That setup code could not be read. Check it and try again.';
+                reportImportError(feedback, 'That setup code could not be read. Check it and try again.');
                 return;
             }
             let hasSettings = false;
@@ -809,10 +835,63 @@
             catch (error) { /* Saving below reports the failure. */ }
             if (hasSettings && !global.confirm('Replace the settings saved in this browser?')) return;
             if (!saveSettings(imported)) {
-                status.textContent = 'The setup code could not be saved. Try again.';
+                reportImportError(feedback, 'The setup code could not be saved. Try again.');
                 return;
             }
+            closeSetupDialog();
             global.setTimeout(() => global.location.reload(), 0);
+        }
+        let canReadSetupClipboard = typeof global.navigator?.clipboard?.readText === 'function';
+        function updatePasteLabel() {
+            if (pasteSetup) pasteSetup.textContent = canReadSetupClipboard
+                ? 'Paste setup code' : 'Enter setup code';
+        }
+        updatePasteLabel();
+        if (canReadSetupClipboard && global.navigator?.permissions?.query) {
+            global.navigator.permissions.query({ name: 'clipboard-read' }).then(permission => {
+                const syncPermission = () => {
+                    canReadSetupClipboard = permission.state !== 'denied';
+                    updatePasteLabel();
+                };
+                syncPermission();
+                permission.addEventListener?.('change', syncPermission);
+            }).catch(() => { /* Unsupported permission queries still permit a read attempt. */ });
+        }
+        copySetup?.addEventListener('click', async () => {
+            const code = exportSetupCode();
+            try {
+                if (!global.navigator?.clipboard?.writeText) {
+                    showSetupStatus('This browser cannot copy the code. Try a different browser.');
+                    return;
+                }
+                await global.navigator.clipboard.writeText(code);
+                showSetupStatus('Copied to clipboard');
+                fadeSetupStatus();
+            } catch (error) {
+                showSetupStatus('Could not copy the code. Check clipboard access and try again.');
+            }
+        });
+        pasteSetup?.addEventListener('click', async () => {
+            if (!canReadSetupClipboard) {
+                openSetupDialog();
+                return;
+            }
+            try {
+                const code = await global.navigator.clipboard.readText();
+                importSetupCode(code, setupStatus);
+            } catch (error) {
+                canReadSetupClipboard = false;
+                updatePasteLabel();
+                openSetupDialog();
+            }
+        });
+        documentRef.getElementById('settings-setup-cancel')?.addEventListener('click', closeSetupDialog);
+        documentRef.getElementById('settings-setup-import')?.addEventListener('click', () => {
+            importSetupCode(setupCode.value, setupDialogStatus);
+        });
+        setupDialog?.addEventListener('cancel', event => {
+            event.preventDefault();
+            closeSetupDialog();
         });
         global.addEventListener('resize', () => scheduleOverviewBehindMasks(documentRef));
         renderLabelControls(documentRef);
@@ -1206,6 +1285,7 @@
 
         function closePanel() {
             if (!isOpen()) return;
+            closeSetupDialog();
             documentRef.removeEventListener('keydown', handleDocumentKeydown);
             documentRef.removeEventListener('focusin', handleDocumentFocus);
             panel.hidden = true;
@@ -1282,7 +1362,8 @@
             status.textContent = 'Settings reset.';
         });
         function panelFocusableControls() {
-            return Array.from(panel.querySelectorAll(
+            const focusRoot = setupDialog?.open ? setupDialog : panel;
+            return Array.from(focusRoot.querySelectorAll(
                 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
             )).filter(element => {
                 for (let current = element; current && panel.contains(current); current = current.parentElement) {
@@ -1296,6 +1377,10 @@
         }
 
         function handleDocumentFocus(event) {
+            if (setupDialog?.open && !setupDialog.contains(event.target)) {
+                setupCode.focus();
+                return;
+            }
             if (!isOpen() || panel.contains(event.target)) return;
             (panelFocusableControls()[0] || closeButton).focus();
         }
@@ -1304,6 +1389,10 @@
             if (!isOpen()) return;
             if (event.key === 'Escape') {
                 event.preventDefault();
+                if (setupDialog?.open) {
+                    closeSetupDialog();
+                    return;
+                }
                 closePanel();
                 return;
             }

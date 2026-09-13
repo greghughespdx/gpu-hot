@@ -1594,12 +1594,13 @@ html.settings-connection-in-panel #dashboard-status-home {
 }
 
 .settings-setup-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-sm);
 }
 
 .settings-setup-actions button,
+.settings-setup-dialog button,
 .settings-reset {
     margin-top: var(--space-lg);
     padding: var(--space-sm) var(--space-md);
@@ -1611,6 +1612,88 @@ html.settings-connection-in-panel #dashboard-status-home {
 }
 
 .settings-setup-actions button {
+    margin-top: 0;
+}
+
+.settings-setup-status {
+    grid-column: 1 / -1;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 300ms ease;
+}
+
+.settings-setup-status:empty {
+    display: none;
+}
+
+.settings-setup-status.is-visible {
+    opacity: 1;
+}
+
+.settings-setup-dialog {
+    box-sizing: border-box;
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(420px, calc(100vw - 32px));
+    max-height: min(80dvh, 600px);
+    padding: 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: 0 12px 32px rgba(var(--shadow-rgb), 0.25);
+}
+
+.settings-setup-dialog[hidden] {
+    display: none;
+}
+
+.settings-setup-dialog::backdrop {
+    background: rgba(var(--shadow-rgb), 0.5);
+}
+
+.settings-setup-dialog h4 {
+    margin: 0 0 var(--space-md);
+    font-size: 15px;
+}
+
+.settings-setup-dialog label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: 13px;
+}
+
+.settings-setup-dialog textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font: inherit;
+    resize: vertical;
+}
+
+.settings-setup-dialog p {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.settings-setup-dialog p:empty {
+    display: none;
+}
+
+.settings-setup-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.settings-setup-dialog-actions button {
     margin-top: 0;
 }
 
@@ -1630,6 +1713,8 @@ html.settings-connection-in-panel #dashboard-status-home {
 
 .settings-setup-actions button:hover,
 .settings-setup-actions button:focus-visible,
+.settings-setup-dialog button:hover,
+.settings-setup-dialog button:focus-visible,
 .settings-reset:hover,
 .settings-reset:focus-visible {
     background: rgba(var(--neutral-rgb), 0.04);

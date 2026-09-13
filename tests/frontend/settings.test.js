@@ -102,8 +102,18 @@ function panelMarkup() {
                 <option value="midnight">Midnight</option>
                 <option value="high-contrast">High contrast</option>
             </select>
-            <button id="settings-copy-setup" type="button">Copy setup code</button>
-            <button id="settings-paste-setup" type="button">Paste setup code</button>
+            <div class="settings-setup-actions">
+                <button id="settings-copy-setup" type="button">Copy setup code</button>
+                <button id="settings-paste-setup" type="button">Paste setup code</button>
+                <span id="settings-setup-status"></span>
+            </div>
+            <dialog id="settings-setup-dialog" hidden>
+                <h4 id="settings-setup-dialog-title">Enter setup code</h4>
+                <textarea id="settings-setup-code"></textarea>
+                <p id="settings-setup-dialog-status"></p>
+                <button id="settings-setup-cancel" type="button">Cancel</button>
+                <button id="settings-setup-import" type="button">Import</button>
+            </dialog>
             <input type="checkbox" data-notice-setting="noticeGpuThrottle">
             <input type="checkbox" data-notice-setting="noticeGpuMissing">
             <input type="checkbox" data-notice-setting="noticeNodeOffline">
@@ -215,27 +225,36 @@ describe('settings storage', () => {
         expect(imported.loadSettings().theme).toBe('high-contrast');
     });
 
-    it('asks before replacing stored settings from a URL or the panel', () => {
+    it('asks before replacing stored settings from a URL or the panel', async () => {
         panelMarkup();
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        const readText = vi.fn();
+        Object.defineProperty(window.navigator, 'clipboard', {
+            configurable: true, value: { readText }
+        });
         const api = loadSettingsModule();
         const code = api.exportSetupCode({ ...defaults, theme: 'midnight' });
+        readText.mockResolvedValue(code);
         api.saveSettings({ ...defaults, theme: 'high-contrast' });
         const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
         window.history.replaceState(null, '', `/?setup=${code}`);
         expect(loadSettingsModule().settings.theme).toBe('high-contrast');
         expect(confirm).toHaveBeenCalledOnce();
         expect(window.location.search).toBe('');
-        vi.spyOn(window, 'prompt').mockReturnValue(code);
         document.getElementById('settings-paste-setup').click();
+        await vi.waitFor(() => expect(confirm).toHaveBeenCalledTimes(2));
         expect(api.loadSettings().theme).toBe('high-contrast');
         confirm.mockReturnValue(true);
         vi.useFakeTimers();
         document.getElementById('settings-paste-setup').click();
+        await vi.advanceTimersByTimeAsync(0);
         expect(api.loadSettings().theme).toBe('midnight');
         vi.useRealTimers();
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
     });
 
-    it('copies the current settings and refuses an invalid pasted code', async () => {
+    it('copies directly and fades the success status without a dialog', async () => {
         panelMarkup();
         const writeText = vi.fn().mockResolvedValue(undefined);
         const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
@@ -243,15 +262,68 @@ describe('settings storage', () => {
             configurable: true,
             value: { writeText }
         });
-        const prompt = vi.spyOn(window, 'prompt').mockReturnValue('not valid!');
+        const prompt = vi.spyOn(window, 'prompt');
         const api = loadSettingsModule();
+        vi.useFakeTimers();
         document.getElementById('settings-copy-setup').click();
-        await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+        await vi.advanceTimersByTimeAsync(0);
+        expect(writeText).toHaveBeenCalledOnce();
         expect(api.decodeSetupCode(writeText.mock.calls[0][0])).toEqual(defaults);
+        expect(prompt).not.toHaveBeenCalled();
+        expect(document.getElementById('settings-setup-status').textContent).toBe('Copied to clipboard');
+        expect(document.getElementById('settings-setup-status').classList.contains('is-visible')).toBe(true);
+        await vi.advanceTimersByTimeAsync(2600);
+        expect(document.getElementById('settings-setup-status').textContent).toBe('');
+        vi.useRealTimers();
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
+    });
+
+    it('opens Enter setup code when clipboard reading is denied', async () => {
+        panelMarkup();
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        Object.defineProperty(window.navigator, 'clipboard', {
+            configurable: true,
+            value: { readText: vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError')) }
+        });
+        const api = loadSettingsModule();
+        document.getElementById('settings-open').click();
         document.getElementById('settings-paste-setup').click();
-        expect(prompt).toHaveBeenCalledWith('Paste setup code');
-        expect(document.getElementById('settings-status').textContent).toMatch(/could not be read/);
-        expect(localStorage.getItem(api.STORAGE_KEY)).toBeNull();
+        await vi.waitFor(() => expect(document.getElementById('settings-setup-dialog').open).toBe(true));
+        expect(document.getElementById('settings-paste-setup').textContent).toBe('Enter setup code');
+        expect(document.getElementById('settings-setup-dialog-title').textContent).toBe('Enter setup code');
+        const codeField = document.getElementById('settings-setup-code');
+        codeField.value = 'not valid!';
+        document.getElementById('settings-setup-import').click();
+        expect(document.getElementById('settings-setup-dialog-status').textContent).toMatch(/could not be read/);
+        expect(document.getElementById('settings-setup-dialog').open).toBe(true);
+        codeField.value = api.exportSetupCode({ ...defaults, theme: 'midnight' });
+        vi.useFakeTimers();
+        document.getElementById('settings-setup-import').click();
+        expect(api.loadSettings().theme).toBe('midnight');
+        expect(document.getElementById('settings-setup-dialog').open).toBe(false);
+        vi.useRealTimers();
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
+    });
+
+    it('keeps keyboard focus inside the setup dialog and closes it before the panel', () => {
+        panelMarkup();
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: {} });
+        loadSettingsModule();
+        document.getElementById('settings-open').click();
+        expect(document.getElementById('settings-paste-setup').textContent).toBe('Enter setup code');
+        document.getElementById('settings-paste-setup').click();
+        const dialog = document.getElementById('settings-setup-dialog');
+        expect(dialog.open).toBe(true);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+        expect(dialog.contains(document.activeElement)).toBe(true);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(dialog.open).toBe(false);
+        expect(document.getElementById('settings-panel').hidden).toBe(false);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.getElementById('settings-panel').hidden).toBe(true);
         if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
         else delete window.navigator.clipboard;
     });
