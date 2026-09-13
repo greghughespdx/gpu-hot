@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 const testDir = dirname(fileURLToPath(import.meta.url));
 const demo = readFileSync(join(testDir, '../../docs/demo.html'), 'utf8');
 const settings = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
+const cards = readFileSync(join(testDir, '../../static/js/gpu-cards.js'), 'utf8');
 
 function demoWindow(search = '') {
     const page = new JSDOM(demo, {
@@ -38,7 +39,10 @@ describe('static fork demo', () => {
         expect(window.location.search).toBe('');
         expect(window.GPUHotSettings.settings.theme).toBe('midnight');
         expect(window.GPUHotSettings.settings.overviewMiniChartWidth).toBe('behind');
+        expect(window.GPUHotSettings.settings['overview.showModel']).toBe(true);
         expect(window.GPUHotSettings.settings.labelOverrides).toHaveLength(2);
+        expect(demo).toContain('data-overview-display="showModel"');
+        expect(cards).toContain("['process-model-heading', 'Model']");
         page.window.close();
     });
 
@@ -57,10 +61,12 @@ describe('static fork demo', () => {
         window.localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1, settings: { theme: 'midnight' }
         }));
+        window.localStorage.setItem('gpu-hot.notices.v1', 'old demo notices');
         window.confirm = () => { throw new Error('The demo should not ask for confirmation'); };
 
         window.eval(preset.textContent);
         expect(window.localStorage.getItem('gpu-hot.settings.v1')).toBeNull();
+        expect(window.localStorage.getItem('gpu-hot.notices.v1')).toBeNull();
         window.eval(settings);
         expect(window.GPUHotSettings.settings.theme).toBe('default');
         page.window.close();

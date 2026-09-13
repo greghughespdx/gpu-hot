@@ -38,13 +38,17 @@
         const demoPreset = new URL(location.href).searchParams.get('preset');
         if (demoPreset === 'default' || demoPreset === 'features') {
             // A demo preset replaces the previous demo mode without an import prompt.
-            try { localStorage.removeItem('gpu-hot.settings.v1'); } catch (error) { }
+            try {
+                localStorage.removeItem('gpu-hot.settings.v1');
+                localStorage.removeItem('gpu-hot.notices.v1');
+            } catch (error) { }
             const selected = demoPreset === 'features' ? {
                 theme: 'midnight',
                 'overview.fan-speed': true,
                 'overview.graphics-clock': true,
                 'overview.memory-used': true,
                 'overview.throttle-status': true,
+                'overview.showModel': true,
                 overviewMiniChartWidth: 'behind',
                 noticeGpuThrottle: true,
                 noticeNodeOffline: true,
@@ -243,6 +247,8 @@
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-display="showModel"> Show model</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-display="showCardId"> Show card ID</label>
                 </div>
                 <div class="settings-subgroup settings-subgroup-after">
                     <label class="settings-row settings-row-select" for="settings-overview-chart-width">
@@ -484,6 +490,7 @@
                 document.getElementById('demo-reset')?.addEventListener('click', event => {
                     event.preventDefault();
                     window.GPUHotSettings?.resetSettings();
+                    try { localStorage.removeItem('gpu-hot.notices.v1'); } catch (error) { }
                     location.assign('./demo.html');
                 });
             });
