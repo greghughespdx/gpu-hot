@@ -13,6 +13,7 @@ const defaultSidebarOrder = [];
 let defaultSidebarNav = null;
 let activeSidebarMove = null;
 let suppressedSidebarClickKey = null;
+let cancelledSidebarClickKey = null;
 let activeDashboardMove = null;
 let suppressedDashboardClickKey = null;
 const DEFAULT_NODE_NAME = 'GPU Server';
@@ -102,6 +103,7 @@ function moveSidebarButton(button, target, pointerEvent, nav) {
 function finishSidebarMove(nav, cancelled) {
     if (!activeSidebarMove) return;
     const { button, initialOrder, moved } = activeSidebarMove;
+    button.ownerDocument.removeEventListener('keydown', cancelSidebarMoveOnEscape, true);
     let shouldApplyOrder = false;
     if (activeSidebarMove.longPressTimer !== null) {
         clearTimeout(activeSidebarMove.longPressTimer);
@@ -121,6 +123,7 @@ function finishSidebarMove(nav, cancelled) {
         suppressedSidebarClickKey = button.dataset.sidebarOrderKey;
         setTimeout(() => { suppressedSidebarClickKey = null; }, 0);
     }
+    if (cancelled) cancelledSidebarClickKey = button.dataset.sidebarOrderKey;
     button.classList.remove('sidebar-ordering');
     activeSidebarMove = null;
     if (shouldApplyOrder) applySidebarOrder(nav.ownerDocument);
@@ -130,12 +133,15 @@ function beginSidebarMove(event, nav) {
     if (event.isPrimary === false) return;
     const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
     if (!button || (event.button !== undefined && event.button !== 0)) return;
+    if (activeSidebarMove) return;
+    cancelledSidebarClickKey = null;
     const waitsForLongPress = event.pointerType === 'touch'
         && window.matchMedia?.(
             '(max-width: 768px), (max-height: 480px) and (orientation: landscape)'
         ).matches;
     const move = {
         button,
+        nav,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
@@ -145,6 +151,7 @@ function beginSidebarMove(event, nav) {
         initialOrder: sidebarButtons(nav).map(entry => entry.dataset.sidebarOrderKey)
     };
     activeSidebarMove = move;
+    button.ownerDocument.addEventListener('keydown', cancelSidebarMoveOnEscape, true);
     if (waitsForLongPress) {
         move.longPressTimer = setTimeout(() => {
             if (activeSidebarMove !== move) return;
@@ -155,6 +162,13 @@ function beginSidebarMove(event, nav) {
     } else if (typeof button.setPointerCapture === 'function') {
         button.setPointerCapture(event.pointerId);
     }
+}
+
+function cancelSidebarMoveOnEscape(event) {
+    if (event.key !== 'Escape' || !activeSidebarMove) return;
+    finishSidebarMove(activeSidebarMove.nav, true);
+    event.preventDefault();
+    event.stopImmediatePropagation();
 }
 
 function continueSidebarMove(event, nav, documentRef) {
@@ -183,10 +197,14 @@ function continueSidebarMove(event, nav, documentRef) {
 
 function suppressSidebarClick(event) {
     const button = event.target.closest('.sidebar-btn[data-sidebar-order-key]');
-    if (!button || button.dataset.sidebarOrderKey !== suppressedSidebarClickKey) return;
+    if (!button) return;
+    const key = button.dataset.sidebarOrderKey;
+    const cancelledPointerClick = key === cancelledSidebarClickKey && event.detail > 0;
+    if (key !== suppressedSidebarClickKey && !cancelledPointerClick) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     suppressedSidebarClickKey = null;
+    if (cancelledPointerClick) cancelledSidebarClickKey = null;
 }
 
 function moveSidebarButtonByKey(event, nav) {
