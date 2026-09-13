@@ -1322,6 +1322,18 @@
     gap: var(--space-md);
 }
 
+.settings-label-node {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.settings-label-node h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .settings-label-field {
     display: grid;
     gap: var(--space-xs);

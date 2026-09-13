@@ -482,6 +482,26 @@ describe('sidebar order identity', () => {
         }
     });
 
+    it('does not register an offline URL placeholder as a displayed name', () => {
+        const originalAnimationFrame = global.requestAnimationFrame;
+        global.requestAnimationFrame = vi.fn();
+        const registerNodeLabelTarget = vi.fn();
+        window.GPUHotSettings.registerNodeLabelTarget = registerNodeLabelTarget;
+        try {
+            handleClusterData({
+                mode: 'hub',
+                nodes: {
+                    'http://offline-node:1312': { status: 'offline', gpus: {} }
+                }
+            });
+
+            expect(document.querySelector('.node-group')).toBeNull();
+            expect(registerNodeLabelTarget).not.toHaveBeenCalled();
+        } finally {
+            global.requestAnimationFrame = originalAnimationFrame;
+        }
+    });
+
     it('does not move a captured node during half-second hub updates', () => {
         const originalAnimationFrame = global.requestAnimationFrame;
         global.requestAnimationFrame = vi.fn();
