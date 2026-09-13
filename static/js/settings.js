@@ -1024,11 +1024,8 @@
         applySidebarSettings(documentRef);
         const metricInputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
         const metricList = panel.querySelector('.settings-metric-list');
-        const chartOption = metricInputs.find(input => input.dataset.overviewSetting === 'chart')?.closest('label');
-        const metricListEnd = metricInputs[metricInputs.length - 1]
-            ?.closest('label')?.nextElementSibling || null;
         const metricRows = new Map();
-        if (metricList && chartOption) {
+        if (metricList) {
             METRIC_ORDER.forEach(metric => {
                 const label = metricInputs.find(input => input.dataset.overviewSetting === metric)?.closest('label');
                 if (!label) return;
@@ -1050,20 +1047,12 @@
             return Array.from(metricList?.querySelectorAll(':scope > .settings-metric-row') || []);
         }
 
-        function placeChartOption() {
-            const fifthMetric = orderedMetricRows()[4];
-            if (fifthMetric && chartOption.nextElementSibling !== fifthMetric) {
-                metricList.insertBefore(chartOption, fifthMetric);
-            }
-        }
-
         function applyMetricRows() {
-            if (!metricList || !chartOption) return;
+            if (!metricList) return;
             const rows = settings.overviewMetricOrder.map(metric => metricRows.get(metric)).filter(Boolean);
             if (rows.some((row, index) => row !== orderedMetricRows()[index])) {
-                rows.forEach(row => metricList.insertBefore(row, metricListEnd));
+                rows.forEach(row => metricList.appendChild(row));
             }
-            placeChartOption();
         }
 
         function saveMetricRows(previousRows) {
@@ -1071,8 +1060,7 @@
             if (order.every((metric, index) => metric === settings.overviewMetricOrder[index])) return true;
             const nextSettings = { ...settings, overviewMetricOrder: order, overviewMetricsCustomized: true };
             if (!saveSettings(nextSettings)) {
-                previousRows.forEach(row => metricList.insertBefore(row, metricListEnd));
-                placeChartOption();
+                previousRows.forEach(row => metricList.appendChild(row));
                 status.textContent = 'This order could not be saved. Try again.';
                 return false;
             }
@@ -1118,8 +1106,7 @@
             documentRef.removeEventListener('keydown', cancelMetricMoveOnEscape, true);
             if (move.timer !== null) global.clearTimeout(move.timer);
             if (cancelled) {
-                move.previousRows.forEach(row => metricList.insertBefore(row, metricListEnd));
-                placeChartOption();
+                move.previousRows.forEach(row => metricList.appendChild(row));
             }
             else if (move.moved) saveMetricRows(move.previousRows);
             move.row.classList.remove('settings-metric-moving');
@@ -1171,7 +1158,6 @@
                     const before = new Map(orderedMetricRows()
                         .map(row => [row, row.getBoundingClientRect()]));
                     metricList.insertBefore(move.row, reference);
-                    placeChartOption();
                     orderedMetricRows().forEach(row => {
                         const previous = before.get(row);
                         const current = row.getBoundingClientRect();
@@ -1203,7 +1189,6 @@
             const target = previousRows[previousRows.indexOf(row) + offset];
             if (!target) return;
             metricList.insertBefore(row, offset < 0 ? target : target.nextSibling);
-            placeChartOption();
             if (saveMetricRows(previousRows)) {
                 status.textContent = `${row.querySelector('label').textContent.trim()} moved to position ${orderedMetricRows().indexOf(row) + 1}.`;
             }

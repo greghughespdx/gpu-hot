@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const near = (actual, expected) => Math.abs(actual - expected) < 1;
     if (innerWidth !== Number(location.hash.slice(1))) failures.push('viewport width');
     if (cards.length !== 5) failures.push('card count');
+    if (cards.map(card => card.querySelector('h3')?.textContent).join('|')
+        !== 'General|Left bar|All page metrics|Names|Event notifications') {
+        failures.push('section order');
+    }
     cards.forEach((card, index) => {
         const box = card.getBoundingClientRect();
         const heading = card.querySelector('h3')?.getBoundingClientRect();
@@ -52,6 +56,43 @@ document.addEventListener('DOMContentLoaded', () => {
         || document.documentElement.scrollWidth > innerWidth)) {
         failures.push('phone overflow');
     }
+    const metrics = panel.querySelector('.settings-metric-list');
+    const display = panel.querySelector('.settings-overview-display-options');
+    const graphWidth = panel.querySelector('#settings-overview-chart-width');
+    if (metrics.children.length !== 17
+        || metrics.querySelector('[data-overview-setting="chart"]')
+        || [...display.querySelectorAll('label')].map(label => label.textContent.trim()).join('|')
+            !== 'Show live utilization graph|Show model|Show card ID'
+        || !(metrics.getBoundingClientRect().bottom < display.getBoundingClientRect().top
+            && display.getBoundingClientRect().bottom < graphWidth.getBoundingClientRect().top)
+        || !near(display.getBoundingClientRect().top - metrics.getBoundingClientRect().bottom, 24)) {
+        failures.push('graph group geometry');
+    }
+    const api = window.GPUHotSettings;
+    const header = panel.querySelector('.settings-header');
+    const close = panel.querySelector('#settings-close');
+    document.querySelector('#connection-status').textContent = 'Connected';
+    document.querySelector('#version-current').textContent = 'v1.9.2';
+    document.querySelector('#update-badge').style.display = 'inline';
+    for (const move of [false, true]) {
+        api.applyConnectionDetailsLocation(move, document);
+        const headerBox = header.getBoundingClientRect();
+        const closeBox = close.getBoundingClientRect();
+        const details = panel.querySelector('#settings-connection-details');
+        if (!near(headerBox.height, 53) || closeBox.bottom > headerBox.bottom
+            || closeBox.top < headerBox.top) failures.push(`header height ${move}`);
+        if (move) {
+            const detailsBox = details.getBoundingClientRect();
+            const connectionRow = details.querySelector('.header-row');
+            if (details.hidden || !near(detailsBox.top + detailsBox.height / 2,
+                closeBox.top + closeBox.height / 2) || detailsBox.right > closeBox.left
+                || detailsBox.left < headerBox.left || detailsBox.right > headerBox.right
+                || connectionRow.scrollWidth > connectionRow.clientWidth) {
+                failures.push('connection row alignment');
+            }
+        } else if (!details.hidden) failures.push('connection row hidden');
+    }
+    if (document.documentElement.scrollWidth > innerWidth) failures.push('header overflow');
     const output = document.createElement('output');
     output.id = 'geometry-test-result';
     output.textContent = failures.length ? failures.join(', ') : 'PASS';

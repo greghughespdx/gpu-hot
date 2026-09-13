@@ -144,9 +144,9 @@
         <div class="settings-header">
             <div class="settings-header-main">
                 <h2 id="settings-title" class="settings-visually-hidden">Settings</h2>
+                <div class="settings-connection-details" id="settings-connection-details" hidden></div>
                 <button class="settings-close" id="settings-close" type="button" aria-label="Close settings">&times;</button>
             </div>
-            <div class="settings-connection-details" id="settings-connection-details" hidden></div>
         </div>
         <div class="settings-body">
             <section class="settings-group" aria-labelledby="settings-general-title">
@@ -179,6 +179,21 @@
                     </div>
                 </dialog>
             </section>
+            <section class="settings-group" aria-labelledby="settings-leftbar-title">
+                <h3 id="settings-leftbar-title">Left bar</h3>
+                <label class="settings-row settings-row-select" for="settings-sidebar-width">
+                    <span>Width</span>
+                    <select id="settings-sidebar-width">
+                        <option value="standard">Standard</option>
+                        <option value="comfortable">Comfortable</option>
+                        <option value="wide">Wide</option>
+                    </select>
+                </label>
+                <label class="settings-option settings-check-row">
+                    <input id="settings-sidebar-auto-hide" type="checkbox">
+                    <span>Hide the left bar when not in use</span>
+                </label>
+            </section>
             <section class="settings-group" aria-labelledby="settings-metrics-title">
                 <h3 id="settings-metrics-title">All page metrics</h3>
                 <p class="settings-note settings-note-under-heading">Drag to reorder</p>
@@ -187,7 +202,6 @@
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="temperature"> Temperature</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory"> Memory</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="power"> Power</label>
-                    <label class="settings-check-row settings-chart-row"><input type="checkbox" data-overview-setting="chart"> Mini chart</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="fan-speed"> Fan speed</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="graphics-clock"> Graphics clock</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-clock"> Memory clock</label>
@@ -201,12 +215,15 @@
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
+                </div>
+                <div class="settings-subgroup settings-overview-display-options">
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="chart"> Show live utilization graph</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-display="showModel"> Show model</label>
                     <label class="settings-check-row"><input type="checkbox" data-overview-display="showCardId"> Show card ID</label>
                 </div>
-                <div class="settings-subgroup settings-subgroup-after">
+                <div class="settings-subgroup">
                     <label class="settings-row settings-row-select" for="settings-overview-chart-width">
-                        <span>Mini chart width</span>
+                        <span>Graph width</span>
                         <select id="settings-overview-chart-width">
                             <option value="auto">Automatic</option>
                             <option value="wide">Wide</option>
@@ -223,21 +240,6 @@
                     </label>
                 </div>
             </section>
-            <section class="settings-group" aria-labelledby="settings-leftbar-title">
-                <h3 id="settings-leftbar-title">Left bar</h3>
-                <label class="settings-row settings-row-select" for="settings-sidebar-width">
-                    <span>Width</span>
-                    <select id="settings-sidebar-width">
-                        <option value="standard">Standard</option>
-                        <option value="comfortable">Comfortable</option>
-                        <option value="wide">Wide</option>
-                    </select>
-                </label>
-                <label class="settings-option settings-check-row">
-                    <input id="settings-sidebar-auto-hide" type="checkbox">
-                    <span>Hide the left bar when not in use</span>
-                </label>
-            </section>
             <section class="settings-group" aria-labelledby="settings-labels-title">
                 <h3 id="settings-labels-title">Names</h3>
                 <label class="settings-row settings-row-select" for="settings-sidebar-label">
@@ -251,7 +253,7 @@
                 <div class="settings-label-list" id="settings-label-list"></div>
             </section>
             <section class="settings-group" aria-labelledby="settings-notices-title">
-                <h3 id="settings-notices-title">Event notices</h3>
+                <h3 id="settings-notices-title">Event notifications</h3>
                 <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuThrottle"> GPU throttling</label>
                 <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuMissing"> GPU missing</label>
                 <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeNodeOffline"> Node offline</label>
@@ -263,9 +265,9 @@
     </aside>
 
     <section class="event-notices" id="event-notices" role="log" aria-live="polite"
-        aria-label="Event notices" hidden>
+        aria-label="Event notifications" hidden>
         <div class="event-notices-header">
-            <h2>Event notices</h2>
+            <h2>Event notifications</h2>
             <button type="button" id="event-notices-clear">Clear all</button>
         </div>
         <div id="event-notices-list"></div>
