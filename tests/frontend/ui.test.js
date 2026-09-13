@@ -508,6 +508,39 @@ describe('sidebar ordering', () => {
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
     });
 
+    it('cancels a rail drag on Escape without saving or opening a GPU page', () => {
+        const first = addOrderedGpu('node-a', '0');
+        const second = addOrderedGpu('node-a', '1');
+        second.getBoundingClientRect = () => ({ top: 40, height: 40, left: 0, width: 40 });
+        document.elementFromPoint.mockReturnValue(second);
+
+        dispatchPointer(first, 'pointerdown', {
+            pointerId: 81, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(first, 'pointermove', {
+            pointerId: 81, pointerType: 'mouse', clientX: 10, clientY: 70
+        });
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '1'), orderKey('node-a', '0')]);
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        document.dispatchEvent(escape);
+        dispatchPointer(first, 'pointerup', { pointerId: 81, pointerType: 'mouse' });
+        first.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+
+        expect(escape.defaultPrevented).toBe(true);
+        expect(gpuButtonKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-a', '1')]);
+        expect(first.classList.contains('sidebar-ordering')).toBe(false);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        expect(global.currentTab).toBe('overview');
+
+        dispatchPointer(first, 'pointerdown', {
+            pointerId: 82, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(first, 'pointerup', { pointerId: 82, pointerType: 'mouse' });
+        first.click();
+        expect(global.currentTab).toBe('gpu-node-a-0');
+    });
+
     it('ignores a second non-primary touch in the left bar', () => {
         const first = addOrderedGpu('node-a', '0');
         const second = addOrderedGpu('node-a', '1');
