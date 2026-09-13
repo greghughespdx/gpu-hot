@@ -244,6 +244,15 @@
     }
 }
 
+html.overview-chart-width-behind .overview-gpu-card.overview-metrics-wrapped:not(.overview-chart-hidden) .overview-mini-chart {
+    -webkit-mask-image: linear-gradient(to right,
+        rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 0,
+        rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 100%);
+    mask-image: linear-gradient(to right,
+        rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 0,
+        rgba(var(--shadow-rgb), var(--overview-chart-behind-dim)) 100%);
+}
+
 /* ============================================
    Aggregate VRAM Row
    ============================================ */
