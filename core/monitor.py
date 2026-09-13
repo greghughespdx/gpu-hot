@@ -8,6 +8,7 @@ import logging
 from .metrics import MetricsCollector
 from .nvidia_smi_fallback import parse_nvidia_smi
 from .config import NVIDIA_SMI, NVIDIA_SMI_INTERVAL
+from .process_models import model_for_pid
 
 logger = logging.getLogger(__name__)
 
@@ -191,13 +192,17 @@ class GPUMonitor:
                         gpu_process_counts[gpu_id]['compute'] = len(procs)
 
                         for proc in procs:
-                            all_processes.append({
+                            record = {
                                 'pid': str(proc.pid),
                                 'name': self._get_process_name(proc.pid),
                                 'gpu_uuid': uuid,
                                 'gpu_id': gpu_id,
                                 'memory': float(proc.usedGpuMemory / (1024 ** 2))
-                            })
+                            }
+                            model = model_for_pid(proc.pid)
+                            if model:
+                                record['model'] = model
+                            all_processes.append(record)
                     except pynvml.NVMLError:
                         pass
 
@@ -277,4 +282,3 @@ class GPUMonitor:
                 logger.info("NVML shutdown")
             except Exception as e:
                 logger.error(f"Error shutting down NVML: {e}")
-

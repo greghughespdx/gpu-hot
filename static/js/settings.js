@@ -47,6 +47,8 @@
         ...Object.fromEntries(CORE_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])),
         ...Object.fromEntries(EXTRA_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, false])),
         'overview.chart': true,
+        'overview.showModel': false,
+        'overview.showCardId': true,
         overviewMetricOrder: METRIC_ORDER,
         overviewMetricsCustomized: false,
         theme: 'default',
@@ -137,6 +139,8 @@
         ...Object.fromEntries(
             OVERVIEW_METRICS.map(metric => [`overview.${metric}`, value => typeof value === 'boolean'])
         ),
+        'overview.showModel': value => typeof value === 'boolean',
+        'overview.showCardId': value => typeof value === 'boolean',
         moveConnectionDetails: value => typeof value === 'boolean',
         overviewMiniChartWidth: value => CHART_WIDTHS.includes(value),
         overviewMiniChartBehindDim: value => Number.isInteger(value) && value >= 10 && value <= 100,
@@ -396,6 +400,10 @@
     function applyOverviewMetricVisibility(documentRef = global.document) {
         if (!documentRef) return;
         applyOverviewMetricOrder(documentRef);
+        documentRef.querySelectorAll('.gpu-uuid, .single-gpu-overview .gpu-detail-uuid').forEach(element => {
+            element.hidden = settings['overview.showCardId'] === false;
+        });
+        global.refreshOverviewProcessModels?.();
         OVERVIEW_METRICS.forEach(metric => {
             const visible = isOverviewMetricVisible(metric);
             documentRef.querySelectorAll(`[data-overview-metric="${metric}"]`).forEach(element => {
@@ -981,6 +989,23 @@
                 applyOverviewMetricVisibility(documentRef);
             });
         });
+        const displayInputs = Array.from(panel.querySelectorAll('[data-overview-display]'));
+        displayInputs.forEach(input => {
+            const key = `overview.${input.dataset.overviewDisplay}`;
+            input.checked = settings[key] === true;
+            input.addEventListener('change', () => {
+                const previous = settings[key] === true;
+                const nextSettings = { ...settings, [key]: input.checked };
+                if (!saveSettings(nextSettings)) {
+                    input.checked = previous;
+                    status.textContent = 'This setting could not be saved. Try again.';
+                    return;
+                }
+                Object.assign(settings, sanitizeSettings(nextSettings));
+                status.textContent = '';
+                applyOverviewMetricVisibility(documentRef);
+            });
+        });
         applyOverviewMetricVisibility(documentRef);
 
         if (chartWidth) {
@@ -1144,6 +1169,9 @@
             }
             metricInputs.forEach(input => {
                 input.checked = isOverviewMetricVisible(input.dataset.overviewSetting);
+            });
+            panel.querySelectorAll('[data-overview-display]').forEach(input => {
+                input.checked = settings[`overview.${input.dataset.overviewDisplay}`] === true;
             });
             applyMetricRows();
             applyOverviewMetricVisibility(documentRef);

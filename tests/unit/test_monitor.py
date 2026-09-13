@@ -141,6 +141,25 @@ class TestGetProcessName:
             monitor = GPUMonitor()
         return monitor
 
+    def test_nvml_record_includes_model_when_pid_command_is_known(self):
+        monitor = self._make_monitor()
+        running = MagicMock(pid=696825, usedGpuMemory=1024 * 1024)
+        process = MagicMock()
+        process.name.return_value = 'llama-server'
+        process.cmdline.return_value = [
+            '/opt/llama.cpp-new/build/bin/llama-server', '-m', '/opt/models/Qwen3.8-27B-UD-Q4_K_XL.gguf',
+            '--alias', 'qwen38-q4'
+        ]
+        with patch('pynvml.nvmlDeviceGetCount', return_value=2), \
+             patch('pynvml.nvmlDeviceGetHandleByIndex'), \
+             patch('pynvml.nvmlDeviceGetUUID', return_value='GPU-test'), \
+             patch('pynvml.nvmlDeviceGetComputeRunningProcesses', return_value=[running]), \
+             patch('psutil.Process', return_value=process):
+            records = monitor._get_processes_sync()
+        assert [(record['gpu_id'], record['model']) for record in records] == [
+            ('0', 'qwen38-q4'), ('1', 'qwen38-q4')
+        ]
+
     @patch('psutil.Process')
     def test_normal_process(self, mock_process_cls):
         monitor = self._make_monitor()

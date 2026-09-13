@@ -63,6 +63,17 @@ class TestAMDParsing:
 
 
 class TestAMDCollection:
+    def test_amd_record_includes_model_from_the_same_pid(self):
+        collector = _collector()
+        process = MagicMock()
+        process.cmdline.return_value = [
+            '/opt/llama.cpp-new/build/bin/llama-server', '-m', '/opt/models/Qwen3.8-27B-UD-Q4_K_XL.gguf',
+            '--alias', 'qwen38-q4'
+        ]
+        with patch('psutil.Process', return_value=process):
+            record = collector._build_process_record({'pid': 18679, 'name': 'llama-server'}, '0')
+        assert record['model'] == 'qwen38-q4'
+
     def test_fixture_values_and_units(self):
         data, processes = _collector().collect()
         assert processes == []
