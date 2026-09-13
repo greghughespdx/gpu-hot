@@ -317,7 +317,7 @@ function handleSocketMessage(event) {
     // Queue system updates (processes/CPU/RAM) for batching
     if (!lastDOMUpdate.system || (now - lastDOMUpdate.system) >= DOM_UPDATE_INTERVAL) {
         pendingUpdates.set('_system', {
-            processes: processRowsForNode(data.processes, data.node_name || 'This system', ''),
+            processes: processRowsForNode(data.processes, localNodeName, ''),
             system: data.system,
             now
         });

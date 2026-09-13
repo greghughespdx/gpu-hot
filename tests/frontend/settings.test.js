@@ -1215,6 +1215,13 @@ describe('settings panel', () => {
         expect(group.querySelectorAll('.settings-label-field span')[1].textContent)
             .toBe('GPU 0 (shown as Training card)');
         expect(group.querySelectorAll('input')[1]).toBe(gpuInput);
+
+        const nodeInput = group.querySelectorAll('input')[0];
+        nodeInput.value = 'Compute';
+        nodeInput.dispatchEvent(new Event('change'));
+        expect(group.querySelector('h4').textContent).toBe('Compute');
+        expect(group.querySelectorAll('.settings-label-field span')[0].textContent)
+            .toBe('Node name (shown as Compute)');
     });
 
     it('drops disconnected names from the panel without deleting saved overrides', () => {

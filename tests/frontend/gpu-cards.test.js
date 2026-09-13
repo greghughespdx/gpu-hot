@@ -2,7 +2,15 @@
  * Tests for static/js/gpu-cards.js
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import vm from 'vm';
+
+const settingsSource = readFileSync(join(
+    dirname(fileURLToPath(import.meta.url)), '../../static/js/settings.js'
+), 'utf8');
 
 // Helper functions are loaded into global scope by setup.js
 
@@ -186,6 +194,7 @@ describe('updateProcesses', () => {
             <span id="process-count"></span>
         `;
     });
+    afterEach(() => { delete window.GPUHotSettings; });
 
     it('renders processes with their system names', () => {
         const processes = [
@@ -196,6 +205,22 @@ describe('updateProcesses', () => {
         const container = document.getElementById('processes-container');
         expect([...container.querySelectorAll('.process-name')].map(el => el.textContent)).toEqual(['python3', 'blender']);
         expect([...container.querySelectorAll('.process-system')].map(el => el.textContent)).toEqual(['render-1', 'render-2']);
+    });
+
+    it('keeps the process System name in sync with a node rename', () => {
+        localStorage.clear();
+        vm.runInThisContext(settingsSource, { filename: 'settings.js' });
+        const api = window.GPUHotSettings;
+        updateProcesses([{
+            name: 'worker', pid: '17', memory: 512, node_name: 'render-1', gpu_key: 'render-1-0'
+        }]);
+        const system = document.querySelector('.process-system');
+        expect(system.textContent).toBe('render-1');
+
+        api.settings.labelOverrides = [{ kind: 'node', node: 'render-1', label: 'Compute' }];
+        api.applyDisplayLabels(document);
+        expect(system.textContent).toBe('Compute');
+        expect(document.querySelector('.process-name').textContent).toBe('worker');
     });
 
     it('handles empty process list', () => {

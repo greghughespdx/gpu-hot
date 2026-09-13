@@ -1275,6 +1275,7 @@ function appendProcessCell(row, className, value) {
     cell.className = className;
     cell.textContent = String(value);
     row.appendChild(cell);
+    return cell;
 }
 
 function appendProcessHeader(container) {
@@ -1311,7 +1312,9 @@ function showEmptyProcesses(container, viewName) {
 function createProcessRow(process) {
     const row = document.createElement('div');
     row.className = 'process-item';
-    appendProcessCell(row, 'process-system', process.node_name || 'This system');
+    const nodeName = process.node_name || 'This system';
+    const systemCell = appendProcessCell(row, 'process-system', nodeName);
+    window.GPUHotSettings?.bindNodeLabel?.(systemCell, nodeName);
     appendProcessCell(row, 'process-name', process.name || 'Unknown process');
     appendProcessCell(row, 'process-pid', process.pid ?? 'Unknown');
     appendProcessCell(row, 'process-memory', `${formatMemory(process.memory)}${formatMemoryUnit(process.memory)}`);
