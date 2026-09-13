@@ -88,8 +88,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11px;
-    color: var(--text-secondary);
+}
+
+.gpu-detail-header .overview-gpu-model {
+    font-size: 13px;
+    color: var(--text-tertiary);
 }
 
 .overview-metrics {

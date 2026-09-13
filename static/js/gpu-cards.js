@@ -1258,6 +1258,11 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
 
 let latestProcesses = [];
 
+function displayedProcessModel(model) {
+    if (typeof model !== 'string') return '';
+    return model.trim().split('/').pop() || '';
+}
+
 function updateProcesses(processes) {
     latestProcesses = Array.isArray(processes) ? processes : [];
     refreshOverviewProcessModels();
@@ -1268,9 +1273,8 @@ function modelsForOverviewCard(card) {
     if (window.GPUHotSettings?.settings?.['overview.showModel'] !== true) return [];
     return [...new Set(latestProcesses
         .filter(process => String(process.gpu_key) === card.dataset.gpuId)
-        .map(process => process.model)
-        .filter(model => typeof model === 'string' && model.trim())
-        .map(model => model.trim()))];
+        .map(process => displayedProcessModel(process.model))
+        .filter(Boolean))];
 }
 
 function setOverviewCardModels(card) {
@@ -1279,13 +1283,13 @@ function setOverviewCardModels(card) {
     const models = modelsForOverviewCard(card);
     const oldLines = [...nameBlock.querySelectorAll('.overview-gpu-model')];
     if (oldLines.length === models.length
-        && oldLines.every((line, index) => line.textContent === `Model: ${models[index]}`)) return;
+        && oldLines.every((line, index) => line.textContent === models[index])) return;
     oldLines.forEach(line => line.remove());
     const anchor = nameBlock.querySelector('.gpu-uuid, .gpu-detail-uuid');
     models.forEach(model => {
         const line = document.createElement(card.classList.contains('single-gpu-overview') ? 'span' : 'p');
         line.className = 'overview-gpu-model';
-        line.textContent = `Model: ${model}`;
+        line.textContent = model;
         nameBlock.insertBefore(line, anchor);
     });
 }
@@ -1384,7 +1388,7 @@ function createProcessRow(process) {
     window.GPUHotSettings?.bindNodeLabel?.(systemCell, card.nodeName);
     const cardCell = appendProcessCell(row, 'process-card', card.label);
     window.GPUHotSettings?.bindGpuLabel?.(cardCell, card.nodeName, card.gpuId, card.label);
-    appendProcessCell(row, 'process-model', typeof process.model === 'string' ? process.model : '');
+    appendProcessCell(row, 'process-model', displayedProcessModel(process.model));
     appendProcessCell(row, 'process-name', process.name || 'Unknown process');
     appendProcessCell(row, 'process-pid', process.pid ?? 'Unknown');
     appendProcessCell(row, 'process-memory', `${formatMemory(process.memory)}${formatMemoryUnit(process.memory)}`);

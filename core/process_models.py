@@ -33,19 +33,22 @@ def model_from_command_line(argv: list[str] | tuple[str, ...]) -> str | None:
         if not model:
             return None
         if "/ollama/" in argv[0]:
-            return model
+            return Path(model).name
         return _option(argv[1:], "--alias") or Path(model).name
 
     if executable == "ollama" and len(argv) > 1 and argv[1] == "runner":
-        return _option(argv[2:], *MODEL_FLAGS[executable])
+        model = _option(argv[2:], *MODEL_FLAGS[executable])
+        return Path(model).name if model else None
 
     if executable == "vllm" and len(argv) > 1 and argv[1] == "serve":
-        return _option(argv[2:], *MODEL_FLAGS[executable]) or (
+        model = _option(argv[2:], *MODEL_FLAGS[executable]) or (
             argv[2] if len(argv) > 2 and not argv[2].startswith("-") else None
         )
+        return Path(model).name if model else None
 
     if any(arg.startswith("vllm.entrypoints.") for arg in argv):
-        return _option(argv, *MODEL_FLAGS["vllm"])
+        model = _option(argv, *MODEL_FLAGS["vllm"])
+        return Path(model).name if model else None
     return None
 
 

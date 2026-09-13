@@ -28,15 +28,15 @@ def test_llama_without_alias_uses_model_file():
     assert model_from_command_line(INF1_Q4[:-2]) == "Qwen3.8-27B-UD-Q4_K_XL.gguf"
 
 
-def test_truenas_ollama_runner_uses_reported_path():
-    assert model_from_command_line(OLLAMA_TRUENAS) == OLLAMA_TRUENAS[2]
+def test_truenas_ollama_runner_uses_file_name():
+    assert model_from_command_line(OLLAMA_TRUENAS) == OLLAMA_TRUENAS[2].rsplit("/", 1)[-1]
 
 
 def test_vllm_servers_use_model_argument():
-    assert model_from_command_line(["/opt/venv/bin/vllm", "serve", "Qwen/Qwen3-8B"]) == "Qwen/Qwen3-8B"
+    assert model_from_command_line(["/opt/venv/bin/vllm", "serve", "Qwen/Qwen3-8B"]) == "Qwen3-8B"
     assert model_from_command_line([
         "python", "-m", "vllm.entrypoints.openai.api_server", "--model", "Qwen/Qwen3-8B"
-    ]) == "Qwen/Qwen3-8B"
+    ]) == "Qwen3-8B"
 
 
 def test_unknown_or_incomplete_process_has_no_model():

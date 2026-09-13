@@ -237,11 +237,11 @@ describe('updateProcesses', () => {
         refreshOverviewProcessModels();
         const cards = overview.querySelectorAll('.overview-gpu-card');
         expect([...cards[0].querySelectorAll('.overview-gpu-model')].map(line => line.textContent))
-            .toEqual(['Model: qwen38-q4', 'Model: second-model']);
-        expect(cards[0].querySelector('.overview-gpu-model').nextElementSibling.textContent).toBe('Model: second-model');
+            .toEqual(['qwen38-q4', 'second-model']);
+        expect(cards[0].querySelector('.overview-gpu-model').nextElementSibling.textContent).toBe('second-model');
         expect(cards[0].querySelectorAll('.overview-gpu-model')[1].nextElementSibling.className).toBe('gpu-uuid');
         expect([...cards[1].querySelectorAll('.overview-gpu-model')].map(line => line.textContent))
-            .toEqual(['Model: qwen38-q4']);
+            .toEqual(['qwen38-q4']);
         settings['overview.showModel'] = false;
         refreshOverviewProcessModels();
         expect(overview.innerHTML).toBe(unchanged);
@@ -258,8 +258,20 @@ describe('updateProcesses', () => {
         expect(document.querySelector('.process-model').textContent).toBe('<img src=x onerror=alert(1)>');
         expect(document.querySelector('.process-model img')).toBeNull();
         expect(document.querySelector('.overview-gpu-model').textContent)
-            .toBe('Model: <img src=x onerror=alert(1)>');
+            .toBe('<img src=x onerror=alert(1)>');
         expect(document.querySelector('.overview-gpu-name img')).toBeNull();
+    });
+
+    it('shows only the file name from a reported model path on both surfaces', () => {
+        document.getElementById('overview-container').innerHTML = `
+            <article class="overview-gpu-card" data-gpu-id="truenas-0">
+                <div class="overview-gpu-name"><h2>GPU 0</h2><p>A10M</p><p class="gpu-uuid">GPU-id</p></div>
+            </article>`;
+        window.GPUHotSettings = { settings: { 'overview.showModel': true } };
+        updateProcesses([{ name: 'llama-server', pid: '8', memory: 100, gpu_id: '0',
+            gpu_key: 'truenas-0', model: '/root/.ollama/models/blobs/sha256-e7b273' }]);
+        expect(document.querySelector('.process-model').textContent).toBe('sha256-e7b273');
+        expect(document.querySelector('.overview-gpu-model').textContent).toBe('sha256-e7b273');
     });
 
     it('follows node and card order on the All page after a move', () => {
