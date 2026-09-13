@@ -75,6 +75,10 @@
     {
       "name": "collector text rendering safety",
       "commit": "d5f2a56620d52186f21d0466bc6d4c78dc7e3c1f"
+    },
+    {
+      "name": "candidate collector number safety",
+      "commit": "50be514b5d48202d22d0493ff250066c285b5f00"
     }
   ],
   "upstream_review": {
