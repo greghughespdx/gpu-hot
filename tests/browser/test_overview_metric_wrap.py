@@ -130,6 +130,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return current.length !== markers[index].length
             || current.some((marker, position) => marker !== markers[index][position]);
     })) failures.push('row markers rewritten on unchanged settings');
+    settings.applyOverviewMiniChartBehindDim(45);
+    settings.applyOverviewMiniChartWidth('behind');
+    cards.forEach((card, index) => {
+        const chart = card.querySelector('.overview-mini-chart');
+        const mask = getComputedStyle(chart).maskImage;
+        if (width === 390) {
+            if (mask !== 'none') failures.push(`phone chart mask ${index}: ${mask}`);
+            return;
+        }
+        const cells = [...card.querySelectorAll('.overview-metric:not([hidden])')];
+        const textRight = cell => Math.max(...[...cell.querySelectorAll(
+            '.overview-metric-value, .overview-metric-label')].map(text => {
+            const range = document.createRange();
+            range.selectNodeContents(text);
+            return range.getBoundingClientRect().right;
+        }));
+        const wrapped = card.classList.contains('overview-metrics-wrapped');
+        const expectedRight = wrapped ? Math.max(...cells.map(textRight)) : textRight(cells.at(-1));
+        const start = card.style.getPropertyValue('--overview-chart-behind-fade-start');
+        const measuredRight = Number(start.match(/calc\(([-\d.]+)px/)?.[1]);
+        if (Math.abs(measuredRight - (expectedRight - chart.getBoundingClientRect().left)) > 1) {
+            failures.push(`fade anchor ${index}`);
+        }
+        if (!mask.includes('0.45') || !mask.includes('100%') || !mask.includes('rgb(')) {
+            failures.push(`fade mask ${index}: ${mask}`);
+        }
+    });
     const output = document.createElement('output');
     output.id = 'wrap-test-result';
     output.textContent = failures.length ? failures.join(', ') : 'PASS';

@@ -492,14 +492,12 @@
         const lastMetric = lastMetricElement.getBoundingClientRect();
         const wrapped = Math.abs(lastMetric.top - firstMetric.top) > 1;
         card.classList.toggle('overview-metrics-wrapped', wrapped);
-        if (wrapped) {
-            resetOverviewBehindMask(card, chart);
-            return;
-        }
         resetOverviewBehindMask(card, chart);
         const chartLeft = chart.getBoundingClientRect().left;
         const textRight = card.ownerDocument.documentElement.classList.contains('overview-chart-width-behind')
-            ? renderedMetricTextRight(lastMetricElement)
+            ? (wrapped
+                ? Math.max(...visibleMetrics.map(renderedMetricTextRight))
+                : renderedMetricTextRight(lastMetricElement))
             : lastMetric.right;
         const fadeStart = `calc(${textRight - chartLeft}px + var(--overview-chart-behind-text-pad))`;
         card.style.setProperty(

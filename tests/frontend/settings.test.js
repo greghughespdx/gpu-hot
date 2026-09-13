@@ -1417,7 +1417,7 @@ describe('settings panel', () => {
 
     it.each([
         [5, 1440], [6, 1440], [5, 390], [6, 390]
-    ])('keeps the chosen opacity when %i metrics wrap at %i px', (count, width) => {
+    ])('fades after the widest row when %i metrics wrap at %i px', (count, width) => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
             settings: {
@@ -1455,9 +1455,11 @@ describe('settings panel', () => {
         expect(chart.style.maskImage).toBe('');
         expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim'))
             .toBe('0.45');
-        expect(componentsCss).toMatch(
-            /\.overview-metrics-wrapped:not\(\.overview-chart-hidden\) \.overview-mini-chart \{[^}]*-webkit-mask-image: linear-gradient\(to right,[^}]*var\(--overview-chart-behind-dim\)\) 0,[^}]*var\(--overview-chart-behind-dim\)\) 100%\);[^}]*mask-image: linear-gradient\(to right,[^}]*var\(--overview-chart-behind-dim\)\) 0,[^}]*var\(--overview-chart-behind-dim\)\) 100%\);/
-        );
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
+            .toBe(`calc(${(count - 1) * 80 + 72}px + var(--overview-chart-behind-text-pad))`);
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end'))
+            .toBe('calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap))');
+        expect(componentsCss).not.toContain('.overview-metrics-wrapped:not(.overview-chart-hidden)');
 
         metrics.forEach(metric => {
             metric.getBoundingClientRect = () => ({ left: 10, right: 82, top: 10 });
