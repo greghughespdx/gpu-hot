@@ -30,7 +30,7 @@ const defaults = {
     'overview.performance-state': false,
     theme: 'default',
     showStarPrompt: true,
-    overviewMiniChartBehindDim: 30,
+    overviewMiniChartBehindDim: 25,
     noticeGpuThrottle: false,
     noticeGpuMissing: false,
     noticeNodeOffline: false,
@@ -71,8 +71,8 @@ function panelMarkup() {
                 <option value="behind">Behind metrics</option>
             </select>
             <label id="settings-overview-chart-behind-dim-field" hidden>
-                <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" value="30">
-                <output id="settings-overview-chart-behind-dim-value">30%</output>
+                <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" value="25">
+                <output id="settings-overview-chart-behind-dim-value">25%</output>
             </label>
             <select id="settings-sidebar-width">
                 <option value="standard">Standard</option>
@@ -254,9 +254,9 @@ describe('settings storage', () => {
             .every(input => input.checked === false)).toBe(true);
         expect(document.getElementById('settings-show-star-prompt').checked).toBe(true);
         expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
-        expect(document.getElementById('settings-overview-chart-behind-dim').value).toBe('30');
+        expect(document.getElementById('settings-overview-chart-behind-dim').value).toBe('25');
         expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(false);
-        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.25');
         expect(localStorage.getItem('gpu-hot.notices.v1')).toBe('saved history');
         expect(localStorage.getItem('gpuHotStarPromptDismissed')).toBe('true');
         expect(settingsChanged).toHaveBeenCalledOnce();
@@ -954,7 +954,7 @@ describe('settings panel', () => {
         expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(false);
         expect(document.documentElement.classList.contains('overview-chart-width-full')).toBe(false);
         expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(false);
-        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.25');
     });
 
     it('persists a wider chart and asks the chart to resize', () => {
@@ -988,9 +988,9 @@ describe('settings panel', () => {
         const api = loadSettingsModule();
 
         expect(api.settings.overviewMiniChartWidth).toBe('behind');
-        expect(api.settings.overviewMiniChartBehindDim).toBe(30);
+        expect(api.settings.overviewMiniChartBehindDim).toBe(25);
         expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(true);
-        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.3');
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim')).toBe('0.25');
     });
 
     it('shows and persists the Behind metrics strength only for that width', () => {
@@ -1027,7 +1027,7 @@ describe('settings panel', () => {
             settings: { overviewMiniChartBehindDim: dim }
         }));
 
-        expect(loadSettingsModule().settings.overviewMiniChartBehindDim).toBe(30);
+        expect(loadSettingsModule().settings.overviewMiniChartBehindDim).toBe(25);
     });
 
     it('tracks the visible metric span for existing cards', () => {
@@ -1433,13 +1433,14 @@ describe('settings page contract', () => {
         expect(new Set(metrics).size).toBe(18);
     });
 
-    it('offers the four mini chart widths and the conditional strength control once', () => {
+    it('offers the four mini chart widths and the conditional opacity control once', () => {
         const parsed = new DOMParser().parseFromString(template, 'text/html');
         const select = parsed.getElementById('settings-overview-chart-width');
 
         expect(Array.from(select.options).map(option => option.value))
             .toEqual(['auto', 'wide', 'full', 'behind']);
         expect(parsed.querySelectorAll('#settings-overview-chart-behind-dim')).toHaveLength(1);
+        expect(parsed.getElementById('settings-overview-chart-behind-dim-field').querySelector('span').textContent).toBe('Opacity');
         expect(parsed.getElementById('settings-overview-chart-behind-dim-field').hidden).toBe(true);
     });
 
@@ -1508,8 +1509,8 @@ describe('settings page contract', () => {
     });
 
     it('layers Behind metrics only on desktop and respects the visible metric count', () => {
-        expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.3;/);
-        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: 64px;/);
+        expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.25;/);
+        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: var\(--overview-metric-gap\);/);
         expect(tokensCss).toMatch(
             /--overview-chart-behind-fade-start: calc\([^;]*var\(--overview-chart-behind-lead-in\)\);/
         );

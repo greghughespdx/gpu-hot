@@ -47,8 +47,8 @@
     /* Sparkline */
     --spark-stroke: rgba(238, 240, 244, 0.6);
     --spark-stroke-secondary: rgba(238, 240, 244, 0.35);
-    --overview-chart-behind-dim: 0.3;
-    --overview-chart-behind-lead-in: 64px;
+    --overview-chart-behind-dim: 0.25;
+    --overview-chart-behind-lead-in: var(--overview-metric-gap);
 
     /* Bullet bar */
     --bar-track: rgba(255, 255, 255, 0.07);
