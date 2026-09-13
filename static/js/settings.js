@@ -880,6 +880,34 @@
                 setupClearTimer = global.setTimeout(() => { setupStatus.textContent = ''; }, 300);
             }, 2200);
         }
+        function copySetupWithSelection(code) {
+            const buffer = documentRef.createElement('textarea');
+            buffer.className = 'settings-copy-buffer';
+            buffer.value = code;
+            buffer.readOnly = true;
+            buffer.setAttribute('aria-hidden', 'true');
+            documentRef.body.appendChild(buffer);
+            buffer.focus();
+            buffer.select();
+            let copied = false;
+            try { copied = documentRef.execCommand?.('copy') === true; }
+            catch (error) { /* The selectable field below handles blocked copying. */ }
+            buffer.remove();
+            return copied;
+        }
+        function showSelectableSetupCode(code) {
+            const actions = copySetup.closest('.settings-setup-actions');
+            const field = documentRef.createElement('textarea');
+            field.className = 'settings-copy-code';
+            field.setAttribute('aria-label', 'Setup code to copy');
+            field.readOnly = true;
+            field.rows = 3;
+            field.value = code;
+            actions.appendChild(field);
+            field.focus();
+            field.select();
+            showSetupStatus('Copy the setup code from the selected field.');
+        }
         function closeSetupDialog() {
             if (!setupDialog?.open) return;
             if (typeof setupDialog.close === 'function') setupDialog.close();
@@ -935,16 +963,21 @@
         }
         copySetup?.addEventListener('click', async () => {
             const code = exportSetupCode();
+            copySetup.closest('.settings-setup-actions').querySelector('.settings-copy-code')?.remove();
+            let copied = false;
             try {
-                if (!global.navigator?.clipboard?.writeText) {
-                    showSetupStatus('This browser cannot copy the code. Try a different browser.');
-                    return;
+                if (typeof global.navigator?.clipboard?.writeText === 'function') {
+                    await global.navigator.clipboard.writeText(code);
+                    copied = true;
                 }
-                await global.navigator.clipboard.writeText(code);
+            } catch (error) { /* Try selection-based copying on restricted pages. */ }
+            if (!copied) copied = copySetupWithSelection(code);
+            if (copied) {
+                copySetup.focus();
                 showSetupStatus('Copied to clipboard');
                 fadeSetupStatus();
-            } catch (error) {
-                showSetupStatus('Could not copy the code. Check clipboard access and try again.');
+            } else {
+                showSelectableSetupCode(code);
             }
         });
         pasteSetup?.addEventListener('click', async () => {

@@ -1652,6 +1652,31 @@ html.settings-connection-in-panel #dashboard-status-home {
     opacity: 1;
 }
 
+.settings-copy-buffer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.settings-copy-code {
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: 100%;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font: inherit;
+    resize: vertical;
+}
+
 .settings-setup-dialog {
     box-sizing: border-box;
     position: fixed;

@@ -281,6 +281,62 @@ describe('settings storage', () => {
         else delete window.navigator.clipboard;
     });
 
+    it.each(['missing', 'rejected'])('copies by selection when clipboard write is %s', async mode => {
+        panelMarkup();
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        const originalCommand = Object.getOwnPropertyDescriptor(document, 'execCommand');
+        const writeText = vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError'));
+        Object.defineProperty(window.navigator, 'clipboard', {
+            configurable: true, value: mode === 'missing' ? undefined : { writeText }
+        });
+        let selectedCode = '';
+        const execCommand = vi.fn(() => {
+            const selected = document.activeElement;
+            expect(selected.className).toBe('settings-copy-buffer');
+            expect(selected.selectionStart).toBe(0);
+            expect(selected.selectionEnd).toBe(selected.value.length);
+            selectedCode = selected.value;
+            return true;
+        });
+        Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+        const api = loadSettingsModule();
+        document.getElementById('settings-copy-setup').click();
+        await vi.waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+        if (mode === 'rejected') expect(writeText).toHaveBeenCalledOnce();
+        expect(document.querySelector('.settings-copy-buffer')).toBeNull();
+        expect(document.querySelector('.settings-copy-code')).toBeNull();
+        expect(document.getElementById('settings-setup-status').textContent).toBe('Copied to clipboard');
+        expect(api.decodeSetupCode(selectedCode)).toEqual(defaults);
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
+        if (originalCommand) Object.defineProperty(document, 'execCommand', originalCommand);
+        else delete document.execCommand;
+    });
+
+    it('shows a selected code field only when both copy methods fail', async () => {
+        panelMarkup();
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        const originalCommand = Object.getOwnPropertyDescriptor(document, 'execCommand');
+        Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: undefined });
+        Object.defineProperty(document, 'execCommand', {
+            configurable: true, value: vi.fn(() => false)
+        });
+        const api = loadSettingsModule();
+        document.getElementById('settings-copy-setup').click();
+        await vi.waitFor(() => expect(document.querySelector('.settings-copy-code')).not.toBeNull());
+        const field = document.querySelector('.settings-copy-code');
+        expect(api.decodeSetupCode(field.value)).toEqual(defaults);
+        expect(document.activeElement).toBe(field);
+        expect(field.selectionStart).toBe(0);
+        expect(field.selectionEnd).toBe(field.value.length);
+        expect(document.getElementById('settings-setup-status').textContent)
+            .toBe('Copy the setup code from the selected field.');
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
+        if (originalCommand) Object.defineProperty(document, 'execCommand', originalCommand);
+        else delete document.execCommand;
+    });
+
     it('opens Enter setup code when clipboard reading is denied', async () => {
         panelMarkup();
         const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
