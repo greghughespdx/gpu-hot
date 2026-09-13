@@ -149,26 +149,29 @@
             <div class="settings-connection-details" id="settings-connection-details" hidden></div>
         </div>
         <div class="settings-body">
-            <label class="settings-option" for="settings-move-connection-details">
-                <input id="settings-move-connection-details" type="checkbox">
-                <span>
-                    <strong>Show connection and version here</strong>
-                    <small>This clears the space above the dashboard.</small>
-                </span>
-            </label>
-            <label class="settings-field" for="settings-theme">
-                <span>Theme</span>
-                <select id="settings-theme">
-                    <option value="default">Default</option>
-                    <option value="midnight">Midnight</option>
-                    <option value="high-contrast">High contrast</option>
-                </select>
-            </label>
-            <p class="settings-help">This choice is stored in this browser.</p>
-            <label class="settings-option" for="settings-show-star-prompt">
-                <input id="settings-show-star-prompt" type="checkbox">
-                <span>Show the GitHub star prompt</span>
-            </label>
+            <section class="settings-group" aria-labelledby="settings-general-title">
+                <h3 id="settings-general-title">General</h3>
+                <label class="settings-option" for="settings-move-connection-details">
+                    <input id="settings-move-connection-details" type="checkbox">
+                    <span>
+                        <strong>Show connection and version here</strong>
+                        <small>This clears the space above the dashboard.</small>
+                    </span>
+                </label>
+                <label class="settings-field" for="settings-theme">
+                    <span>Theme</span>
+                    <select id="settings-theme">
+                        <option value="default">Default</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="high-contrast">High contrast</option>
+                    </select>
+                </label>
+                <p class="settings-help">This choice is stored in this browser.</p>
+                <label class="settings-option" for="settings-show-star-prompt">
+                    <input id="settings-show-star-prompt" type="checkbox">
+                    <span>Show the GitHub star prompt</span>
+                </label>
+            </section>
             <fieldset class="settings-group">
                 <legend>All page metrics</legend>
                 <label><input type="checkbox" data-overview-setting="utilization"> Utilization</label>
@@ -189,23 +192,23 @@
                 <label><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
                 <label><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
                 <label><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
+                <label class="settings-field" for="settings-overview-chart-width">
+                    <span>Mini chart width</span>
+                    <select id="settings-overview-chart-width">
+                        <option value="auto">Automatic</option>
+                        <option value="wide">Wide</option>
+                        <option value="full">Full row</option>
+                        <option value="behind">Behind metrics</option>
+                    </select>
+                </label>
+                <label class="settings-field" id="settings-overview-chart-behind-dim-field" for="settings-overview-chart-behind-dim" hidden>
+                    <span>Opacity</span>
+                    <span class="settings-range-row">
+                        <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" step="1" value="25">
+                        <output id="settings-overview-chart-behind-dim-value" for="settings-overview-chart-behind-dim">25%</output>
+                    </span>
+                </label>
             </fieldset>
-            <label class="settings-field" for="settings-overview-chart-width">
-                <span>Mini chart width</span>
-                <select id="settings-overview-chart-width">
-                    <option value="auto">Automatic</option>
-                    <option value="wide">Wide</option>
-                    <option value="full">Full row</option>
-                    <option value="behind">Behind metrics</option>
-                </select>
-            </label>
-            <label class="settings-field" id="settings-overview-chart-behind-dim-field" for="settings-overview-chart-behind-dim" hidden>
-                <span>Opacity</span>
-                <span class="settings-range-row">
-                    <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" step="1" value="25">
-                    <output id="settings-overview-chart-behind-dim-value" for="settings-overview-chart-behind-dim">25%</output>
-                </span>
-            </label>
             <fieldset class="settings-group">
                 <legend>Left bar</legend>
                 <label class="settings-field" for="settings-sidebar-width">

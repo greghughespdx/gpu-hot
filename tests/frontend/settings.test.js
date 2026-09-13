@@ -1454,6 +1454,21 @@ describe('settings page contract', () => {
         expect(parsed.getElementById('settings-sidebar-pinned')).not.toBeNull();
     });
 
+    it('keeps the settings in five subtly separated sections', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const sections = Array.from(parsed.querySelectorAll('.settings-body > .settings-group'));
+
+        expect(sections.map(section => section.querySelector('h3, legend').textContent))
+            .toEqual(['General', 'All page metrics', 'Left bar', 'Labels', 'Event notices']);
+        expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
+        expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
+        expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
+        expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
+        expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
+        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 10px;[^}]*padding-top: 10px;[^}]*border-top: 1px solid var\(--border-subtle\);/);
+        expect(componentsCss).toMatch(/\.settings-group h3,\s*\.settings-group legend \{[^}]*font-weight: 700;[^}]*letter-spacing: 0\.03em;/);
+    });
+
     it('uses the full viewport width at phone size', () => {
         expect(componentsCss).toMatch(
             /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.settings-panel \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100vw;/

@@ -1392,6 +1392,18 @@ html.settings-connection-in-panel #dashboard-status-home {
     border: 0;
 }
 
+.settings-group + .settings-group {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.settings-group h3,
+.settings-group legend {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
 .settings-group legend {
     margin-bottom: var(--space-sm);
     color: var(--text-primary);
