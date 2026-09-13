@@ -333,7 +333,20 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
 }
 
 .dashboard-ordering {
-    opacity: 0.7;
+    visibility: hidden;
+}
+
+.dashboard-order-ghost {
+    position: fixed;
+    z-index: 205;
+    box-sizing: border-box;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    opacity: 0.92;
 }
 
 .node-grid {

@@ -696,6 +696,110 @@ describe('All page ordering', () => {
         expect(window.GPUHotSettings.settings.sidebarOrder).toEqual(dashboardKeys());
     });
 
+    it('moves a visual copy with the pointer while the real GPU card holds the drop gap', () => {
+        const group = addDashboardNode('node-a', ['0', '1']);
+        const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
+        first.id = 'live-card';
+        first.getBoundingClientRect = () => ({ top: 20, left: 30, width: 180, height: 60 });
+        second.getBoundingClientRect = () => ({
+            top: second.nextElementSibling === first ? 20 : 80,
+            left: 30, width: 180, height: 60
+        });
+        const gapAnimation = { cancel: vi.fn() };
+        second.animate = vi.fn(() => gapAnimation);
+        document.elementFromPoint.mockReturnValue(second.querySelector('.overview-gpu-name'));
+        const grip = first.querySelector('.dashboard-order-grip');
+        const overview = document.getElementById('overview-container');
+        overview.setPointerCapture = vi.fn();
+
+        dispatchPointer(grip, 'pointerdown', {
+            pointerId: 41, pointerType: 'mouse', button: 0, clientX: 40, clientY: 30
+        });
+        dispatchPointer(grip, 'pointermove', {
+            pointerId: 41, pointerType: 'mouse', clientX: 70, clientY: 110
+        });
+
+        const ghost = document.querySelector('.dashboard-order-ghost');
+        expect(ghost).not.toBeNull();
+        expect(ghost.style.transform).toBe('translate(30px, 80px)');
+        expect(ghost.style.left).toBe('30px');
+        expect(ghost.style.top).toBe('20px');
+        expect(ghost.hasAttribute('id')).toBe(false);
+        expect(ghost.getAttribute('aria-hidden')).toBe('true');
+        expect(first.classList.contains('dashboard-ordering')).toBe(true);
+        expect(group.querySelector('.node-grid').lastElementChild).toBe(first);
+        expect(overview.setPointerCapture).toHaveBeenCalledWith(41);
+        expect(second.animate).toHaveBeenCalledWith([
+            { transform: 'translate(0px, 60px)' },
+            { transform: 'translate(0, 0)' }
+        ], { duration: 150, easing: 'ease-out' });
+
+        dispatchPointer(grip, 'pointerup', { pointerId: 41, pointerType: 'mouse' });
+        expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
+        expect(first.classList.contains('dashboard-ordering')).toBe(false);
+        expect(gapAnimation.cancel).toHaveBeenCalled();
+    });
+
+    it('removes the moving node copy and restores its gap on cancel', () => {
+        const layoutStyles = document.createElement('style');
+        layoutStyles.textContent = layoutCss;
+        document.head.appendChild(layoutStyles);
+        const first = addDashboardNode('node-a', ['0']);
+        const second = addDashboardNode('node-b', ['0']);
+        first.getBoundingClientRect = () => ({ top: 0, left: 0, width: 600, height: 100 });
+        second.getBoundingClientRect = () => ({ top: 100, left: 0, width: 600, height: 100 });
+        document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
+        const grip = first.querySelector(':scope > .dashboard-order-grip');
+
+        dispatchPointer(grip, 'pointerdown', {
+            pointerId: 42, pointerType: 'touch', button: 0, clientX: 20, clientY: 20
+        });
+        dispatchPointer(grip, 'pointermove', {
+            pointerId: 42, pointerType: 'touch', clientX: 30, clientY: 180
+        });
+        const ghost = document.querySelector('.dashboard-order-ghost');
+        expect(ghost).not.toBeNull();
+        expect(ghost.hasAttribute('data-layout-kind')).toBe(false);
+        expect(getComputedStyle(ghost).position).toBe('fixed');
+        expect(first.classList.contains('dashboard-ordering')).toBe(true);
+
+        dispatchPointer(grip, 'pointercancel', { pointerId: 42, pointerType: 'touch' });
+        expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
+        expect(first.classList.contains('dashboard-ordering')).toBe(false);
+        expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-b', '0')]);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        layoutStyles.remove();
+    });
+
+    it('restores the starting order when Escape cancels a node drag', () => {
+        const first = addDashboardNode('node-a', ['0']);
+        const second = addDashboardNode('node-b', ['0']);
+        second.getBoundingClientRect = () => ({ top: 100, left: 0, width: 300, height: 60 });
+        document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
+        const grip = first.querySelector(':scope > .dashboard-order-grip');
+
+        dispatchPointer(grip, 'pointerdown', {
+            pointerId: 43, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(grip, 'pointermove', {
+            pointerId: 43, pointerType: 'mouse', clientX: 10, clientY: 140
+        });
+        expect(dashboardKeys()).toEqual([orderKey('node-b', '0'), orderKey('node-a', '0')]);
+
+        const escape = new KeyboardEvent('keydown', {
+            key: 'Escape', bubbles: true, cancelable: true
+        });
+        document.dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-b', '0')]);
+        expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
+        expect(first.classList.contains('dashboard-ordering')).toBe(false);
+        expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(false);
+
+        dispatchPointer(grip, 'pointerup', { pointerId: 43, pointerType: 'mouse' });
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+    });
+
     it('restores an All page touch move when it is cancelled', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
@@ -887,6 +991,11 @@ describe('All page ordering', () => {
 });
 
 describe('ordering interaction styles', () => {
+    it('keeps the drop gap while the pointer copy stays above the page', () => {
+        expect(layoutCss).toMatch(/\.dashboard-ordering\s*\{[^}]*visibility:\s*hidden/s);
+        expect(layoutCss).toMatch(/\.dashboard-order-ghost\s*\{[^}]*position:\s*fixed/s);
+        expect(layoutCss).toMatch(/\.dashboard-order-ghost\s*\{[^}]*pointer-events:\s*none/s);
+    });
     it('places each grip inside contiguous label padding', () => {
         const layoutStyles = document.createElement('style');
         layoutStyles.textContent = layoutCss;
