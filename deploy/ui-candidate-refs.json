@@ -159,6 +159,22 @@
     {
       "name": "static demo page",
       "commit": "22b8994d7273ae84af514109a38ef41487dad36b"
+    },
+    {
+      "name": "model display labels",
+      "commit": "b2cf110779027bf43f70ad061185c7c995526aa4"
+    },
+    {
+      "name": "setup code controls",
+      "commit": "029dc1a7b4632fac2c9209ddaf9b6923522a4a7d"
+    },
+    {
+      "name": "balanced metric wrap",
+      "commit": "08577ba0abeaed23e2412520cc0a44e90642d020"
+    },
+    {
+      "name": "settings layout",
+      "commit": "960a25dab194388f60846940dc0e837ef0e4fd84"
     }
   ],
   "upstream_review": {
