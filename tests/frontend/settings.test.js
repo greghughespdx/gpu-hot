@@ -38,7 +38,6 @@ const defaults = {
     ],
     overviewMetricsCustomized: false,
     theme: 'default',
-    showStarPrompt: true,
     overviewMiniChartBehindDim: 25,
     noticeGpuThrottle: false,
     noticeGpuMissing: false,
@@ -103,7 +102,6 @@ function panelMarkup() {
             <input type="checkbox" data-notice-setting="noticeGpuMissing">
             <input type="checkbox" data-notice-setting="noticeNodeOffline">
             <input type="checkbox" data-notice-setting="noticeExternalFanStopped">
-            <input id="settings-show-star-prompt" type="checkbox">
             <div id="settings-label-list"></div>
             <button id="settings-reset">Reset settings</button>
             <p id="settings-status"></p>
@@ -125,21 +123,22 @@ function panelMarkup() {
 function metricPanelRows() {
     const panel = document.getElementById('settings-panel');
     const inputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
-    const fieldset = document.createElement('fieldset');
-    fieldset.className = 'settings-group';
-    inputs[0].before(fieldset);
+    const metricList = document.createElement('div');
+    metricList.className = 'settings-metric-list';
+    inputs[0].before(metricList);
     inputs.forEach(input => {
         const label = document.createElement('label');
+        label.className = 'settings-check-row';
         label.textContent = input.dataset.overviewSetting.replaceAll('-', ' ');
         input.replaceWith(label);
         label.prepend(input);
-        fieldset.appendChild(label);
+        metricList.appendChild(label);
     });
     const body = document.createElement('div');
     body.className = 'settings-body';
-    fieldset.before(body);
-    body.appendChild(fieldset);
-    return fieldset;
+    metricList.before(body);
+    body.appendChild(metricList);
+    return metricList;
 }
 
 function loadSettingsModule() {
@@ -163,7 +162,6 @@ describe('settings storage', () => {
         delete window.updateSidebarLabels;
         delete window.applySidebarOrder;
         delete window.GPUHotNotices;
-        delete window.setStarPromptEnabled;
     });
     afterEach(() => { vi.restoreAllMocks(); });
 
@@ -253,7 +251,7 @@ describe('settings storage', () => {
         expect(settingsChanged).toHaveBeenCalled();
     });
 
-    it('resets the composed notice, star, and Behind metrics settings together', () => {
+    it('resets the notice and Behind metrics settings without reviving the removed star option', () => {
         panelMarkup();
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
@@ -270,9 +268,7 @@ describe('settings storage', () => {
         localStorage.setItem('gpu-hot.notices.v1', 'saved history');
         localStorage.setItem('gpuHotStarPromptDismissed', 'true');
         const settingsChanged = vi.fn();
-        const setStarPromptEnabled = vi.fn();
         window.GPUHotNotices = { settingsChanged };
-        window.setStarPromptEnabled = setStarPromptEnabled;
         const api = loadSettingsModule();
 
         document.getElementById('settings-reset').click();
@@ -280,7 +276,7 @@ describe('settings storage', () => {
         expect(api.settings).toEqual(defaults);
         expect(Array.from(document.querySelectorAll('[data-notice-setting]'))
             .every(input => input.checked === false)).toBe(true);
-        expect(document.getElementById('settings-show-star-prompt').checked).toBe(true);
+        expect(api.settings).not.toHaveProperty('showStarPrompt');
         expect(document.getElementById('settings-overview-chart-width').value).toBe('auto');
         expect(document.getElementById('settings-overview-chart-behind-dim').value).toBe('25');
         expect(document.documentElement.classList.contains('overview-chart-width-behind')).toBe(false);
@@ -288,7 +284,6 @@ describe('settings storage', () => {
         expect(localStorage.getItem('gpu-hot.notices.v1')).toBe('saved history');
         expect(localStorage.getItem('gpuHotStarPromptDismissed')).toBe('true');
         expect(settingsChanged).toHaveBeenCalledOnce();
-        expect(setStarPromptEnabled).toHaveBeenCalledWith(true);
     });
 
     it('keeps only boolean metric choices and fills missing defaults', () => {
@@ -1289,37 +1284,16 @@ describe('settings panel', () => {
             .toBe('This setting could not be saved. Try again.');
     });
 
-    it('stores the star prompt choice and applies it immediately', () => {
-        const setEnabled = vi.fn();
-        window.setStarPromptEnabled = setEnabled;
-        const api = loadSettingsModule();
-        api.initSettingsPanel();
-        const control = document.getElementById('settings-show-star-prompt');
-
-        expect(control.checked).toBe(true);
-        control.click();
-
-        expect(api.settings.showStarPrompt).toBe(false);
-        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings.showStarPrompt).toBe(false);
-        expect(setEnabled).toHaveBeenCalledWith(false);
-    });
-
-    it('reset restores the star prompt choice to on', () => {
+    it('migrates the removed star prompt choice out of stored settings', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
-            settings: { showStarPrompt: false }
+            settings: { showStarPrompt: false, theme: 'midnight' }
         }));
-        const setEnabled = vi.fn();
-        window.setStarPromptEnabled = setEnabled;
         const api = loadSettingsModule();
-        api.initSettingsPanel();
-
-        expect(document.getElementById('settings-show-star-prompt').checked).toBe(false);
-        document.getElementById('settings-reset').click();
-
-        expect(api.settings.showStarPrompt).toBe(true);
-        expect(document.getElementById('settings-show-star-prompt').checked).toBe(true);
-        expect(setEnabled).toHaveBeenCalledWith(true);
+        expect(api.settings.theme).toBe('midnight');
+        expect(api.settings).not.toHaveProperty('showStarPrompt');
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
+            .toEqual({ ...defaults, theme: 'midnight' });
     });
 
     it('reset restores every metric and the chart column', () => {
@@ -1560,14 +1534,14 @@ describe('settings panel', () => {
         expect(group.dataset.node).toBe('node-a');
         expect(group.querySelector('h4').textContent).toBe('node-a');
         expect(Array.from(group.querySelectorAll('.settings-label-field span'), item => item.textContent))
-            .toEqual(['Node name (shown as node-a)', 'GPU 0 (shown as 0)']);
+            .toEqual(['Node name', 'GPU 0']);
 
         const gpuInput = group.querySelectorAll('input')[1];
         gpuInput.value = 'Training card';
         gpuInput.dispatchEvent(new Event('change'));
         expect(gpu.textContent).toBe('Training card');
         expect(group.querySelectorAll('.settings-label-field span')[1].textContent)
-            .toBe('GPU 0 (shown as Training card)');
+            .toBe('GPU 0');
         expect(group.querySelectorAll('input')[1]).toBe(gpuInput);
 
         const nodeInput = group.querySelectorAll('input')[0];
@@ -1575,7 +1549,7 @@ describe('settings panel', () => {
         nodeInput.dispatchEvent(new Event('change'));
         expect(group.querySelector('h4').textContent).toBe('Compute');
         expect(group.querySelectorAll('.settings-label-field span')[0].textContent)
-            .toBe('Node name (shown as Compute)');
+            .toBe('Node name');
     });
 
     it('drops disconnected names from the panel without deleting saved overrides', () => {
@@ -1730,7 +1704,7 @@ describe('settings panel', () => {
         node.remove();
         api.pruneLabelTargets(document);
         expect(write).not.toHaveBeenCalled();
-        expect(list.textContent).toBe('Connected GPUs will appear here.');
+        expect(list.textContent).toBe('');
 
         const returnedNode = document.createElement('span');
         document.body.append(returnedNode);
@@ -2049,28 +2023,32 @@ describe('settings page contract', () => {
         expect(parsed.getElementById('settings-sidebar-pinned')).toBeNull();
     });
 
-    it('keeps the settings in five subtly separated sections', () => {
+    it('uses five grouped sections with one heading shape and no helper copy', () => {
         const parsed = new DOMParser().parseFromString(template, 'text/html');
         const sections = Array.from(parsed.querySelectorAll('.settings-body > .settings-group'));
 
-        expect(sections.map(section => section.querySelector('h3, legend').textContent))
+        expect(sections.map(section => section.querySelector('h3').textContent))
             .toEqual(['General', 'All page metrics', 'Left bar', 'Names', 'Event notices']);
+        expect(parsed.querySelectorAll('fieldset, legend')).toHaveLength(0);
         expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
         expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
-        expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
+        expect(parsed.getElementById('settings-show-star-prompt')).toBeNull();
         expect(Array.from(sections[0].querySelectorAll('select, input'), control => control.id))
-            .toEqual(['settings-theme', 'settings-move-connection-details', 'settings-show-star-prompt']);
-        expect(sections[0].querySelector('[for="settings-move-connection-details"] strong').textContent)
+            .toEqual(['settings-theme', 'settings-move-connection-details']);
+        expect(sections[0].querySelector('[for="settings-move-connection-details"] span').textContent)
             .toBe('Move connection details into this panel');
-        expect(sections[0].querySelector('.settings-help').textContent)
-            .toBe('This choice is stored in this browser.');
+        expect(parsed.querySelectorAll('.settings-body .settings-help')).toHaveLength(0);
+        expect(parsed.querySelectorAll('.settings-body .settings-note')).toHaveLength(1);
+        expect(sections[1].querySelector('.settings-note').textContent).toBe('Drag to reorder');
         expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
         expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
-        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 20px;/);
-        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group::before \{[^}]*top: -10px;[^}]*height: 1px;[^}]*background: var\(--border-subtle\);/);
+        expect(sections[1].querySelector('.settings-metric-list').children).toHaveLength(18);
+        expect(sections[1].querySelector('[data-overview-setting="chart"]')
+            .closest('.settings-chart-row')).not.toBeNull();
+        expect(sections[1].querySelector('.settings-subgroup-after').children).toHaveLength(2);
     });
 
-    it('renders every section heading at the same weight and gives controls a full-width grid column', () => {
+    it('gives every section the grouped-card style and every select the same row shape', () => {
         const page = new JSDOM(template, { pretendToBeVisual: true });
         try {
             const style = page.window.document.createElement('style');
@@ -2079,16 +2057,23 @@ describe('settings page contract', () => {
 
             const sections = Array.from(page.window.document.querySelectorAll('.settings-body > .settings-group'));
             for (const section of sections) {
-                const heading = section.querySelector('h3, legend');
+                const heading = section.querySelector('h3');
                 const headingStyle = page.window.getComputedStyle(heading);
                 const sectionStyle = page.window.getComputedStyle(section);
-                expect(headingStyle.fontWeight).toBe('700');
-                expect(headingStyle.letterSpacing).toBe('0.03em');
+                expect(headingStyle.fontWeight).toBe('600');
+                expect(headingStyle.letterSpacing).toBe('0.10em');
                 expect(sectionStyle.gridTemplateColumns).toBe('minmax(0, 1fr)');
-                expect(sectionStyle.borderTopWidth).toBe('0px');
             }
-            const themeField = page.window.document.querySelector('#settings-theme').closest('.settings-field');
-            expect(page.window.getComputedStyle(themeField).display).toBe('grid');
+            const selectIds = ['settings-theme', 'settings-overview-chart-width',
+                'settings-sidebar-width', 'settings-sidebar-label'];
+            selectIds.forEach(id => {
+                const field = page.window.document.getElementById(id).closest('.settings-row-select');
+                expect(page.window.getComputedStyle(field).display).toBe('grid');
+                expect(page.window.getComputedStyle(field).gridTemplateColumns)
+                    .toBe('minmax(0, 1fr) minmax(0, 190px)');
+            });
+            const chartRow = page.window.document.querySelector('.settings-chart-row');
+            expect(page.window.getComputedStyle(chartRow).paddingLeft).toBe('22px');
         } finally {
             page.window.close();
         }

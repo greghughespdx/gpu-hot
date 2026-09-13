@@ -143,7 +143,7 @@
         aria-labelledby="settings-title" aria-hidden="true" inert hidden>
         <div class="settings-header">
             <div class="settings-header-main">
-                <h2 id="settings-title">Settings</h2>
+                <h2 id="settings-title" class="settings-visually-hidden">Settings</h2>
                 <button class="settings-close" id="settings-close" type="button" aria-label="Close settings">&times;</button>
             </div>
             <div class="settings-connection-details" id="settings-connection-details" hidden></div>
@@ -151,7 +151,7 @@
         <div class="settings-body">
             <section class="settings-group" aria-labelledby="settings-general-title">
                 <h3 id="settings-general-title">General</h3>
-                <label class="settings-field" for="settings-theme">
+                <label class="settings-row settings-row-select" for="settings-theme">
                     <span>Theme</span>
                     <select id="settings-theme">
                         <option value="default">Default</option>
@@ -159,59 +159,56 @@
                         <option value="high-contrast">High contrast</option>
                     </select>
                 </label>
-                <p class="settings-help">This choice is stored in this browser.</p>
-                <label class="settings-option" for="settings-move-connection-details">
+                <label class="settings-option settings-check-row" for="settings-move-connection-details">
                     <input id="settings-move-connection-details" type="checkbox">
-                    <span>
-                        <strong>Move connection details into this panel</strong>
-                        <small>This clears the space above the dashboard.</small>
-                    </span>
-                </label>
-                <label class="settings-option" for="settings-show-star-prompt">
-                    <input id="settings-show-star-prompt" type="checkbox">
-                    <span>Show the GitHub star prompt</span>
+                    <span>Move connection details into this panel</span>
                 </label>
             </section>
-            <fieldset class="settings-group">
-                <legend>All page metrics</legend>
-                <label><input type="checkbox" data-overview-setting="utilization"> Utilization</label>
-                <label><input type="checkbox" data-overview-setting="temperature"> Temperature</label>
-                <label><input type="checkbox" data-overview-setting="memory"> Memory</label>
-                <label><input type="checkbox" data-overview-setting="power"> Power</label>
-                <label><input type="checkbox" data-overview-setting="chart"> Mini chart</label>
-                <label><input type="checkbox" data-overview-setting="fan-speed"> Fan speed</label>
-                <label><input type="checkbox" data-overview-setting="graphics-clock"> Graphics clock</label>
-                <label><input type="checkbox" data-overview-setting="memory-clock"> Memory clock</label>
-                <label><input type="checkbox" data-overview-setting="memory-used"> Memory used in GB</label>
-                <label><input type="checkbox" data-overview-setting="power-limit"> Power limit</label>
-                <label><input type="checkbox" data-overview-setting="memory-temperature"> Memory temperature</label>
-                <label><input type="checkbox" data-overview-setting="throttle-status"> Throttle status</label>
-                <label><input type="checkbox" data-overview-setting="process-count"> Process count</label>
-                <label><input type="checkbox" data-overview-setting="pcie-generation"> PCIe generation</label>
-                <label><input type="checkbox" data-overview-setting="pcie-width"> PCIe width</label>
-                <label><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
-                <label><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
-                <label><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
-                <label class="settings-field" for="settings-overview-chart-width">
-                    <span>Mini chart width</span>
-                    <select id="settings-overview-chart-width">
-                        <option value="auto">Automatic</option>
-                        <option value="wide">Wide</option>
-                        <option value="full">Full row</option>
-                        <option value="behind">Behind metrics</option>
-                    </select>
-                </label>
-                <label class="settings-field" id="settings-overview-chart-behind-dim-field" for="settings-overview-chart-behind-dim" hidden>
-                    <span>Opacity</span>
-                    <span class="settings-range-row">
-                        <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" step="1" value="25">
-                        <output id="settings-overview-chart-behind-dim-value" for="settings-overview-chart-behind-dim">25%</output>
-                    </span>
-                </label>
-            </fieldset>
-            <fieldset class="settings-group">
-                <legend>Left bar</legend>
-                <label class="settings-field" for="settings-sidebar-width">
+            <section class="settings-group" aria-labelledby="settings-metrics-title">
+                <h3 id="settings-metrics-title">All page metrics</h3>
+                <p class="settings-note settings-note-under-heading">Drag to reorder</p>
+                <div class="settings-subgroup settings-metric-list">
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="utilization"> Utilization</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="temperature"> Temperature</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory"> Memory</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="power"> Power</label>
+                    <label class="settings-check-row settings-chart-row"><input type="checkbox" data-overview-setting="chart"> Mini chart</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="fan-speed"> Fan speed</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="graphics-clock"> Graphics clock</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-clock"> Memory clock</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-used"> Memory used in GB</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="power-limit"> Power limit</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="memory-temperature"> Memory temperature</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="throttle-status"> Throttle status</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="process-count"> Process count</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="pcie-generation"> PCIe generation</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="pcie-width"> PCIe width</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="encoder-load"> Encoder load</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="decoder-load"> Decoder load</label>
+                    <label class="settings-check-row"><input type="checkbox" data-overview-setting="performance-state"> Performance state</label>
+                </div>
+                <div class="settings-subgroup settings-subgroup-after">
+                    <label class="settings-row settings-row-select" for="settings-overview-chart-width">
+                        <span>Mini chart width</span>
+                        <select id="settings-overview-chart-width">
+                            <option value="auto">Automatic</option>
+                            <option value="wide">Wide</option>
+                            <option value="full">Full row</option>
+                            <option value="behind">Behind metrics</option>
+                        </select>
+                    </label>
+                    <label class="settings-row settings-row-slider" id="settings-overview-chart-behind-dim-field" for="settings-overview-chart-behind-dim" hidden>
+                        <span>Opacity</span>
+                        <span class="settings-range-row">
+                            <input id="settings-overview-chart-behind-dim" type="range" min="10" max="100" step="1" value="25">
+                            <output id="settings-overview-chart-behind-dim-value" for="settings-overview-chart-behind-dim">25%</output>
+                        </span>
+                    </label>
+                </div>
+            </section>
+            <section class="settings-group" aria-labelledby="settings-leftbar-title">
+                <h3 id="settings-leftbar-title">Left bar</h3>
+                <label class="settings-row settings-row-select" for="settings-sidebar-width">
                     <span>Width</span>
                     <select id="settings-sidebar-width">
                         <option value="standard">Standard</option>
@@ -219,14 +216,14 @@
                         <option value="wide">Wide</option>
                     </select>
                 </label>
-                <label class="settings-option">
+                <label class="settings-option settings-check-row">
                     <input id="settings-sidebar-auto-hide" type="checkbox">
                     <span>Hide the left bar when not in use</span>
                 </label>
-            </fieldset>
+            </section>
             <section class="settings-group" aria-labelledby="settings-labels-title">
                 <h3 id="settings-labels-title">Names</h3>
-                <label class="settings-field" for="settings-sidebar-label">
+                <label class="settings-row settings-row-select" for="settings-sidebar-label">
                     <span>GPU name style</span>
                     <select id="settings-sidebar-label">
                         <option value="index">Index</option>
@@ -234,17 +231,15 @@
                         <option value="short-name">Short name</option>
                     </select>
                 </label>
-                <p class="settings-help">Choose names that are easier to recognize. Clear a field to restore its default.</p>
                 <div class="settings-label-list" id="settings-label-list"></div>
             </section>
-            <fieldset class="settings-group">
-                <legend>Event notices</legend>
-                <label><input type="checkbox" data-notice-setting="noticeGpuThrottle"> GPU throttling</label>
-                <label><input type="checkbox" data-notice-setting="noticeGpuMissing"> GPU missing</label>
-                <label><input type="checkbox" data-notice-setting="noticeNodeOffline"> Node offline</label>
-                <label><input type="checkbox" data-notice-setting="noticeExternalFanStopped"> External fan stopped</label>
-                <p class="settings-help">Each choice is off until you turn it on.</p>
-            </fieldset>
+            <section class="settings-group" aria-labelledby="settings-notices-title">
+                <h3 id="settings-notices-title">Event notices</h3>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuThrottle"> GPU throttling</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeGpuMissing"> GPU missing</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeNodeOffline"> Node offline</label>
+                <label class="settings-check-row"><input type="checkbox" data-notice-setting="noticeExternalFanStopped"> External fan stopped</label>
+            </section>
             <button class="settings-reset" id="settings-reset" type="button">Reset settings</button>
             <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>

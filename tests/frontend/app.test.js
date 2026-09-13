@@ -56,7 +56,6 @@ function loadAppModule() {
         globalThis.fetchStarCount = fetchStarCount;
         globalThis.formatNumber = formatNumber;
         globalThis.initStarPrompt = initStarPrompt;
-        globalThis.setStarPromptEnabled = setStarPromptEnabled;
     })();`;
     vm.runInThisContext(wrappedCode, { filename: 'app.js' });
 }
@@ -175,7 +174,7 @@ describe('fetchStarCount', () => {
     });
 });
 
-describe('star prompt setting', () => {
+describe('star prompt', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         delete globalThis.GPUHotSettings;
@@ -187,16 +186,15 @@ describe('star prompt setting', () => {
         delete globalThis.GPUHotSettings;
     });
 
-    it('does not fetch, schedule, or render when the setting is off', () => {
+    it('ignores the removed setting and keeps the self-dismissing prompt', () => {
         globalThis.GPUHotSettings = { settings: { showStarPrompt: false } };
-        const schedule = vi.spyOn(globalThis, 'setTimeout');
+        globalThis.fetch.mockResolvedValue({ ok: false });
 
         initStarPrompt();
         vi.advanceTimersByTime(60000);
 
-        expect(globalThis.fetch).not.toHaveBeenCalled();
-        expect(schedule).not.toHaveBeenCalled();
-        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
+        expect(globalThis.fetch).toHaveBeenCalled();
+        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(false);
     });
 
     it('uses the existing default behavior when the setting is absent', () => {
@@ -213,28 +211,16 @@ describe('star prompt setting', () => {
         expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(false);
     });
 
-    it('cancels a pending prompt and hides it when the setting turns off', () => {
-        globalThis.fetch.mockResolvedValue({ ok: false });
-        const cancel = vi.spyOn(globalThis, 'clearTimeout');
-        initStarPrompt();
-
-        setStarPromptEnabled(false);
-        vi.advanceTimersByTime(60000);
-
-        expect(cancel).toHaveBeenCalled();
-        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(true);
-    });
-
-    it('does not fetch or schedule again when an enabled prompt is already visible', () => {
+    it('does not schedule another prompt after dismissal', () => {
         globalThis.fetch.mockResolvedValue({ ok: false });
         initStarPrompt();
         vi.advanceTimersByTime(60000);
+        document.querySelector('#star-toast [data-action="dismiss"]').click();
         globalThis.fetch.mockClear();
         const schedule = vi.spyOn(globalThis, 'setTimeout');
 
-        setStarPromptEnabled(true);
+        initStarPrompt();
 
-        expect(document.getElementById('star-toast').classList.contains('is-hidden')).toBe(false);
         expect(globalThis.fetch).not.toHaveBeenCalled();
         expect(schedule).not.toHaveBeenCalled();
     });

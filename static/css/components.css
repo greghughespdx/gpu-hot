@@ -137,10 +137,6 @@
     max-height: 48px !important;
 }
 
-.settings-field[hidden] {
-    display: none;
-}
-
 .settings-range-row {
     display: grid;
     grid-template-columns: 1fr 44px;
@@ -1262,14 +1258,27 @@
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-md);
-    padding: var(--space-lg);
+    padding: var(--space-sm) var(--space-lg);
     border-bottom: 1px solid var(--border-subtle);
 }
 
 .settings-header-main {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
+    min-height: 36px;
+}
+
+.settings-panel .settings-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
 }
 
 .settings-header h2 {
@@ -1298,6 +1307,7 @@
 .settings-body {
     padding: var(--space-lg);
     color: var(--text-secondary);
+    background: var(--bg-primary);
 }
 
 .settings-panel.settings-overflow .settings-body {
@@ -1308,14 +1318,12 @@
 
 .settings-group h3 {
     margin: 0 0 var(--space-xs);
-    color: var(--text-primary);
-    font-size: 14px;
-}
-
-.settings-help {
-    margin: 0 0 var(--space-md);
-    font-size: 12px;
-    line-height: 1.5;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
 }
 
 .settings-label-list {
@@ -1325,31 +1333,20 @@
 
 .settings-label-node {
     display: grid;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
 }
 
 .settings-label-node h4 {
     margin: 0;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 .settings-label-field {
-    display: grid;
-    gap: var(--space-xs);
-    font-size: 12px;
-}
-
-.settings-label-field input {
-    width: 100%;
-    min-width: 0;
-    padding: var(--space-sm);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    background: var(--bg-primary);
+    font-size: 13px;
     color: var(--text-primary);
-    font: inherit;
 }
 
 .settings-label-field input:focus-visible {
@@ -1370,31 +1367,10 @@ html.settings-connection-in-panel #dashboard-status-home {
     flex-wrap: wrap;
 }
 
-.settings-option {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-sm);
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-.settings-option input {
-    margin-top: 3px;
-}
-
 .settings-option span {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.settings-option strong {
+    display: block;
     font-size: 13px;
-}
-
-.settings-option small {
-    color: var(--text-tertiary);
-    line-height: 1.4;
+    font-weight: 400;
 }
 
 .settings-group {
@@ -1402,40 +1378,23 @@ html.settings-connection-in-panel #dashboard-status-home {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-sm);
     margin: 0;
-    padding: 0;
-    border: 0;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-surface);
 }
 
 .settings-group + .settings-group {
     position: relative;
-    margin-top: 20px;
+    margin-top: 12px;
+    padding-top: 12px;
 }
 
 .settings-group + .settings-group::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--border-subtle);
-}
-
-.settings-group legend {
-    margin-bottom: var(--space-sm);
-    color: var(--text-primary);
-}
-
-.settings-group h3,
-.settings-group legend {
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    content: none;
 }
 
 .settings-group label {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
     cursor: pointer;
 }
 
@@ -1443,8 +1402,7 @@ html.settings-connection-in-panel #dashboard-status-home {
     position: relative;
     display: flex;
     align-items: center;
-    margin-left: -16px;
-    padding-left: 16px;
+    padding-left: 22px;
 }
 
 .settings-metric-row label {
@@ -1464,7 +1422,7 @@ html.settings-connection-in-panel #dashboard-status-home {
     background: transparent;
     color: var(--text-tertiary);
     cursor: grab;
-    opacity: 0;
+    opacity: 1;
     touch-action: none;
 }
 
@@ -1482,11 +1440,6 @@ html.settings-connection-in-panel #dashboard-status-home {
 }
 
 .settings-metric-grip::after { left: 9px; }
-
-.settings-metric-row:hover .settings-metric-grip,
-.settings-metric-grip:focus-visible {
-    opacity: 1;
-}
 
 .settings-metric-row.settings-metric-moving {
     visibility: hidden;
@@ -1512,43 +1465,133 @@ html.settings-connection-in-panel #dashboard-status-home {
     font-weight: 600;
 }
 
-@media (hover: none) {
-    .settings-metric-grip { opacity: 1; }
-}
-.settings-group .settings-field {
+
+.settings-panel .settings-check-row {
     display: grid;
-}
-.settings-field {
-    display: grid;
-    gap: var(--space-sm);
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-sm);
+    min-height: 26px;
     color: var(--text-primary);
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 400;
 }
 
-.settings-field select {
+.settings-panel .settings-check-row input[type="checkbox"] {
+    grid-column: 1;
+    margin: 0;
+    justify-self: center;
+}
+
+.settings-panel .settings-chart-row {
+    padding-left: 22px;
+}
+
+.settings-panel .settings-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 190px);
+    align-items: center;
+    column-gap: var(--space-md);
+    min-height: 30px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+.settings-panel .settings-row > span:first-child {
+    grid-column: 1;
+}
+
+.settings-panel .settings-row select,
+.settings-panel .settings-row input[type="text"],
+.settings-panel .settings-row input:not([type]),
+.settings-panel .settings-row .settings-range-row {
+    grid-column: 2;
     width: 100%;
-    padding: var(--space-sm);
+    min-width: 0;
+}
+
+.settings-panel .settings-row select,
+.settings-panel .settings-row input[type="text"],
+.settings-panel .settings-row input:not([type]) {
+    height: 28px;
+    padding: 0 var(--space-sm);
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
     background: var(--bg-elevated);
     color: var(--text-primary);
     font: inherit;
+    font-size: 13px;
 }
 
-.settings-help {
-    margin-top: var(--space-sm);
-    color: var(--text-tertiary);
+.settings-panel .settings-row-slider .settings-range-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    height: 28px;
+}
+
+.settings-panel .settings-range-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+}
+
+.settings-panel .settings-range-row output {
+    flex: none;
+    width: 34px;
+    text-align: right;
     font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.settings-panel .settings-subgroup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-sm);
+}
+
+.settings-panel .settings-subgroup-after {
+    margin-top: var(--space-md);
+}
+
+.settings-panel .settings-note {
+    margin: var(--space-xs) 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+
+.settings-panel .settings-note-under-heading {
+    margin: -2px 0 var(--space-xs);
+}
+
+.settings-panel .settings-row[hidden] {
+    display: none;
 }
 
 .settings-reset {
-    margin-top: var(--space-md);
+    margin-top: var(--space-lg);
     padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
     background: transparent;
     color: var(--text-primary);
     cursor: pointer;
+}
+
+@media (max-width: 480px) {
+    .settings-panel .settings-row {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: var(--space-xs);
+    }
+
+    .settings-panel .settings-row select,
+    .settings-panel .settings-row input[type="text"],
+    .settings-panel .settings-row input:not([type]),
+    .settings-panel .settings-row .settings-range-row {
+        grid-column: 1;
+    }
 }
 
 .settings-reset:hover,
