@@ -307,6 +307,26 @@ describe('sidebar ordering', () => {
         vi.restoreAllMocks();
     });
 
+    it('preserves a stationary GPU button and lets its click navigate', () => {
+        const button = addOrderedGpu('node-a', '0');
+        const nav = document.getElementById('view-selector');
+        const append = vi.spyOn(nav, 'appendChild');
+        const insert = vi.spyOn(nav, 'insertBefore');
+
+        dispatchPointer(button, 'pointerdown', {
+            pointerId: 91, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(button, 'pointerup', {
+            pointerId: 91, pointerType: 'mouse', clientX: 10, clientY: 10
+        });
+
+        expect(nav.contains(button)).toBe(true);
+        expect(append).not.toHaveBeenCalled();
+        expect(insert).not.toHaveBeenCalled();
+        button.click();
+        expect(global.currentTab).toBe('gpu-node-a-0');
+    });
+
     it.each(['mouse', 'touch'])('reorders with %s pointer input and persists the stable identities', pointerType => {
         const first = addOrderedGpu('node-a', '0');
         const second = addOrderedGpu('node-a', '1');
