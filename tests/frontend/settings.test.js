@@ -650,15 +650,18 @@ describe('settings panel', () => {
             </div><div class="overview-mini-chart"></div></article>`).join(''));
         const api = loadSettingsModule();
         api.initSettingsPanel();
+        const powerCells = Array.from(document.querySelectorAll('.overview-metrics'))
+            .map(card => card.querySelector('[data-overview-metric="power"]'));
         const grip = document.querySelector('[data-metric-order="power"] .settings-metric-grip');
         grip.dispatchEvent(new KeyboardEvent('keydown', {
             key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
         }));
         expect(document.activeElement).toBe(grip);
         expect(document.getElementById('settings-status').textContent).toContain('position 3');
-        for (const card of document.querySelectorAll('.overview-gpu-card .overview-metrics')) {
+        for (const [index, card] of Array.from(document.querySelectorAll('.overview-gpu-card .overview-metrics')).entries()) {
             expect([...card.children].map(cell => cell.dataset.overviewMetric))
                 .toEqual(['utilization', 'temperature', 'power', 'memory']);
+            expect(card.children[2]).toBe(powerCells[index]);
             expect([...card.children].map(cell => cell.textContent))
                 .toEqual(card.firstElementChild.textContent.startsWith('0')
                     ? ['0 util', '0 temp', '0 power', '0 mem']
@@ -721,6 +724,25 @@ describe('settings panel', () => {
         expect(new Set(order).size).toBe(17);
     });
 
+    it('keeps Mini chart in its original fifth settings position', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const displayedMetrics = () => Array.from(fieldset.children)
+            .filter(child => child.matches('.settings-metric-row, label'))
+            .map(child => child.dataset.metricOrder
+                || child.querySelector('[data-overview-setting]')?.dataset.overviewSetting);
+
+        expect(displayedMetrics().slice(0, 6))
+            .toEqual(['utilization', 'temperature', 'memory', 'power', 'chart', 'fan-speed']);
+        const grip = fieldset.querySelector('[data-metric-order="fan-speed"] .settings-metric-grip');
+        grip.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
+        }));
+        expect(displayedMetrics()[4]).toBe('chart');
+        expect(api.settings.overviewMetricOrder[3]).toBe('fan-speed');
+    });
+
     it('drags only from the grip, opens a gap, and saves only a changed order', () => {
         const fieldset = metricPanelRows();
         const api = loadSettingsModule();
@@ -744,6 +766,20 @@ describe('settings panel', () => {
             Object.assign(event, { pointerId: 7, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
             target.dispatchEvent(event);
         };
+        for (const target of [second.querySelector('label'), second.querySelector('input')]) {
+            dispatch('pointerdown', target, 20, 30);
+            dispatch('pointermove', target, 20, 5);
+            expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+            expect(api.settings.overviewMetricOrder.slice(0, 2))
+                .toEqual(['utilization', 'temperature']);
+            dispatch('pointerup', target, 20, 5);
+        }
+        const checkbox = second.querySelector('input');
+        const checkedBefore = checkbox.checked;
+        checkbox.click();
+        expect(checkbox.checked).toBe(!checkedBefore);
+        expect(api.settings.overviewMetricOrder.slice(0, 2))
+            .toEqual(['utilization', 'temperature']);
         dispatch('pointerdown', grip, 20, 30);
         dispatch('pointermove', grip, 20, 5);
         expect(document.querySelector('.settings-metric-ghost')).not.toBeNull();
@@ -833,6 +869,41 @@ describe('settings panel', () => {
         expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('utilization');
         expect(document.querySelector('.settings-metric-ghost')).toBeNull();
         expect(localStorage.getItem(api.STORAGE_KEY)).toBe(before);
+        expect(api.settings.overviewMetricOrder.slice(0, 2)).toEqual(['utilization', 'temperature']);
+    });
+
+    it('Escape cancels a metric drag without closing Settings or saving the order', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        document.getElementById('settings-open').click();
+        fieldset.setPointerCapture = vi.fn();
+        const first = fieldset.querySelector('[data-metric-order="utilization"]');
+        const second = fieldset.querySelector('[data-metric-order="temperature"]');
+        const grip = second.querySelector('.settings-metric-grip');
+        first.getBoundingClientRect = () => ({ left: 10, top: 0, width: 200, height: 20 });
+        second.getBoundingClientRect = () => ({ left: 10, top: 20, width: 200, height: 20 });
+        document.elementFromPoint = vi.fn(() => first);
+        const dispatch = type => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.assign(event, { pointerId: 10, pointerType: 'mouse', button: 0,
+                clientX: 20, clientY: type === 'pointerdown' ? 30 : 5 });
+            grip.dispatchEvent(event);
+        };
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        dispatch('pointerdown');
+        dispatch('pointermove');
+        expect(document.querySelector('.settings-metric-ghost')).not.toBeNull();
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('temperature');
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        document.body.dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(document.getElementById('settings-panel').hidden).toBe(false);
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('utilization');
+        expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+        dispatch('pointerup');
+        expect(write).not.toHaveBeenCalled();
         expect(api.settings.overviewMetricOrder.slice(0, 2)).toEqual(['utilization', 'temperature']);
     });
 

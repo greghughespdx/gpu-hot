@@ -798,6 +798,8 @@
         const metricInputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
         const metricFieldset = metricInputs[0]?.closest('fieldset');
         const chartOption = metricInputs.find(input => input.dataset.overviewSetting === 'chart')?.closest('label');
+        const metricListEnd = metricInputs[metricInputs.length - 1]
+            ?.closest('label')?.nextElementSibling || null;
         const metricRows = new Map();
         if (metricFieldset && chartOption) {
             METRIC_ORDER.forEach(metric => {
@@ -811,8 +813,8 @@
                 grip.className = 'settings-metric-grip';
                 grip.setAttribute('aria-label', `Move ${label.textContent.trim()}`);
                 grip.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
+                metricFieldset.insertBefore(row, label);
                 row.append(grip, label);
-                metricFieldset.insertBefore(row, chartOption);
                 metricRows.set(metric, row);
             });
         }
@@ -821,12 +823,20 @@
             return Array.from(metricFieldset?.querySelectorAll(':scope > .settings-metric-row') || []);
         }
 
+        function placeChartOption() {
+            const fifthMetric = orderedMetricRows()[4];
+            if (fifthMetric && chartOption.nextElementSibling !== fifthMetric) {
+                metricFieldset.insertBefore(chartOption, fifthMetric);
+            }
+        }
+
         function applyMetricRows() {
             if (!metricFieldset || !chartOption) return;
             const rows = settings.overviewMetricOrder.map(metric => metricRows.get(metric)).filter(Boolean);
             if (rows.some((row, index) => row !== orderedMetricRows()[index])) {
-                rows.forEach(row => metricFieldset.insertBefore(row, chartOption));
+                rows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
             }
+            placeChartOption();
         }
 
         function saveMetricRows(previousRows) {
@@ -834,7 +844,8 @@
             if (order.every((metric, index) => metric === settings.overviewMetricOrder[index])) return true;
             const nextSettings = { ...settings, overviewMetricOrder: order, overviewMetricsCustomized: true };
             if (!saveSettings(nextSettings)) {
-                previousRows.forEach(row => metricFieldset.insertBefore(row, chartOption));
+                previousRows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
+                placeChartOption();
                 status.textContent = 'This order could not be saved. Try again.';
                 return false;
             }
@@ -846,9 +857,16 @@
 
         applyMetricRows();
         let metricMove = null;
+        function cancelMetricMoveOnEscape(event) {
+            if (event.key !== 'Escape' || !metricMove) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            finishMetricMove(true);
+        }
         metricFieldset?.addEventListener('pointerdown', event => {
             const grip = event.target.closest('.settings-metric-grip');
-            if (!grip || event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+            if (!grip || metricMove || event.isPrimary === false
+                || (event.button !== undefined && event.button !== 0)) return;
             const row = grip.closest('.settings-metric-row');
             const phone = global.matchMedia?.('(max-width: 768px), (max-height: 480px) and (orientation: landscape)').matches;
             metricMove = {
@@ -856,6 +874,7 @@
                 previousRows: orderedMetricRows(), moved: false, ready: !phone, ghost: null,
                 lastY: event.clientY, timer: null, animations: []
             };
+            documentRef.addEventListener('keydown', cancelMetricMoveOnEscape, true);
             metricFieldset.setPointerCapture?.(event.pointerId);
             if (phone && event.pointerType === 'touch') {
                 metricMove.ready = false;
@@ -869,8 +888,12 @@
         function finishMetricMove(cancelled) {
             if (!metricMove) return;
             const move = metricMove;
+            documentRef.removeEventListener('keydown', cancelMetricMoveOnEscape, true);
             if (move.timer !== null) global.clearTimeout(move.timer);
-            if (cancelled) move.previousRows.forEach(row => metricFieldset.insertBefore(row, chartOption));
+            if (cancelled) {
+                move.previousRows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
+                placeChartOption();
+            }
             else if (move.moved) saveMetricRows(move.previousRows);
             move.row.classList.remove('settings-metric-moving');
             move.ghost?.remove();
@@ -921,6 +944,7 @@
                     const before = new Map(orderedMetricRows()
                         .map(row => [row, row.getBoundingClientRect()]));
                     metricFieldset.insertBefore(move.row, reference);
+                    placeChartOption();
                     orderedMetricRows().forEach(row => {
                         const previous = before.get(row);
                         const current = row.getBoundingClientRect();
@@ -943,11 +967,6 @@
             if (metricMove?.pointerId === event.pointerId) finishMetricMove(true);
         });
         metricFieldset?.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && metricMove) {
-                finishMetricMove(true);
-                event.preventDefault();
-                return;
-            }
             if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
             const grip = event.target.closest('.settings-metric-grip');
             if (!grip) return;
@@ -957,6 +976,7 @@
             const target = previousRows[previousRows.indexOf(row) + offset];
             if (!target) return;
             metricFieldset.insertBefore(row, offset < 0 ? target : target.nextSibling);
+            placeChartOption();
             if (saveMetricRows(previousRows)) {
                 status.textContent = `${row.querySelector('label').textContent.trim()} moved to position ${orderedMetricRows().indexOf(row) + 1}.`;
             }

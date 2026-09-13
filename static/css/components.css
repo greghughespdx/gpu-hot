@@ -1445,7 +1445,6 @@ html.settings-connection-in-panel #dashboard-status-home {
     align-items: center;
     margin-left: -16px;
     padding-left: 16px;
-    min-height: 24px;
 }
 
 .settings-metric-row label {
