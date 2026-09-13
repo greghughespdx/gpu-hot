@@ -129,7 +129,6 @@
         sidebarWidth: value => Object.prototype.hasOwnProperty.call(SIDEBAR_WIDTHS, value),
         sidebarLabel: value => SIDEBAR_LABELS.includes(value),
         sidebarAutoHide: value => typeof value === 'boolean',
-        sidebarPinned: value => typeof value === 'boolean',
         showStarPrompt: value => typeof value === 'boolean',
         theme: value => THEMES.includes(value),
         sidebarOrder: isSidebarOrder,
@@ -165,6 +164,7 @@
         return {
             settings: sanitizeSettings(raw.settings),
             migrated: raw.version === 0
+                || Object.prototype.hasOwnProperty.call(raw.settings || {}, 'sidebarPinned')
         };
     }
 
@@ -385,10 +385,6 @@
         if (width) root.style.setProperty('--sidebar-width', width);
         else root.style.removeProperty('--sidebar-width');
         root.classList.toggle('sidebar-auto-hide', settings.sidebarAutoHide === true);
-        root.classList.toggle(
-            'sidebar-pinned',
-            settings.sidebarAutoHide === true && settings.sidebarPinned === true
-        );
         if (typeof global.updateSidebarLabels === 'function') global.updateSidebarLabels();
     }
 
@@ -519,7 +515,6 @@
         const widthSelect = documentRef.getElementById('settings-sidebar-width');
         const labelSelect = documentRef.getElementById('settings-sidebar-label');
         const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
-        const pinned = documentRef.getElementById('settings-sidebar-pinned');
         const showStarPrompt = documentRef.getElementById('settings-show-star-prompt');
         const themeSelect = documentRef.getElementById('settings-theme');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
@@ -532,15 +527,10 @@
             if (widthSelect) widthSelect.value = settings.sidebarWidth || 'standard';
             if (labelSelect) labelSelect.value = settings.sidebarLabel || 'index';
             if (autoHide) autoHide.checked = settings.sidebarAutoHide === true;
-            if (pinned) {
-                pinned.checked = settings.sidebarAutoHide === true
-                    && settings.sidebarPinned === true;
-                pinned.disabled = settings.sidebarAutoHide !== true;
-            }
         }
 
-        function saveSidebarSetting({ key, value, control, previousValue, relatedSettings = {} }) {
-            const nextSettings = { ...settings, [key]: value, ...relatedSettings };
+        function saveSidebarSetting({ key, value, control, previousValue }) {
+            const nextSettings = { ...settings, [key]: value };
             if (!saveSettings(nextSettings)) {
                 if (control.type === 'checkbox') control.checked = previousValue;
                 else control.value = previousValue;
@@ -575,16 +565,7 @@
                 key: 'sidebarAutoHide',
                 value: autoHide.checked,
                 control: autoHide,
-                previousValue: settings.sidebarAutoHide === true,
-                relatedSettings: autoHide.checked ? {} : { sidebarPinned: false }
-            }));
-        }
-        if (pinned) {
-            pinned.addEventListener('change', () => saveSidebarSetting({
-                key: 'sidebarPinned',
-                value: pinned.checked,
-                control: pinned,
-                previousValue: settings.sidebarPinned === true
+                previousValue: settings.sidebarAutoHide === true
             }));
         }
         syncSidebarControls();
@@ -754,7 +735,7 @@
             overlay.hidden = true;
             openButton.setAttribute('aria-expanded', 'false');
             openButton.focus();
-            if (settings.sidebarAutoHide === true && settings.sidebarPinned !== true) {
+            if (settings.sidebarAutoHide === true) {
                 openButton.blur();
             }
         }

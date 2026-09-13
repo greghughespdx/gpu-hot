@@ -30,16 +30,16 @@
     transition: transform var(--transition-normal), width var(--transition-normal);
 }
 
-html.sidebar-auto-hide:not(.sidebar-pinned) .sidebar {
+html.sidebar-auto-hide .sidebar {
     transform: translateX(calc(-100% + 8px));
 }
 
-html.sidebar-auto-hide:not(.sidebar-pinned) .sidebar:hover,
-html.sidebar-auto-hide:not(.sidebar-pinned) .sidebar:focus-within {
+html.sidebar-auto-hide .sidebar:hover,
+html.sidebar-auto-hide .sidebar:focus-within {
     transform: translateX(0);
 }
 
-html.sidebar-auto-hide:not(.sidebar-pinned) .main {
+html.sidebar-auto-hide .main {
     margin-left: 8px;
 }
 
@@ -465,7 +465,7 @@ html.sidebar-auto-hide:not(.sidebar-pinned) .main {
         gap: var(--space-sm);
     }
 
-    html.sidebar-auto-hide:not(.sidebar-pinned) .main,
+    html.sidebar-auto-hide .main,
     .main {
         margin-left: 0;
         margin-bottom: var(--phone-sidebar-height);

@@ -85,7 +85,6 @@ function panelMarkup() {
                 <option value="short-name">Short name</option>
             </select>
             <input id="settings-sidebar-auto-hide" type="checkbox">
-            <input id="settings-sidebar-pinned" type="checkbox">
             <select id="settings-theme">
                 <option value="default">Default</option>
                 <option value="midnight">Midnight</option>
@@ -315,7 +314,7 @@ describe('settings storage', () => {
         expect(document.documentElement.classList.contains('overview-chart-width-wide')).toBe(true);
     });
 
-    it('validates and applies stored left bar settings before the page is ready', () => {
+    it('migrates a saved pin away and applies the single hide setting before the page is ready', () => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
             settings: {
@@ -332,12 +331,12 @@ describe('settings storage', () => {
             ...defaults,
             sidebarWidth: 'comfortable',
             sidebarLabel: 'node-index',
-            sidebarAutoHide: true,
-            sidebarPinned: true
+            sidebarAutoHide: true
         });
         expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('72px');
         expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
-        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings).toEqual(api.settings);
+        expect(localStorage.getItem(api.STORAGE_KEY)).not.toContain('sidebarPinned');
     });
 
     it('stores a valid sidebar order with the other settings defaults', () => {
@@ -613,7 +612,7 @@ describe('settings panel', () => {
         expect(panel.hidden).toBe(true);
     });
 
-    it('releases sidebar focus after Escape when unpinned auto-hide is active', () => {
+    it('releases sidebar focus after Escape when auto-hide is active', () => {
         const openButton = document.getElementById('settings-open');
         const panel = document.getElementById('settings-panel');
         const api = loadSettingsModule();
@@ -630,15 +629,17 @@ describe('settings panel', () => {
         expect(blur).toHaveBeenCalledOnce();
         expect(document.activeElement).not.toBe(openButton);
         expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
-        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
         expect(source).toMatch(
-            /settings\.sidebarAutoHide === true && settings\.sidebarPinned !== true\) \{\s*openButton\.blur\(\);/
+            /settings\.sidebarAutoHide === true\) \{\s*openButton\.blur\(\);/
         );
         expect(layoutCss).toMatch(
-            /html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.sidebar \{[\s\S]*?translateX\(calc\(-100% \+ 8px\)\)/
+            /html\.sidebar-auto-hide \.sidebar \{[\s\S]*?translateX\(calc\(-100% \+ 8px\)\)/
         );
         expect(layoutCss).toMatch(
-            /html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main \{\s*margin-left: 8px;/
+            /html\.sidebar-auto-hide \.main \{\s*margin-left: 8px;/
+        );
+        expect(layoutCss).toMatch(
+            /html\.sidebar-auto-hide \.sidebar:hover,\s*html\.sidebar-auto-hide \.sidebar:focus-within \{\s*transform: translateX\(0\);/
         );
     });
 
@@ -1061,29 +1062,26 @@ describe('settings panel', () => {
             .toEqual(defaults);
     });
 
-    it('applies left bar settings and clears a pin when auto-hide is turned off', () => {
+    it('applies one hide choice and keeps the bar open when it is off', () => {
         const api = loadSettingsModule();
         window.updateSidebarLabels = vi.fn();
         api.initSettingsPanel();
         const width = document.getElementById('settings-sidebar-width');
         const autoHide = document.getElementById('settings-sidebar-auto-hide');
-        const pinned = document.getElementById('settings-sidebar-pinned');
 
         width.value = 'wide';
         width.dispatchEvent(new Event('change'));
         autoHide.checked = true;
         autoHide.dispatchEvent(new Event('change'));
-        pinned.checked = true;
-        pinned.dispatchEvent(new Event('change'));
         expect(document.documentElement.style.getPropertyValue('--sidebar-width')).toBe('96px');
-        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(true);
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(true);
+        expect(api.settings.sidebarAutoHide).toBe(true);
 
         autoHide.checked = false;
         autoHide.dispatchEvent(new Event('change'));
-        expect(pinned.checked).toBe(false);
-        expect(pinned.disabled).toBe(true);
-        expect(api.settings.sidebarPinned).toBe(false);
-        expect(document.documentElement.classList.contains('sidebar-pinned')).toBe(false);
+        expect(api.settings.sidebarAutoHide).toBe(false);
+        expect(document.documentElement.classList.contains('sidebar-auto-hide')).toBe(false);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings.sidebarAutoHide).toBe(false);
     });
 
     it.each(['auto', 'wide', 'full', 'behind'])(
@@ -1451,7 +1449,9 @@ describe('settings page contract', () => {
         expect(Array.from(parsed.getElementById('settings-sidebar-label').options)
             .map(option => option.value)).toEqual(['index', 'node-index', 'short-name']);
         expect(parsed.getElementById('settings-sidebar-auto-hide')).not.toBeNull();
-        expect(parsed.getElementById('settings-sidebar-pinned')).not.toBeNull();
+        expect(parsed.getElementById('settings-sidebar-auto-hide').parentElement.textContent)
+            .toContain('Hide the left bar when not in use');
+        expect(parsed.getElementById('settings-sidebar-pinned')).toBeNull();
     });
 
     it('uses the full viewport width at phone size', () => {
@@ -1549,7 +1549,7 @@ describe('settings page contract', () => {
             /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/
         );
         expect(layoutCss).toMatch(
-            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?html\.sidebar-auto-hide:not\(\.sidebar-pinned\) \.main,[\s\S]*?margin-left: 0;/
+            /@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?html\.sidebar-auto-hide \.main,[\s\S]*?margin-left: 0;/
         );
     });
 
