@@ -1555,7 +1555,8 @@ describe('settings page contract', () => {
         expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
         expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
         expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
-        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 10px;[^}]*padding-top: 10px;[^}]*border-top: 1px solid var\(--border-subtle\);/);
+        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 20px;/);
+        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group::before \{[^}]*top: -10px;[^}]*height: 1px;[^}]*background: var\(--border-subtle\);/);
     });
 
     it('renders every section heading at the same weight and gives controls a full-width grid column', () => {
@@ -1569,9 +1570,11 @@ describe('settings page contract', () => {
             for (const section of sections) {
                 const heading = section.querySelector('h3, legend');
                 const headingStyle = page.window.getComputedStyle(heading);
+                const sectionStyle = page.window.getComputedStyle(section);
                 expect(headingStyle.fontWeight).toBe('700');
                 expect(headingStyle.letterSpacing).toBe('0.03em');
-                expect(page.window.getComputedStyle(section).gridTemplateColumns).toBe('minmax(0, 1fr)');
+                expect(sectionStyle.gridTemplateColumns).toBe('minmax(0, 1fr)');
+                expect(sectionStyle.borderTopWidth).toBe('0px');
             }
             const themeField = page.window.document.querySelector('#settings-theme').closest('.settings-field');
             expect(page.window.getComputedStyle(themeField).display).toBe('grid');
