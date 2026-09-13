@@ -103,6 +103,10 @@
     {
       "name": "isolated test harness",
       "commit": "b9a85eb277a4f22bc040eb13165ff90c10959a59"
+    },
+    {
+      "name": "settings section rhythm",
+      "commit": "1d141807806cc259db6540232573111777f67a58"
     }
   ],
   "upstream_review": {

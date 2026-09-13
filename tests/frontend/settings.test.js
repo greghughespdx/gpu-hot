@@ -1549,7 +1549,7 @@ describe('settings page contract', () => {
         const sections = Array.from(parsed.querySelectorAll('.settings-body > .settings-group'));
 
         expect(sections.map(section => section.querySelector('h3, legend').textContent))
-            .toEqual(['General', 'All page metrics', 'Left bar', 'Labels', 'Event notices']);
+            .toEqual(['General', 'All page metrics', 'Left bar', 'Names', 'Event notices']);
         expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
         expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
         expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
