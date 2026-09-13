@@ -190,9 +190,11 @@ describe('createEnhancedOverviewCard', () => {
 describe('updateProcesses', () => {
     beforeEach(() => {
         document.body.innerHTML = `
+            <div id="overview-container"></div>
             <div id="processes-container"></div>
             <span id="process-count"></span>
         `;
+        delete window.GPUHotSettings;
     });
     afterEach(() => { delete window.GPUHotSettings; });
 
@@ -205,6 +207,55 @@ describe('updateProcesses', () => {
         const container = document.getElementById('processes-container');
         expect([...container.querySelectorAll('.process-name')].map(el => el.textContent)).toEqual(['python3', 'blender']);
         expect([...container.querySelectorAll('.process-system')].map(el => el.textContent)).toEqual(['render-1', 'render-2']);
+        expect([...container.querySelectorAll('.process-card')].map(el => el.textContent)).toEqual(['GPU 0', 'GPU 0']);
+        expect([...container.querySelectorAll('.process-card-heading')].map(el => el.textContent)).toEqual(['Card']);
+    });
+
+    it('follows node and card order on the All page after a move', () => {
+        const overview = document.getElementById('overview-container');
+        overview.innerHTML = `
+            <section class="node-group" data-layout-kind="node" data-order-node="node-b">
+                <div class="node-grid">
+                    <article data-layout-order-key='["node-b","1"]'><div class="overview-gpu-name"><p>Card B1</p></div></article>
+                    <article data-layout-order-key='["node-b","0"]'><div class="overview-gpu-name"><p>Card B0</p></div></article>
+                </div>
+            </section>
+            <section class="node-group" data-layout-kind="node" data-order-node="node-a">
+                <div class="node-grid"><article data-layout-order-key='["node-a","0"]'><div class="overview-gpu-name"><p>Card A0</p></div></article></div>
+            </section>`;
+        const processes = [
+            { name: 'A', node_name: 'node-a', gpu_id: '0', gpu_key: 'node-a-0', memory: 1 },
+            { name: 'B0', node_name: 'node-b', gpu_id: '0', gpu_key: 'node-b-0', memory: 1 },
+            { name: 'B1', node_name: 'node-b', gpu_id: '1', gpu_key: 'node-b-1', memory: 1 }
+        ];
+        updateProcesses(processes);
+        expect([...document.querySelectorAll('.process-name')].map(cell => cell.textContent))
+            .toEqual(['B1', 'B0', 'A']);
+        expect([...document.querySelectorAll('.process-card')].map(cell => cell.textContent))
+            .toEqual(['Card B1', 'Card B0', 'Card A0']);
+
+        overview.appendChild(overview.firstElementChild);
+        renderProcessesForView('overview');
+        expect([...document.querySelectorAll('.process-name')].map(cell => cell.textContent))
+            .toEqual(['A', 'B1', 'B0']);
+    });
+
+    it('uses the stable GPU identity for custom card and node names', () => {
+        window.GPUHotSettings = {
+            bindNodeLabel: (cell, node) => { cell.textContent = `Name ${node}`; },
+            bindGpuLabel: (cell, node, gpu) => { cell.textContent = `Custom ${node} ${gpu}`; }
+        };
+        updateProcesses([{ name: 'work', node_name: 'raw-node', gpu_id: '2', gpu_key: 'raw-node-2', memory: 1 }]);
+        expect(document.querySelector('.process-system').textContent).toBe('Name raw-node');
+        expect(document.querySelector('.process-card').textContent).toBe('Custom raw-node 2');
+    });
+
+    it('uses the single-GPU model and keeps text safe on a local page', () => {
+        document.getElementById('overview-container').innerHTML =
+            '<article class="single-gpu-overview" data-gpu-id="0"><span class="gpu-detail-name">Local Card</span></article>';
+        updateProcesses([{ name: 'work', node_name: 'GPU Server', gpu_id: '0', gpu_key: '0', memory: 1 }]);
+        expect(document.querySelector('.process-card').textContent).toBe('Local Card');
+        expect(document.querySelector('.process-system').textContent).toBe('GPU Server');
     });
 
     it('keeps the process System name in sync with a node rename', () => {
