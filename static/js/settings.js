@@ -48,7 +48,7 @@
         'overview.chart': true,
         theme: 'default',
         showStarPrompt: true,
-        overviewMiniChartBehindDim: 30,
+        overviewMiniChartBehindDim: 25,
         ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, false]))
     });
     const CHART_WIDTHS = Object.freeze(['auto', 'wide', 'full', 'behind']);
@@ -371,7 +371,7 @@
 
     function applyOverviewMiniChartBehindDim(value, documentRef = global.document) {
         if (!documentRef) return;
-        const selected = ALLOWED_SETTINGS.overviewMiniChartBehindDim(value) ? value : 30;
+        const selected = ALLOWED_SETTINGS.overviewMiniChartBehindDim(value) ? value : 25;
         documentRef.documentElement.style.setProperty(
             '--overview-chart-behind-dim',
             String(selected / 100)
@@ -640,7 +640,7 @@
                 chartBehindDim.value = String(value);
                 if (chartBehindDimValue) chartBehindDimValue.textContent = `${value}%`;
             };
-            syncBehindDimValue(settings.overviewMiniChartBehindDim || 30);
+            syncBehindDimValue(settings.overviewMiniChartBehindDim || 25);
             chartBehindDim.addEventListener('input', () => {
                 const requested = Number(chartBehindDim.value);
                 if (ALLOWED_SETTINGS.overviewMiniChartBehindDim(requested) && chartBehindDimValue) {
@@ -648,7 +648,7 @@
                 }
             });
             chartBehindDim.addEventListener('change', () => {
-                const previous = settings.overviewMiniChartBehindDim || 30;
+                const previous = settings.overviewMiniChartBehindDim || 25;
                 const requested = Number(chartBehindDim.value);
                 const nextSettings = sanitizeSettings({
                     ...settings,
@@ -792,10 +792,10 @@
             applyOverviewMetricVisibility(documentRef);
             if (chartWidth) chartWidth.value = 'auto';
             applyOverviewMiniChartWidth('auto', documentRef);
-            if (chartBehindDim) chartBehindDim.value = '30';
-            if (chartBehindDimValue) chartBehindDimValue.textContent = '30%';
+            if (chartBehindDim) chartBehindDim.value = '25';
+            if (chartBehindDimValue) chartBehindDimValue.textContent = '25%';
             if (chartBehindDimField) chartBehindDimField.hidden = true;
-            applyOverviewMiniChartBehindDim(30, documentRef);
+            applyOverviewMiniChartBehindDim(25, documentRef);
             syncSidebarControls();
             applySidebarSettings(documentRef);
             if (themeSelect) themeSelect.value = settings.theme;
