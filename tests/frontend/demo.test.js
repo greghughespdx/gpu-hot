@@ -16,6 +16,7 @@ function demoWindow(search = '') {
     const { window } = page;
     window.TextEncoder = TextEncoder;
     window.TextDecoder = TextDecoder;
+    window.Response = Response;
     window.fetch = async () => ({ ok: true, json: async () => ({}) });
     const inlineScripts = Array.from(window.document.querySelectorAll('script:not([src])'));
     const preset = inlineScripts.find(script => script.textContent.includes('demoPreset'));
@@ -51,18 +52,34 @@ describe('static fork demo', () => {
         page.window.close();
     });
 
+    it('switches demo presets without asking to replace saved settings', () => {
+        const { page, window, preset } = demoWindow('?preset=default');
+        window.localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1, settings: { theme: 'midnight' }
+        }));
+        window.confirm = () => { throw new Error('The demo should not ask for confirmation'); };
+
+        window.eval(preset.textContent);
+        expect(window.localStorage.getItem('gpu-hot.settings.v1')).toBeNull();
+        window.eval(settings);
+        expect(window.GPUHotSettings.settings.theme).toBe('default');
+        page.window.close();
+    });
+
     it('generates four fresh nodes, an offline placeholder, model processes, and drifting metrics', () => {
         const { page, window, feed } = demoWindow();
         window.eval(feed.textContent);
         const first = window.GPUHotDemo.generateHubPayload(0);
         const later = window.GPUHotDemo.generateHubPayload(5);
         expect(first.mode).toBe('hub');
-        expect(Object.values(first.nodes).filter(node => node.status === 'online')).toHaveLength(4);
+        expect(Object.values(first.nodes).filter(node => node.status === 'online')).toHaveLength(5);
+        expect(Object.values(later.nodes).filter(node => node.status === 'online')).toHaveLength(4);
         expect(first.nodes.inf1.gpus).toHaveProperty('0');
         expect(first.nodes.inf1.gpus).toHaveProperty('1');
         expect(first.nodes.inf2.gpus).toHaveProperty('0');
         expect(first.nodes.inf2.gpus).toHaveProperty('1');
-        expect(first.nodes['http://offline-node.example.invalid:1313'].status).toBe('offline');
+        expect(first.nodes['http://offline-node.example.invalid:1313'].status).toBe('online');
+        expect(later.nodes['http://offline-node.example.invalid:1313'].status).toBe('offline');
         expect(first.nodes.inf1.processes[0].model).toBe('qwen38-q4');
         expect(first.nodes.inf1.gpus['0'].throttle_reasons).toBe('HW Thermal');
         expect(first.nodes['p4000-vm'].gpus['0']).not.toHaveProperty('temperature_memory');
@@ -81,6 +98,18 @@ describe('static fork demo', () => {
         expect(frame.nodes.inf1.processes[0].model).toBe('qwen38-q4');
         socket.close();
         expect(socket.readyState).toBe(window.WebSocket.CLOSED);
+        page.window.close();
+    });
+
+    it('keeps the star-count request inside the demo', async () => {
+        const { page, window, feed } = demoWindow();
+        let networkCalls = 0;
+        window.fetch = async () => { networkCalls += 1; throw new Error('Unexpected network request'); };
+        window.eval(feed.textContent);
+
+        const response = await window.fetch('https://api.github.com/repos/psalias2006/gpu-hot');
+        expect((await response.json()).stargazers_count).toBe(0);
+        expect(networkCalls).toBe(0);
         page.window.close();
     });
 });

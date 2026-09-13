@@ -37,6 +37,8 @@
         // The setup parameter is consumed by settings.js before the first paint.
         const demoPreset = new URL(location.href).searchParams.get('preset');
         if (demoPreset === 'default' || demoPreset === 'features') {
+            // A demo preset replaces the previous demo mode without an import prompt.
+            try { localStorage.removeItem('gpu-hot.settings.v1'); } catch (error) { }
             const selected = demoPreset === 'features' ? {
                 theme: 'midnight',
                 'overview.fan-speed': true,
@@ -346,6 +348,11 @@
                         headers: { 'Content-Type': 'application/json' }
                     }));
                 }
+                if (url.hostname === 'api.github.com' && url.pathname === '/repos/psalias2006/gpu-hot') {
+                    return Promise.resolve(new Response(JSON.stringify({ stargazers_count: 0 }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                }
                 return nativeFetch(input, options);
             };
 
@@ -425,7 +432,13 @@
                             gpus: { '0': gpu('NVIDIA Quadro P4000', 'nvidia', 5, tick, true) },
                             processes: []
                         },
-                        'http://offline-node.example.invalid:1313': { status: 'offline', gpus: {}, processes: [] }
+                        'http://offline-node.example.invalid:1313': tick === 0
+                            ? {
+                                status: 'online', system: system(tick),
+                                gpus: { '0': gpu('Example GPU', 'nvidia', 6, tick) },
+                                processes: []
+                            }
+                            : { status: 'offline', gpus: {}, processes: [] }
                     }
                 };
             }
