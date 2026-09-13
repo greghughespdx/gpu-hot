@@ -1975,6 +1975,10 @@ html.settings-connection-in-panel #dashboard-status-home {
         gap: var(--space-md);
     }
 
+    .overview-gpu-card[data-layout-kind="gpu"] > .overview-metrics {
+        margin-left: 18px;
+    }
+
     .overview-metric-row-break {
         display: none;
     }

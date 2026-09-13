@@ -44,9 +44,18 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let index = 0; index < 2; index += 1) {
         const card = document.createElement('div');
         card.className = 'overview-gpu-card';
+        card.dataset.layoutKind = 'gpu';
         const name = document.createElement('div');
         name.className = 'overview-gpu-name';
-        name.textContent = `GPU ${index}`;
+        const heading = document.createElement('h2');
+        heading.textContent = `GPU ${index}`;
+        const model = document.createElement('p');
+        model.className = 'overview-gpu-model';
+        model.textContent = 'Model name';
+        const cardId = document.createElement('p');
+        cardId.className = 'gpu-uuid';
+        cardId.textContent = `GPU-id-${index}`;
+        name.append(heading, model, cardId);
         const metrics = document.createElement('div');
         metrics.className = 'overview-metrics';
         names.slice(0, count).forEach(([key, caption, reading]) => {
@@ -99,6 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (width === 390 && rows.some(cardRows => cardRows.some((cardRow, index) =>
         cardRow.length !== 2 && !(count % 2 === 1 && index === cardRows.length - 1
             && cardRow.length === 1)))) failures.push('phone columns');
+    if (width === 390 && cards.some(card => {
+        const metricLeft = card.querySelector('.overview-metric').getBoundingClientRect().left;
+        return [...card.querySelectorAll('.overview-gpu-name h2, .overview-gpu-model, .gpu-uuid')]
+            .some(line => Math.abs(line.getBoundingClientRect().left - metricLeft) > 1);
+    })) failures.push('phone metric alignment');
     if (rows.some(cardRows => {
         const lengths = cardRows.map(row => row.length);
         return Math.max(...lengths) - Math.min(...lengths) > 1;
@@ -206,7 +220,8 @@ def main() -> None:
         try:
             for width, height, count in ((1100, 900, 4), (1100, 900, 6),
                                          (1100, 900, 10), (1100, 900, 17),
-                                         (390, 844, 6), (390, 844, 10), (390, 844, 17)):
+                                         (390, 844, 4), (390, 844, 6),
+                                         (390, 844, 10), (390, 844, 17)):
                 with tempfile.TemporaryDirectory(prefix='gpu-hot-wrap-') as profile:
                     url = f'http://127.0.0.1:{server.server_port}/templates/index.html#{width}-{count}'
                     browser = subprocess.run(
