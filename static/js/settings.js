@@ -399,20 +399,23 @@
     function setOverviewBehindMask(card, visibleCount) {
         const chart = card.querySelector('.overview-mini-chart');
         if (visibleCount === 0) {
+            card.classList.remove('overview-metrics-wrapped');
             resetOverviewBehindMask(card, chart);
             return;
         }
         const visibleMetrics = Array.from(card.querySelectorAll('.overview-metric'))
             .filter(metric => !metric.hidden);
-        if (!chart || visibleMetrics.length === 0) return;
+        if (!chart || visibleMetrics.length === 0) {
+            card.classList.remove('overview-metrics-wrapped');
+            return;
+        }
         const firstMetric = visibleMetrics[0].getBoundingClientRect();
         const lastMetricElement = visibleMetrics[visibleMetrics.length - 1];
         const lastMetric = lastMetricElement.getBoundingClientRect();
-        if (Math.abs(lastMetric.top - firstMetric.top) > 1) {
-            card.style.removeProperty('--overview-chart-behind-fade-start');
-            card.style.removeProperty('--overview-chart-behind-fade-end');
-            chart.style.setProperty('-webkit-mask-image', 'none');
-            chart.style.setProperty('mask-image', 'none');
+        const wrapped = Math.abs(lastMetric.top - firstMetric.top) > 1;
+        card.classList.toggle('overview-metrics-wrapped', wrapped);
+        if (wrapped) {
+            resetOverviewBehindMask(card, chart);
             return;
         }
         resetOverviewBehindMask(card, chart);

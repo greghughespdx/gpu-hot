@@ -1340,10 +1340,17 @@ describe('settings panel', () => {
         expect(tokensCss).toContain('--overview-metric-gap: var(--space-xl);');
     });
 
-    it('removes the Behind metrics mask when visible metrics wrap', () => {
+    it.each([
+        [5, 1440], [6, 1440], [5, 390], [6, 390]
+    ])('keeps the chosen opacity when %i metrics wrap at %i px', (count, width) => {
         localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
             version: 1,
-            settings: { 'overview.fan-speed': true }
+            settings: {
+                'overview.fan-speed': true,
+                'overview.graphics-clock': count === 6,
+                overviewMiniChartWidth: 'behind',
+                overviewMiniChartBehindDim: 45
+            }
         }));
         document.body.insertAdjacentHTML('beforeend', `
             <div class="overview-gpu-card">
@@ -1352,6 +1359,7 @@ describe('settings panel', () => {
                 <div class="overview-metric" data-overview-metric="memory"></div>
                 <div class="overview-metric" data-overview-metric="power"></div>
                 <div class="overview-metric" data-overview-metric="fan-speed"></div>
+                <div class="overview-metric" data-overview-metric="graphics-clock"></div>
                 <div class="overview-mini-chart"></div>
             </div>
         `);
@@ -1360,13 +1368,29 @@ describe('settings panel', () => {
         const metrics = card.querySelectorAll('.overview-metric');
         metrics.forEach((metric, index) => {
             metric.getBoundingClientRect = () => ({ left: index * 80, right: index * 80 + 72,
-                top: index === metrics.length - 1 ? 50 : 10 });
+                top: index >= (width === 390 ? 2 : 4) ? 50 : 10 });
         });
-        card.querySelector('.overview-mini-chart').getBoundingClientRect = () => ({ left: 0 });
+        const chart = card.querySelector('.overview-mini-chart');
+        chart.getBoundingClientRect = () => ({ left: 0 });
+        chart.style.maskImage = 'none';
 
         api.applyOverviewMetricVisibility(document);
 
-        expect(card.querySelector('.overview-mini-chart').style.maskImage).toBe('none');
+        expect(card.classList.contains('overview-metrics-wrapped')).toBe(true);
+        expect(chart.style.maskImage).toBe('');
+        expect(document.documentElement.style.getPropertyValue('--overview-chart-behind-dim'))
+            .toBe('0.45');
+        expect(componentsCss).toMatch(
+            /\.overview-metrics-wrapped:not\(\.overview-chart-hidden\) \.overview-mini-chart \{[^}]*-webkit-mask-image: linear-gradient\(to right,[^}]*var\(--overview-chart-behind-dim\)\) 0,[^}]*var\(--overview-chart-behind-dim\)\) 100%\);[^}]*mask-image: linear-gradient\(to right,[^}]*var\(--overview-chart-behind-dim\)\) 0,[^}]*var\(--overview-chart-behind-dim\)\) 100%\);/
+        );
+
+        metrics.forEach(metric => {
+            metric.getBoundingClientRect = () => ({ left: 10, right: 82, top: 10 });
+        });
+        api.applyOverviewMetricVisibility(document);
+        expect(card.classList.contains('overview-metrics-wrapped')).toBe(false);
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end'))
+            .toBe('calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap))');
     });
 
     it('fills a newly enabled metric from the latest GPU payload immediately', () => {
