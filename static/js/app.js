@@ -63,7 +63,7 @@ function initStarPrompt() {
     const dismissKey = 'gpuHotStarPromptDismissed';
     const toast = document.getElementById('star-toast');
 
-    if (!toast || window.GPUHotSettings?.settings?.showStarPrompt === false) {
+    if (!toast) {
         return;
     }
 
@@ -104,25 +104,10 @@ function initStarPrompt() {
     const showDelayMs = 60 * 1000;
     starPromptTimerId = setTimeout(() => {
         starPromptTimerId = null;
-        if (window.GPUHotSettings?.settings?.showStarPrompt !== false
-            && localStorage.getItem(dismissKey) !== 'true') {
+        if (localStorage.getItem(dismissKey) !== 'true') {
             toast.classList.remove('is-hidden');
         }
     }, showDelayMs);
-}
-
-function setStarPromptEnabled(enabled) {
-    const toast = document.getElementById('star-toast');
-    if (!enabled) {
-        if (starPromptTimerId !== null) {
-            clearTimeout(starPromptTimerId);
-            starPromptTimerId = null;
-        }
-        toast?.classList.add('is-hidden');
-        return;
-    }
-    if (toast && !toast.classList.contains('is-hidden')) return;
-    initStarPrompt();
 }
 
 /**
