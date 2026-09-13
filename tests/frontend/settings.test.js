@@ -98,6 +98,8 @@ function panelMarkup() {
                 <option value="midnight">Midnight</option>
                 <option value="high-contrast">High contrast</option>
             </select>
+            <button id="settings-copy-setup" type="button">Copy setup code</button>
+            <button id="settings-paste-setup" type="button">Paste setup code</button>
             <input type="checkbox" data-notice-setting="noticeGpuThrottle">
             <input type="checkbox" data-notice-setting="noticeGpuMissing">
             <input type="checkbox" data-notice-setting="noticeNodeOffline">
@@ -150,6 +152,7 @@ function loadSettingsModule() {
 describe('settings storage', () => {
     beforeEach(() => {
         localStorage.clear();
+        window.history.replaceState(null, '', '/');
         document.body.innerHTML = '';
         document.documentElement.classList.remove(
             'settings-connection-in-panel',
@@ -164,6 +167,89 @@ describe('settings storage', () => {
         delete window.GPUHotNotices;
     });
     afterEach(() => { vi.restoreAllMocks(); });
+
+    it('round trips the full settings set, including names, order, theme and Unicode', () => {
+        const api = loadSettingsModule();
+        const selected = {
+            ...defaults,
+            'overview.fan-speed': true,
+            overviewMetricsCustomized: true,
+            moveConnectionDetails: true,
+            overviewMiniChartWidth: 'behind',
+            overviewMiniChartBehindDim: 60,
+            sidebarWidth: 'wide',
+            sidebarLabel: 'node-index',
+            sidebarAutoHide: true,
+            noticeGpuThrottle: true,
+            noticeGpuMissing: true,
+            noticeNodeOffline: true,
+            noticeExternalFanStopped: true,
+            theme: 'midnight',
+            sidebarOrder: [JSON.stringify(['node-a', '0'])],
+            overviewMetricOrder: [...defaults.overviewMetricOrder].reverse(),
+            labelOverrides: [{ kind: 'gpu', node: 'node-a', gpu: '0', label: 'Test \u03bb' }]
+        };
+        const code = api.exportSetupCode(selected);
+        expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
+        expect(api.decodeSetupCode(code)).toEqual(selected);
+        const raw = JSON.parse(Buffer.from(code, 'base64url').toString('utf8'));
+        raw.settings.unrecognized = true;
+        expect(api.decodeSetupCode(Buffer.from(JSON.stringify(raw)).toString('base64url'))).toBeNull();
+    });
+
+    it('applies a setup URL before the panel initializes and removes only that parameter', () => {
+        const api = loadSettingsModule();
+        const code = api.exportSetupCode({ ...defaults, theme: 'high-contrast', moveConnectionDetails: true });
+        window.history.replaceState(null, '', `/?keep=1&setup=${code}#section`);
+        const imported = loadSettingsModule();
+        expect(imported.settings.theme).toBe('high-contrast');
+        expect(document.documentElement.dataset.theme).toBe('high-contrast');
+        expect(document.documentElement.classList.contains('settings-connection-in-panel')).toBe(true);
+        expect(window.location.search).toBe('?keep=1');
+        expect(window.location.hash).toBe('#section');
+        expect(imported.loadSettings().theme).toBe('high-contrast');
+    });
+
+    it('asks before replacing stored settings from a URL or the panel', () => {
+        panelMarkup();
+        const api = loadSettingsModule();
+        const code = api.exportSetupCode({ ...defaults, theme: 'midnight' });
+        api.saveSettings({ ...defaults, theme: 'high-contrast' });
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        window.history.replaceState(null, '', `/?setup=${code}`);
+        expect(loadSettingsModule().settings.theme).toBe('high-contrast');
+        expect(confirm).toHaveBeenCalledOnce();
+        expect(window.location.search).toBe('');
+        vi.spyOn(window, 'prompt').mockReturnValue(code);
+        document.getElementById('settings-paste-setup').click();
+        expect(api.loadSettings().theme).toBe('high-contrast');
+        confirm.mockReturnValue(true);
+        vi.useFakeTimers();
+        document.getElementById('settings-paste-setup').click();
+        expect(api.loadSettings().theme).toBe('midnight');
+        vi.useRealTimers();
+    });
+
+    it('copies the current settings and refuses an invalid pasted code', async () => {
+        panelMarkup();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
+        Object.defineProperty(window.navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText }
+        });
+        const prompt = vi.spyOn(window, 'prompt').mockReturnValue('not valid!');
+        const api = loadSettingsModule();
+        document.getElementById('settings-copy-setup').click();
+        await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+        expect(api.decodeSetupCode(writeText.mock.calls[0][0])).toEqual(defaults);
+        document.getElementById('settings-paste-setup').click();
+        expect(prompt).toHaveBeenCalledWith('Paste setup code');
+        expect(document.getElementById('settings-status').textContent).toMatch(/could not be read/);
+        expect(localStorage.getItem(api.STORAGE_KEY)).toBeNull();
+        if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
+        else delete window.navigator.clipboard;
+    });
 
     it.each([
         ['missing data', null],

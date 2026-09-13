@@ -9,6 +9,8 @@
 
     const STORAGE_KEY = 'gpu-hot.settings.v1';
     const STORAGE_VERSION = 1;
+    const SETUP_PARAMETER = 'setup';
+    const MAX_SETUP_CODE_LENGTH = 2000000;
     const THEMES = Object.freeze(['default', 'midnight', 'high-contrast']);
     const CORE_OVERVIEW_METRICS = Object.freeze([
         'utilization',
@@ -220,6 +222,50 @@
         } catch (error) {
             return false;
         }
+    }
+
+    function exportSetupCode(candidate = settings) {
+        const json = JSON.stringify({ version: STORAGE_VERSION, settings: sanitizeSettings(candidate) });
+        const bytes = new (global.TextEncoder || TextEncoder)().encode(json);
+        let binary = '';
+        bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+        return global.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function decodeSetupCode(code) {
+        if (typeof code !== 'string' || code.length === 0
+            || code.length > MAX_SETUP_CODE_LENGTH || !/^[A-Za-z0-9_-]+$/.test(code)) return null;
+        try {
+            const binary = global.atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+            const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+            const raw = JSON.parse(new (global.TextDecoder || TextDecoder)('utf-8', { fatal: true }).decode(bytes));
+            if (!raw || !raw.settings || typeof raw.settings !== 'object'
+                || Array.isArray(raw.settings)) return null;
+            const legacyKeys = ['sidebarPinned', 'showStarPrompt'];
+            if (Object.keys(raw.settings).some(key => !Object.prototype.hasOwnProperty.call(ALLOWED_SETTINGS, key)
+                && !legacyKeys.includes(key))) return null;
+            return decodeSettings(raw)?.settings || null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function loadInitialSettings() {
+        const stored = loadSettings();
+        if (!global.location?.href || !global.history?.replaceState) return stored;
+        const url = new URL(global.location.href);
+        const code = url.searchParams.get(SETUP_PARAMETER);
+        if (code === null) return stored;
+        url.searchParams.delete(SETUP_PARAMETER);
+        global.history.replaceState(global.history.state, '', url.toString());
+        const imported = decodeSetupCode(code);
+        if (!imported) return stored;
+        const hasSettings = (() => {
+            try { return global.localStorage.getItem(STORAGE_KEY) !== null; }
+            catch (error) { return false; }
+        })();
+        if (hasSettings && !global.confirm('Replace the settings saved in this browser?')) return stored;
+        return saveSettings(imported) ? imported : stored;
     }
 
     function applyConnectionDetailsLocation(moveToSettings, documentRef) {
@@ -722,10 +768,41 @@
         const labelSelect = documentRef.getElementById('settings-sidebar-label');
         const autoHide = documentRef.getElementById('settings-sidebar-auto-hide');
         const themeSelect = documentRef.getElementById('settings-theme');
+        const copySetup = documentRef.getElementById('settings-copy-setup');
+        const pasteSetup = documentRef.getElementById('settings-paste-setup');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+        copySetup?.addEventListener('click', async () => {
+            const code = exportSetupCode();
+            try {
+                if (!global.navigator?.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await global.navigator.clipboard.writeText(code);
+                status.textContent = 'Setup code copied.';
+            } catch (error) {
+                global.prompt('Copy setup code', code);
+                status.textContent = 'Copy the setup code shown.';
+            }
+        });
+        pasteSetup?.addEventListener('click', () => {
+            const code = global.prompt('Paste setup code');
+            if (code === null) return;
+            const imported = decodeSetupCode(code.trim());
+            if (!imported) {
+                status.textContent = 'That setup code could not be read. Check it and try again.';
+                return;
+            }
+            let hasSettings = false;
+            try { hasSettings = global.localStorage.getItem(STORAGE_KEY) !== null; }
+            catch (error) { /* Saving below reports the failure. */ }
+            if (hasSettings && !global.confirm('Replace the settings saved in this browser?')) return;
+            if (!saveSettings(imported)) {
+                status.textContent = 'The setup code could not be saved. Try again.';
+                return;
+            }
+            global.setTimeout(() => global.location.reload(), 0);
+        });
         global.addEventListener('resize', () => scheduleOverviewBehindMasks(documentRef));
         renderLabelControls(documentRef);
 
@@ -1214,7 +1291,7 @@
         return { openPanel, closePanel };
     }
 
-    const settings = loadSettings();
+    const settings = loadInitialSettings();
     if (global.document) {
         applyConnectionDetailsLocation(settings.moveConnectionDetails === true, global.document);
         applyOverviewMiniChartWidth(
@@ -1233,6 +1310,8 @@
         EXTRA_OVERVIEW_METRICS,
         settings,
         loadSettings,
+        exportSetupCode,
+        decodeSetupCode,
         saveSettings,
         resetSettings,
         applyConnectionDetailsLocation,
