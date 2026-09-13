@@ -1262,6 +1262,123 @@ describe('settings panel', () => {
         expect(api.settings.labelOverrides).toBeUndefined();
     });
 
+    it('keeps a focused draft through a four-GPU node reconnect', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const firstNode = document.createElement('span');
+        const secondNode = document.createElement('span');
+        document.body.append(firstNode, secondNode);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(firstNode, 'node-a');
+        api.registerNodeLabelTarget('node-b');
+        api.bindNodeLabel(secondNode, 'node-b');
+        document.getElementById('settings-open').click();
+        const draftInput = document.querySelector('.settings-label-node[data-node="node-a"] input');
+        draftInput.focus();
+        draftInput.value = 'Unfinished';
+        draftInput.setSelectionRange(2, 6);
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+
+        secondNode.remove();
+        api.pruneLabelTargets(document);
+        const returnedNode = document.createElement('span');
+        document.body.append(returnedNode);
+        api.registerNodeLabelTarget('node-b');
+        api.bindNodeLabel(returnedNode, 'node-b');
+        for (let gpu = 0; gpu < 4; gpu += 1) {
+            const output = document.createElement('span');
+            document.body.append(output);
+            api.registerGpuLabelTarget('node-b', String(gpu));
+            api.bindGpuLabel(output, 'node-b', String(gpu));
+        }
+
+        expect(document.querySelector('.settings-label-node[data-node="node-a"] input'))
+            .toBe(draftInput);
+        expect(document.activeElement).toBe(draftInput);
+        expect(draftInput.value).toBe('Unfinished');
+        expect(draftInput.selectionStart).toBe(2);
+        expect(draftInput.selectionEnd).toBe(6);
+        expect(document.querySelectorAll('.settings-label-node[data-node="node-b"] input'))
+            .toHaveLength(5);
+        expect(write).not.toHaveBeenCalled();
+    });
+
+    it('holds its own draft through disconnect without a detach commit', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const firstNode = document.createElement('span');
+        const secondNode = document.createElement('span');
+        document.body.append(firstNode, secondNode);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(firstNode, 'node-a');
+        api.registerNodeLabelTarget('node-b');
+        api.bindNodeLabel(secondNode, 'node-b');
+        document.getElementById('settings-open').click();
+        const field = document.querySelector('.settings-label-node[data-node="node-b"] .settings-label-field');
+        const input = field.querySelector('input');
+        input.focus();
+        input.value = 'Not confirmed';
+        input.setSelectionRange(4, 8);
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        const originalRemove = Element.prototype.remove;
+        vi.spyOn(Element.prototype, 'remove').mockImplementation(function () {
+            if (this === field) input.dispatchEvent(new Event('change'));
+            return originalRemove.call(this);
+        });
+
+        secondNode.remove();
+        api.pruneLabelTargets(document);
+        expect(write).not.toHaveBeenCalled();
+        expect(api.settings.labelOverrides).toBeUndefined();
+
+        const returnedNode = document.createElement('span');
+        document.body.append(returnedNode);
+        api.registerNodeLabelTarget('node-b');
+        api.bindNodeLabel(returnedNode, 'node-b');
+        const restored = document.querySelector('.settings-label-node[data-node="node-b"] input');
+        expect(restored.value).toBe('Not confirmed');
+        expect(restored.selectionStart).toBe(4);
+        expect(restored.selectionEnd).toBe(8);
+        expect(write).not.toHaveBeenCalled();
+
+        restored.dispatchEvent(new Event('change'));
+        expect(api.settings.labelOverrides).toEqual([
+            { kind: 'node', node: 'node-b', label: 'Not confirmed' }
+        ]);
+    });
+
+    it('holds a draft when the last displayed node disconnects', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const node = document.createElement('span');
+        document.body.append(node);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(node, 'node-a');
+        document.getElementById('settings-open').click();
+        const input = document.querySelector('#settings-label-list input');
+        input.focus();
+        input.value = 'Come back';
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        const list = document.getElementById('settings-label-list');
+        const originalReplace = list.replaceChildren;
+        vi.spyOn(list, 'replaceChildren').mockImplementation(function (...children) {
+            input.dispatchEvent(new Event('change'));
+            return originalReplace.apply(this, children);
+        });
+
+        node.remove();
+        api.pruneLabelTargets(document);
+        expect(write).not.toHaveBeenCalled();
+        expect(list.textContent).toBe('Connected GPUs will appear here.');
+
+        const returnedNode = document.createElement('span');
+        document.body.append(returnedNode);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(returnedNode, 'node-a');
+        expect(list.querySelector('input').value).toBe('Come back');
+        expect(write).not.toHaveBeenCalled();
+    });
+
     it('does not replace an active field when the same GPU is reported again', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
