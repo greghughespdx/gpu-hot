@@ -79,6 +79,30 @@
     {
       "name": "candidate collector number safety",
       "commit": "50be514b5d48202d22d0493ff250066c285b5f00"
+    },
+    {
+      "name": "left bar auto-hide control",
+      "commit": "aeb772ee977e121b82c25ca10b9f9c2a218af921"
+    },
+    {
+      "name": "Behind metrics fade geometry",
+      "commit": "efaf912094e44b08d10efcff1fbbae15e23b1a38"
+    },
+    {
+      "name": "left bar label fit",
+      "commit": "5e052769cd97e60a3eeb53b479c8790a7110bfb2"
+    },
+    {
+      "name": "displayed names settings",
+      "commit": "5b16568ee9a125bfa16c0c131f8b3c528f6ba8fa"
+    },
+    {
+      "name": "left bar click preservation",
+      "commit": "07d3525a6429c74e43c2cde4c4c8d16b4f248aa6"
+    },
+    {
+      "name": "isolated test harness",
+      "commit": "b9a85eb277a4f22bc040eb13165ff90c10959a59"
     }
   ],
   "upstream_review": {
