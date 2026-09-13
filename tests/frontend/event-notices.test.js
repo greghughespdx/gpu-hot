@@ -430,11 +430,14 @@ describe('event notices', () => {
 
         expect(document.querySelectorAll('.event-notice img, .event-notice script, .event-notice svg')).toHaveLength(0);
         expect(document.querySelector('.event-notice').textContent).toContain('<img src=x onerror=alert(1)>');
+        expect(document.querySelector('.event-notice').textContent).toContain('<script>alert(1)</script>');
         expect(document.querySelector('.event-notice').textContent).toContain('<svg onload=alert(1)>');
 
         window.GPUHotSettings.nodeDisplayLabel = () => 'Friendly node';
+        window.GPUHotSettings.gpuDisplayLabel = () => 'Training card';
         api.render();
         expect(document.querySelector('.event-notice').textContent).toContain('Friendly node');
+        expect(document.querySelector('.event-notice').textContent).toContain('Training card');
     });
 
     it('contains quota failures and keeps live rendering available', () => {

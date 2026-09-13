@@ -798,16 +798,27 @@ describe('composed node labels and ordering', () => {
         document.body.appendChild(container);
 
         const group = createNodeGroup(container, 'node-a', 'node-a');
+        const card = createClusterGPUCard('node-a', '0', {
+            name: 'RTX 3090', utilization: 25, temperature: 40,
+            memory_used: 10, memory_total: 100, power_draw: 20
+        });
+        group.querySelector('.node-grid').appendChild(card);
+        window.registerDashboardGpu(card, 'node-a', '0');
+        window.GPUHotSettings.bindGpuLabel(
+            card.querySelector('.overview-gpu-name h2'), 'node-a', '0', 'GPU 0'
+        );
         const grip = group.querySelector(':scope > .dashboard-order-grip');
         expect(grip).not.toBeNull();
         expect(group.querySelector('.node-label').textContent).toBe('node-a');
 
         window.GPUHotSettings.settings.labelOverrides = [
-            { kind: 'node', node: 'node-a', label: 'Renamed node' }
+            { kind: 'node', node: 'node-a', label: 'Renamed node' },
+            { kind: 'gpu', node: 'node-a', gpu: '0', label: 'Training card' }
         ];
         window.GPUHotSettings.applyDisplayLabels(document);
 
         expect(group.querySelector('.node-label').textContent).toBe('Renamed node');
+        expect(card.querySelector('.overview-gpu-name h2').textContent).toBe('Training card');
         expect(group.querySelector(':scope > .dashboard-order-grip')).toBe(grip);
         expect(group.querySelectorAll(':scope > .dashboard-order-grip')).toHaveLength(1);
     });

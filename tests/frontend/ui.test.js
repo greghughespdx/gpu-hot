@@ -1021,6 +1021,39 @@ describe('All page ordering', () => {
         expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
     });
 
+    it('copies resolved node and GPU names into both drag ghosts', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: { labelOverrides: [
+                { kind: 'node', node: 'node-a', label: 'Compute' },
+                { kind: 'gpu', node: 'node-a', gpu: '0', label: 'Training card' }
+            ] }
+        }));
+        const api = loadSettingsModule();
+        const group = addDashboardNode('node-a', ['0']);
+        api.bindNodeLabel(group.querySelector('.node-label'), 'node-a');
+        const card = group.querySelector('.overview-gpu-card');
+        const title = document.createElement('h2');
+        card.querySelector('.overview-gpu-name').appendChild(title);
+        api.bindGpuLabel(title, 'node-a', '0');
+
+        for (const [grip, pointerId] of [
+            [group.querySelector(':scope > .dashboard-order-grip'), 61],
+            [card.querySelector('.dashboard-order-grip'), 62]
+        ]) {
+            dispatchPointer(grip, 'pointerdown', {
+                pointerId, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+            });
+            dispatchPointer(grip, 'pointermove', {
+                pointerId, pointerType: 'mouse', clientX: 30, clientY: 30
+            });
+            const ghost = document.querySelector('.dashboard-order-ghost');
+            expect(ghost.textContent).toContain('Training card');
+            if (pointerId === 61) expect(ghost.textContent).toContain('Compute');
+            dispatchPointer(grip, 'pointercancel', { pointerId, pointerType: 'mouse' });
+        }
+    });
+
     it('ignores a second non-primary touch', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
@@ -1206,6 +1239,51 @@ describe('label override integration', () => {
         expect(button.title).toBe('Training card');
         expect(card.querySelector('.gpu-detail-title').textContent).toBe('Training card');
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
+    });
+
+    it('uses a renamed node in the rail and detail title without changing GPU identity', () => {
+        document.body.insertAdjacentHTML('beforeend',
+            '<div id="settings-label-list"></div><p id="settings-status"></p>');
+        const api = loadSettingsModule();
+        api.settings.sidebarLabel = 'node-index';
+        ensureGPUTab('node-a-0', { name: 'RTX 3090', utilization: 50 }, {
+            shouldUpdateDOM: false,
+            nodeName: 'node-a',
+            sourceGpuId: '0'
+        });
+        const nodeLabel = document.createElement('span');
+        document.body.append(nodeLabel);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(nodeLabel, 'node-a');
+        const nodeField = Array.from(document.querySelectorAll('.settings-label-field'))
+            .find(field => JSON.parse(field.dataset.labelKey)[0] === 'node');
+        const nodeInput = nodeField.querySelector('input');
+        nodeInput.value = 'Compute';
+        nodeInput.dispatchEvent(new Event('change'));
+
+        const button = document.querySelector('[data-view="gpu-node-a-0"]');
+        const detailTitle = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
+        expect(nodeLabel.textContent).toBe('Compute');
+        expect(button.textContent).toBe('Compute 0');
+        expect(button.title).toContain('Compute-0');
+        expect(detailTitle.textContent).toBe('GPU Compute-0');
+        expect(button.dataset.gpuNode).toBe('node-a');
+        expect(button.dataset.sourceGpuId).toBe('0');
+
+        const gpuField = Array.from(document.querySelectorAll('.settings-label-field'))
+            .find(field => JSON.parse(field.dataset.labelKey)[0] === 'gpu');
+        const gpuInput = gpuField.querySelector('input');
+        gpuInput.value = 'Training card';
+        gpuInput.dispatchEvent(new Event('change'));
+        api.settings.sidebarLabel = 'index';
+        api.applySidebarSettings(document);
+        expect(button.textContent).toBe('Training card');
+        expect(detailTitle.textContent).toBe('Training card');
+
+        loadSettingsModule();
+        window.updateSidebarLabels();
+        expect(button.textContent).toBe('Training card');
+        expect(button.title).toBe('Training card');
     });
 
     it.each(['standard', 'comfortable', 'wide'])(

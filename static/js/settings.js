@@ -550,6 +550,7 @@
                     pendingLabelDrafts.delete(target.key);
                     Object.keys(settings).forEach(key => delete settings[key]);
                     Object.assign(settings, nextSettings);
+                    if (target.kind === 'node') global.updateSidebarLabels?.();
                     applyDisplayLabels(documentRef);
                     refreshLabelControlNames(documentRef);
                     global.GPUHotNotices?.render?.();

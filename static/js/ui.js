@@ -524,12 +524,14 @@ function initializeSidebarOrdering(documentRef = document) {
     nav.addEventListener('keydown', event => moveSidebarButtonByKey(event, nav));
 }
 
-function sidebarLabel(gpuId, gpuInfo) {
-    const parts = String(gpuId).split('-');
-    const index = parts.pop();
+function sidebarLabel(gpuId, gpuInfo, displayedNodeName, sourceGpuId) {
+    const fullId = String(gpuId);
+    const hasSourceId = String(sourceGpuId) !== fullId;
+    const parts = fullId.split('-');
+    const index = hasSourceId ? String(sourceGpuId) : parts.pop();
     const scheme = window.GPUHotSettings?.settings?.sidebarLabel || 'index';
-    if (scheme === 'node-index' && parts.length > 0) {
-        return `${parts.join('-')} ${index}`;
+    if (scheme === 'node-index' && (hasSourceId || parts.length > 0)) {
+        return `${hasSourceId ? displayedNodeName : parts.join('-')} ${index}`;
     }
     if (scheme === 'short-name') {
         const shortName = String(gpuInfo?.name || '')
@@ -541,11 +543,21 @@ function sidebarLabel(gpuId, gpuInfo) {
     return index;
 }
 
+function displayedGpuIdentity(gpuId, nodeName, sourceGpuId) {
+    if (String(gpuId) === String(sourceGpuId)) return String(gpuId);
+    const displayedNodeName = window.GPUHotSettings?.nodeDisplayLabel?.(nodeName, nodeName)
+        || nodeName;
+    return `${displayedNodeName}-${sourceGpuId}`;
+}
+
 function applySidebarButtonLabel(button, gpuId, gpuInfo, nodeName, sourceGpuId) {
-    const fallback = sidebarLabel(gpuId, gpuInfo);
+    const displayedNodeName = window.GPUHotSettings?.nodeDisplayLabel?.(nodeName, nodeName)
+        || nodeName;
+    const displayedGpuId = displayedGpuIdentity(gpuId, nodeName, sourceGpuId);
+    const fallback = sidebarLabel(gpuId, gpuInfo, displayedNodeName, sourceGpuId);
     const titleFallback = fallback === String(sourceGpuId)
-        ? `GPU ${gpuId}`
-        : `${fallback} (GPU ${gpuId})`;
+        ? `GPU ${displayedGpuId}`
+        : `${fallback} (GPU ${displayedGpuId})`;
     let label = button.querySelector(':scope > .sidebar-btn-label');
     if (!label) {
         label = button.ownerDocument.createElement('span');
@@ -568,13 +580,24 @@ function applySidebarButtonLabel(button, gpuId, gpuInfo, nodeName, sourceGpuId) 
 
 function updateSidebarLabels() {
     document.querySelectorAll('.sidebar-btn[data-gpu-id]').forEach(button => {
+        const gpuId = button.dataset.gpuId;
+        const nodeName = button.dataset.gpuNode;
+        const sourceGpuId = button.dataset.sourceGpuId;
         applySidebarButtonLabel(
             button,
-            button.dataset.gpuId,
+            gpuId,
             { name: button.dataset.gpuName },
-            button.dataset.gpuNode,
-            button.dataset.sourceGpuId
+            nodeName,
+            sourceGpuId
         );
+        const title = document.getElementById(`tab-gpu-${gpuId}`)
+            ?.querySelector('.gpu-detail-title');
+        if (title) {
+            window.GPUHotSettings?.bindGpuLabel?.(
+                title, nodeName, sourceGpuId,
+                `GPU ${displayedGpuIdentity(gpuId, nodeName, sourceGpuId)}`
+            );
+        }
     });
 }
 
@@ -696,7 +719,7 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
             card.querySelector('.gpu-detail-title'),
             nodeName,
             sourceGpuId,
-            `GPU ${gpuId}`
+            `GPU ${displayedGpuIdentity(gpuId, nodeName, sourceGpuId)}`
         );
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
