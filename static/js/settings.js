@@ -385,6 +385,83 @@
         chart?.style.removeProperty('mask-image');
     }
 
+    function balancedMetricBreakIndices(widths, availableWidth, gap) {
+        if (widths.length < 2 || availableWidth <= 0) return [];
+        let naturalRows = 1;
+        let rowWidth = 0;
+        widths.forEach(width => {
+            if (rowWidth && rowWidth + gap + width > availableWidth + 0.5) {
+                naturalRows += 1;
+                rowWidth = width;
+            } else {
+                rowWidth += (rowWidth ? gap : 0) + width;
+            }
+        });
+        if (naturalRows === 1) return [];
+
+        for (let rows = naturalRows; rows <= widths.length; rows += 1) {
+            const small = Math.floor(widths.length / rows);
+            const largeRows = widths.length % rows;
+            const memo = new Map();
+            function find(start, remainingRows, remainingLarge) {
+                if (remainingRows === 0) return start === widths.length ? [] : null;
+                const key = `${start}:${remainingRows}:${remainingLarge}`;
+                if (memo.has(key)) return memo.get(key);
+                for (const length of [small + 1, small]) {
+                    if (length === small + 1 && remainingLarge === 0) continue;
+                    if (length === small && remainingRows === remainingLarge) continue;
+                    const end = start + length;
+                    if (end > widths.length) continue;
+                    const width = widths.slice(start, end).reduce((sum, item) => sum + item, 0)
+                        + gap * (length - 1);
+                    if (width > availableWidth + 0.5) continue;
+                    const rest = find(end, remainingRows - 1,
+                        remainingLarge - Number(length === small + 1));
+                    if (rest !== null) {
+                        const result = remainingRows === 1 ? [] : [end, ...rest];
+                        memo.set(key, result);
+                        return result;
+                    }
+                }
+                memo.set(key, null);
+                return null;
+            }
+            const result = find(0, rows, largeRows);
+            if (result !== null) return result;
+        }
+        return [];
+    }
+
+    function balanceOverviewMetricRows(card) {
+        const grid = card.querySelector('.overview-metrics');
+        if (!grid) return;
+        const breaks = Array.from(grid.querySelectorAll(':scope > .overview-metric-row-break'));
+        if (!card.classList.contains('overview-has-extra-metrics') && breaks.length === 0) return;
+        const style = global.getComputedStyle?.(grid);
+        if (!card.classList.contains('overview-has-extra-metrics') || style?.display !== 'flex') {
+            breaks.forEach(element => element.remove());
+            return;
+        }
+        const cells = Array.from(grid.querySelectorAll(':scope > .overview-metric'))
+            .filter(cell => !cell.hidden);
+        const availableWidth = grid.getBoundingClientRect().width;
+        const gap = parseFloat(style.columnGap) || 0;
+        const desired = balancedMetricBreakIndices(
+            cells.map(cell => cell.getBoundingClientRect().width), availableWidth, gap
+        );
+        const current = breaks.map(element => cells.indexOf(element.previousElementSibling) + 1);
+        if (desired.length === current.length && desired.every((index, i) => index === current[i])) {
+            return;
+        }
+        breaks.forEach(element => element.remove());
+        desired.forEach(index => {
+            const marker = grid.ownerDocument.createElement('span');
+            marker.className = 'overview-metric-row-break';
+            marker.setAttribute('aria-hidden', 'true');
+            cells[index - 1].after(marker);
+        });
+    }
+
     function renderedMetricTextRight(metric) {
         let right = -Infinity;
         metric.querySelectorAll('.overview-metric-value, .overview-metric-label').forEach(element => {
@@ -397,6 +474,7 @@
     }
 
     function setOverviewBehindMask(card, visibleCount) {
+        balanceOverviewMetricRows(card);
         const chart = card.querySelector('.overview-mini-chart');
         if (visibleCount === 0) {
             card.classList.remove('overview-metrics-wrapped');

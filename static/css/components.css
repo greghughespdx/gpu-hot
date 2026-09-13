@@ -106,6 +106,23 @@
     flex-wrap: wrap;
 }
 
+@media (min-width: 769px) and (min-height: 481px) {
+    .overview-gpu-card.overview-has-extra-metrics .overview-metrics {
+        column-gap: var(--overview-metric-gap);
+        row-gap: var(--space-xs);
+    }
+
+    .overview-gpu-card.overview-has-extra-metrics + .overview-gpu-card {
+        margin-top: var(--space-sm);
+    }
+
+    .overview-metric-row-break {
+        flex: 0 0 100%;
+        height: 0;
+        pointer-events: none;
+    }
+}
+
 .overview-metric {
     display: flex;
     flex-direction: column;
@@ -1952,6 +1969,10 @@ html.settings-connection-in-panel #dashboard-status-home {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: var(--space-md);
+    }
+
+    .overview-metric-row-break {
+        display: none;
     }
 
     .overview-mini-chart {
