@@ -236,9 +236,20 @@
         chart?.style.removeProperty('mask-image');
     }
 
+    function renderedMetricTextRight(metric) {
+        let right = -Infinity;
+        metric.querySelectorAll('.overview-metric-value, .overview-metric-label').forEach(element => {
+            const range = metric.ownerDocument.createRange();
+            if (typeof range.getBoundingClientRect !== 'function') return;
+            range.selectNodeContents(element);
+            right = Math.max(right, range.getBoundingClientRect().right);
+        });
+        return Number.isFinite(right) ? right : metric.getBoundingClientRect().right;
+    }
+
     function setOverviewBehindMask(card, visibleCount) {
         const chart = card.querySelector('.overview-mini-chart');
-        if (visibleCount <= 4) {
+        if (visibleCount === 0) {
             resetOverviewBehindMask(card, chart);
             return;
         }
@@ -246,7 +257,8 @@
             .filter(metric => !metric.hidden);
         if (!chart || visibleMetrics.length === 0) return;
         const firstMetric = visibleMetrics[0].getBoundingClientRect();
-        const lastMetric = visibleMetrics[visibleMetrics.length - 1].getBoundingClientRect();
+        const lastMetricElement = visibleMetrics[visibleMetrics.length - 1];
+        const lastMetric = lastMetricElement.getBoundingClientRect();
         if (Math.abs(lastMetric.top - firstMetric.top) > 1) {
             card.style.removeProperty('--overview-chart-behind-fade-start');
             card.style.removeProperty('--overview-chart-behind-fade-end');
@@ -256,14 +268,17 @@
         }
         resetOverviewBehindMask(card, chart);
         const chartLeft = chart.getBoundingClientRect().left;
-        const leadIn = 'var(--overview-chart-behind-lead-in)';
+        const textRight = card.ownerDocument.documentElement.classList.contains('overview-chart-width-behind')
+            ? renderedMetricTextRight(lastMetricElement)
+            : lastMetric.right;
+        const fadeStart = `calc(${textRight - chartLeft}px + var(--overview-chart-behind-text-pad))`;
         card.style.setProperty(
             '--overview-chart-behind-fade-start',
-            `calc(${lastMetric.left - chartLeft}px + ${leadIn})`
+            fadeStart
         );
         card.style.setProperty(
             '--overview-chart-behind-fade-end',
-            `calc(${lastMetric.right - chartLeft}px + ${leadIn})`
+            'calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap))'
         );
     }
 
@@ -354,6 +369,7 @@
                 element.textContent = displayLabel(key, element.dataset.displayLabelTextDefault);
             }
         });
+        scheduleOverviewBehindMasks(documentRef);
     }
 
     function applyOverviewMiniChartWidth(width, documentRef = global.document, resize = true) {
@@ -526,6 +542,7 @@
         const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
         if (panel.dataset.settingsInitialized === 'true') return;
         panel.dataset.settingsInitialized = 'true';
+        global.addEventListener('resize', () => scheduleOverviewBehindMasks(documentRef));
         renderLabelControls(documentRef);
 
         function syncSidebarControls() {

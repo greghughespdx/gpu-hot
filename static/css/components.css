@@ -222,23 +222,23 @@
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="1"] {
-        --overview-chart-behind-fade-start: var(--overview-chart-behind-lead-in);
-        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-chart-behind-text-pad));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="2"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
-        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-chart-behind-text-pad));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="3"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
-        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-chart-behind-text-pad));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="4"] {
-        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-chart-behind-lead-in));
-        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-width));
+        --overview-chart-behind-fade-start: calc(var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-metric-gap) + var(--overview-metric-width) + var(--overview-chart-behind-text-pad));
+        --overview-chart-behind-fade-end: calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap));
     }
 
     html.overview-chart-width-behind .overview-gpu-card[data-overview-visible-metrics="0"] .overview-mini-chart {
