@@ -21,6 +21,10 @@
     {
       "name": "Ollama running model lookup and node overlay",
       "commit": "36d1e547a8c6f1e590a02011218dd2bcf6f38f04"
+    },
+    {
+      "name": "automatic Ollama running model identification",
+      "commit": "8f29f636a36a8f0862d04bdf3c6a849690680a5d"
     }
   ],
   "upstream_review": {
