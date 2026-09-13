@@ -826,11 +826,51 @@ describe('settings panel', () => {
         expect(card.querySelector('[data-overview-metric="fan-speed"]').hidden).toBe(false);
         expect(card.querySelector('[data-overview-metric="graphics-clock"]').hidden).toBe(false);
         expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
-            .toBe('calc(560px + var(--overview-chart-behind-lead-in))');
+            .toBe('calc(660px + var(--overview-chart-behind-text-pad))');
         expect(card.style.getPropertyValue('--overview-chart-behind-fade-end'))
-            .toBe('calc(660px + var(--overview-chart-behind-lead-in))');
+            .toBe('calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap))');
         expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings)
             .toMatchObject({ 'overview.fan-speed': true, 'overview.graphics-clock': true });
+    });
+
+    it('starts the fade after the widest rendered text and spans one metric gap', () => {
+        document.body.insertAdjacentHTML('beforeend', `
+            <div class="overview-gpu-card">
+                <div class="overview-metric" data-overview-metric="utilization"></div>
+                <div class="overview-metric" data-overview-metric="temperature"></div>
+                <div class="overview-metric" data-overview-metric="memory"></div>
+                <div class="overview-metric" data-overview-metric="power">
+                    <div class="overview-metric-value">13.3 GB</div>
+                    <div class="overview-metric-label">MEMORY USED</div>
+                </div>
+                <div class="overview-mini-chart"></div>
+            </div>
+        `);
+        const api = loadSettingsModule();
+        document.documentElement.classList.add('overview-chart-width-behind');
+        const card = document.querySelectorAll('.overview-gpu-card')[1];
+        const metrics = card.querySelectorAll('.overview-metric');
+        metrics.forEach((metric, index) => {
+            metric.getBoundingClientRect = () => ({
+                left: index * 112, right: index * 112 + 72, top: 10
+            });
+        });
+        card.querySelector('.overview-mini-chart').getBoundingClientRect = () => ({ left: 0 });
+        const createRange = document.createRange.bind(document);
+        vi.spyOn(document, 'createRange').mockImplementation(() => {
+            const range = createRange();
+            range.getBoundingClientRect = () => ({ right: range.toString() === 'MEMORY USED' ? 432 : 390 });
+            return range;
+        });
+
+        api.applyOverviewMetricVisibility(document);
+
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
+            .toBe('calc(432px + var(--overview-chart-behind-text-pad))');
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-end'))
+            .toBe('calc(var(--overview-chart-behind-fade-start) + var(--overview-metric-gap))');
+        expect(tokensCss).toContain('--overview-chart-behind-text-pad: var(--space-xs);');
+        expect(tokensCss).toContain('--overview-metric-gap: var(--space-xl);');
     });
 
     it('removes the Behind metrics mask when visible metrics wrap', () => {
@@ -1510,9 +1550,10 @@ describe('settings page contract', () => {
 
     it('layers Behind metrics only on desktop and respects the visible metric count', () => {
         expect(tokensCss).toMatch(/--overview-chart-behind-dim: 0\.25;/);
-        expect(tokensCss).toMatch(/--overview-chart-behind-lead-in: var\(--overview-metric-gap\);/);
+        expect(tokensCss).toMatch(/--overview-chart-behind-text-pad: var\(--space-xs\);/);
+        expect(tokensCss).not.toContain('--overview-chart-behind-lead-in');
         expect(tokensCss).toMatch(
-            /--overview-chart-behind-fade-start: calc\([^;]*var\(--overview-chart-behind-lead-in\)\);/
+            /--overview-chart-behind-fade-start: calc\([^;]*var\(--overview-metric-width\)[^;]*var\(--overview-chart-behind-text-pad\)\);/
         );
         expect(componentsCss).toMatch(
             /overview-chart-width-behind \.overview-metrics \{[^}]*z-index: 2;[^}]*\}/
@@ -1521,16 +1562,16 @@ describe('settings page contract', () => {
             /@media \(min-width: 769px\)[\s\S]*?overview-chart-width-behind \.overview-mini-chart \{[\s\S]*?grid-column: 2 \/ 4;[\s\S]*?mask-image:/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="1"[\s\S]*?--overview-chart-behind-fade-start: var\(--overview-chart-behind-lead-in\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="1"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-chart-behind-text-pad\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-gap\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="2"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="2"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-chart-behind-text-pad\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-gap\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="3"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="3"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-metric-gap\) \+ var\(--overview-metric-width\) \+ var\(--overview-chart-behind-text-pad\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-gap\)\);/
         );
         expect(componentsCss).toMatch(
-            /data-overview-visible-metrics="4"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\)[^;]*var\(--overview-chart-behind-lead-in\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-width\)\);/
+            /data-overview-visible-metrics="4"[\s\S]*?--overview-chart-behind-fade-start: calc\(var\(--overview-metric-width\)[^;]*var\(--overview-chart-behind-text-pad\)\);[\s\S]*?--overview-chart-behind-fade-end: calc\(var\(--overview-chart-behind-fade-start\) \+ var\(--overview-metric-gap\)\);/
         );
         expect(componentsCss).toMatch(
             /data-overview-visible-metrics="0"[\s\S]*?\.overview-mini-chart \{[\s\S]*?grid-column: 3;[\s\S]*?mask-image: none;/
