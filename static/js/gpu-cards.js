@@ -1266,13 +1266,14 @@ function displayedProcessModel(model) {
 function updateProcesses(processes) {
     latestProcesses = Array.isArray(processes) ? processes : [];
     refreshOverviewProcessModels();
+    refreshDetailProcessModels();
     renderProcessesForView(typeof currentTab === 'string' ? currentTab : 'overview');
 }
 
-function modelsForOverviewCard(card) {
+function modelsForGpuKey(gpuKey) {
     if (window.GPUHotSettings?.settings?.['overview.showModel'] !== true) return [];
     return [...new Set(latestProcesses
-        .filter(process => String(process.gpu_key) === card.dataset.gpuId)
+        .filter(process => String(process.gpu_key) === gpuKey)
         .map(process => displayedProcessModel(process.model))
         .filter(Boolean))];
 }
@@ -1280,7 +1281,7 @@ function modelsForOverviewCard(card) {
 function setOverviewCardModels(card) {
     const nameBlock = card.querySelector('.overview-gpu-name, .gpu-detail-header');
     if (!nameBlock) return;
-    const models = modelsForOverviewCard(card);
+    const models = modelsForGpuKey(card.dataset.gpuId);
     const oldLines = [...nameBlock.querySelectorAll('.overview-gpu-model')];
     if (oldLines.length === models.length
         && oldLines.every((line, index) => line.textContent === models[index])) return;
@@ -1300,6 +1301,27 @@ function refreshOverviewProcessModels() {
 }
 
 window.refreshOverviewProcessModels = refreshOverviewProcessModels;
+
+function refreshDetailProcessModels() {
+    document.querySelectorAll('.tab-content[id^="tab-gpu-"]').forEach(tab => {
+        const title = tab.querySelector('.gpu-detail-title');
+        if (!title) return;
+        const model = modelsForGpuKey(tab.id.slice('tab-gpu-'.length)).join(', ');
+        const suffix = title.querySelector('.gpu-detail-model-suffix');
+        if (!model) {
+            suffix?.remove();
+            return;
+        }
+        const text = ` - ${model}`;
+        if (suffix?.textContent === text) return;
+        const modelSuffix = suffix || document.createElement('span');
+        modelSuffix.className = 'gpu-detail-model-suffix';
+        modelSuffix.textContent = text;
+        if (!suffix) title.appendChild(modelSuffix);
+    });
+}
+
+window.refreshDetailProcessModels = refreshDetailProcessModels;
 
 function processesForView(processes, viewName) {
     if (!viewName || !viewName.startsWith('gpu-')) return processes;
