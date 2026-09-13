@@ -29,6 +29,14 @@ const defaults = {
     'overview.encoder-load': false,
     'overview.decoder-load': false,
     'overview.performance-state': false,
+    overviewMetricOrder: [
+        'utilization', 'temperature', 'memory', 'power', 'fan-speed',
+        'graphics-clock', 'memory-clock', 'memory-used', 'power-limit',
+        'memory-temperature', 'throttle-status', 'process-count',
+        'pcie-generation', 'pcie-width', 'encoder-load', 'decoder-load',
+        'performance-state'
+    ],
+    overviewMetricsCustomized: false,
     theme: 'default',
     showStarPrompt: true,
     overviewMiniChartBehindDim: 25,
@@ -112,6 +120,26 @@ function panelMarkup() {
             </div>
         </div>
     `;
+}
+
+function metricPanelRows() {
+    const panel = document.getElementById('settings-panel');
+    const inputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
+    const fieldset = document.createElement('fieldset');
+    fieldset.className = 'settings-group';
+    inputs[0].before(fieldset);
+    inputs.forEach(input => {
+        const label = document.createElement('label');
+        label.textContent = input.dataset.overviewSetting.replaceAll('-', ' ');
+        input.replaceWith(label);
+        label.prepend(input);
+        fieldset.appendChild(label);
+    });
+    const body = document.createElement('div');
+    body.className = 'settings-body';
+    fieldset.before(body);
+    body.appendChild(fieldset);
+    return fieldset;
 }
 
 function loadSettingsModule() {
@@ -568,7 +596,333 @@ describe('settings panel', () => {
         delete window.updateSidebarLabels;
         delete window.applySidebarOrder;
     });
-    afterEach(() => { vi.restoreAllMocks(); });
+    afterEach(() => {
+        vi.restoreAllMocks();
+        delete document.elementFromPoint;
+    });
+
+    it('keeps the unconfigured single-GPU hero markup and restores it on reset', () => {
+        metricPanelRows();
+        const single = document.createElement('article');
+        single.className = 'single-gpu-overview';
+        single.dataset.gpuId = '0';
+        single.innerHTML = `<div class="sgo-metrics-grid">
+            <div class="metric-cell"><span id="sgo-util-0">10</span></div>
+            <div class="metric-cell"><span id="sgo-temp-0">40</span></div>
+            <div class="metric-cell"><span id="sgo-mem-0">2 GB</span></div>
+            <div class="metric-cell"><span id="sgo-power-0">80 W</span></div>
+            <div class="metric-cell"><span id="sgo-fan-0">30%</span></div>
+            </div><div class="sgo-mini-chart"></div>`;
+        document.body.appendChild(single);
+        const original = single.outerHTML;
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        expect(single.outerHTML).toBe(original);
+
+        const grip = document.querySelector('[data-metric-order="memory"] .settings-metric-grip');
+        grip.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
+        }));
+        expect(api.settings.overviewMetricOrder.slice(0, 4))
+            .toEqual(['utilization', 'memory', 'temperature', 'power']);
+        expect([...single.querySelectorAll('[data-overview-metric]')].slice(0, 4)
+            .map(cell => cell.dataset.overviewMetric))
+            .toEqual(['utilization', 'memory', 'temperature', 'power']);
+        expect(single.querySelectorAll('.single-overview-extra')).toHaveLength(12);
+        expect(single.querySelector('[data-overview-metric="fan-speed"]').hidden).toBe(true);
+
+        document.getElementById('settings-reset').click();
+        expect([...single.querySelectorAll('.sgo-metrics-grid > .metric-cell')]
+            .map(cell => cell.querySelector('span')?.id))
+            .toEqual(['sgo-util-0', 'sgo-temp-0', 'sgo-mem-0', 'sgo-power-0', 'sgo-fan-0']);
+        expect(single.querySelector('.single-overview-extra')).toBeNull();
+        expect(single.querySelector('.sgo-mini-chart').hidden).toBe(false);
+    });
+
+    it('reorders every compact card without changing values and saves the order', () => {
+        metricPanelRows();
+        document.body.insertAdjacentHTML('beforeend', [0, 1].map(id => `
+            <article class="overview-gpu-card"><div class="overview-metrics">
+                <div data-overview-metric="utilization">${id} util</div>
+                <div data-overview-metric="temperature">${id} temp</div>
+                <div data-overview-metric="memory">${id} mem</div>
+                <div data-overview-metric="power">${id} power</div>
+            </div><div class="overview-mini-chart"></div></article>`).join(''));
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const powerCells = Array.from(document.querySelectorAll('.overview-metrics'))
+            .map(card => card.querySelector('[data-overview-metric="power"]'));
+        const grip = document.querySelector('[data-metric-order="power"] .settings-metric-grip');
+        grip.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
+        }));
+        expect(document.activeElement).toBe(grip);
+        expect(document.getElementById('settings-status').textContent).toContain('position 3');
+        for (const [index, card] of Array.from(document.querySelectorAll('.overview-gpu-card .overview-metrics')).entries()) {
+            expect([...card.children].map(cell => cell.dataset.overviewMetric))
+                .toEqual(['utilization', 'temperature', 'power', 'memory']);
+            expect(card.children[2]).toBe(powerCells[index]);
+            expect([...card.children].map(cell => cell.textContent))
+                .toEqual(card.firstElementChild.textContent.startsWith('0')
+                    ? ['0 util', '0 temp', '0 power', '0 mem']
+                    : ['1 util', '1 temp', '1 power', '1 mem']);
+        }
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings.overviewMetricOrder.slice(0, 4))
+            .toEqual(['utilization', 'temperature', 'power', 'memory']);
+        const temperature = document.querySelector('[data-overview-setting="temperature"]');
+        temperature.click();
+        temperature.click();
+        expect([...document.querySelector('.overview-metrics').children]
+            .map(cell => cell.dataset.overviewMetric))
+            .toEqual(['utilization', 'temperature', 'power', 'memory']);
+        document.getElementById('settings-reset').click();
+        expect([...document.querySelector('.overview-metrics').children]
+            .map(cell => cell.dataset.overviewMetric))
+            .toEqual(['utilization', 'temperature', 'memory', 'power']);
+    });
+
+    it('measures the fade from the last visible cell after a reorder', () => {
+        metricPanelRows();
+        document.body.insertAdjacentHTML('beforeend', `
+            <article class="overview-gpu-card"><div class="overview-metrics">
+                <div class="overview-metric" data-overview-metric="utilization">10</div>
+                <div class="overview-metric" data-overview-metric="temperature">40</div>
+                <div class="overview-metric" data-overview-metric="memory">50</div>
+                <div class="overview-metric" data-overview-metric="power">80</div>
+            </div><div class="overview-mini-chart"></div></article>`);
+        const card = document.querySelectorAll('.overview-gpu-card')[1];
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        card.querySelector('.overview-mini-chart').getBoundingClientRect = () => ({ left: 0 });
+        card.querySelectorAll('.overview-metric').forEach(metric => {
+            metric.getBoundingClientRect = () => {
+                const index = Array.from(metric.parentElement.children).indexOf(metric);
+                return { top: 0, left: index * 112, right: index * 112 + 72 };
+            };
+        });
+        document.querySelector('[data-metric-order="power"] .settings-metric-grip')
+            .dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
+            }));
+        expect(card.querySelector('.overview-metrics').lastElementChild.dataset.overviewMetric).toBe('memory');
+        expect(card.style.getPropertyValue('--overview-chart-behind-fade-start'))
+            .toBe('calc(408px + var(--overview-chart-behind-text-pad))');
+        expect(api.settings.overviewMetricOrder[2]).toBe('power');
+    });
+
+    it('rejects duplicate saved metrics and appends new metrics to a partial order', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1, settings: { overviewMetricOrder: ['power', 'power'] }
+        }));
+        expect(loadSettingsModule().settings.overviewMetricOrder).toEqual(defaults.overviewMetricOrder);
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1, settings: { overviewMetricOrder: ['power'] }
+        }));
+        const order = loadSettingsModule().settings.overviewMetricOrder;
+        expect(order).toHaveLength(17);
+        expect(order[0]).toBe('power');
+        expect(new Set(order).size).toBe(17);
+    });
+
+    it('keeps Mini chart in its original fifth settings position', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const displayedMetrics = () => Array.from(fieldset.children)
+            .filter(child => child.matches('.settings-metric-row, label'))
+            .map(child => child.dataset.metricOrder
+                || child.querySelector('[data-overview-setting]')?.dataset.overviewSetting);
+
+        expect(displayedMetrics().slice(0, 6))
+            .toEqual(['utilization', 'temperature', 'memory', 'power', 'chart', 'fan-speed']);
+        const grip = fieldset.querySelector('[data-metric-order="fan-speed"] .settings-metric-grip');
+        grip.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
+        }));
+        expect(displayedMetrics()[4]).toBe('chart');
+        expect(api.settings.overviewMetricOrder[3]).toBe('fan-speed');
+    });
+
+    it('drags only from the grip, opens a gap, and saves only a changed order', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        fieldset.setPointerCapture = vi.fn();
+        const first = fieldset.querySelector('[data-metric-order="utilization"]');
+        const second = fieldset.querySelector('[data-metric-order="temperature"]');
+        const grip = second.querySelector('.settings-metric-grip');
+        const rectangle = row => ({
+            left: 10, top: Array.from(fieldset.querySelectorAll('.settings-metric-row')).indexOf(row) * 20,
+            width: 200, height: 20
+        });
+        first.getBoundingClientRect = () => rectangle(first);
+        second.getBoundingClientRect = () => rectangle(second);
+        const animation = { cancel: vi.fn() };
+        first.animate = vi.fn(() => animation);
+        second.animate = vi.fn(() => animation);
+        document.elementFromPoint = vi.fn(() => first);
+        const dispatch = (type, target, x, y) => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.assign(event, { pointerId: 7, pointerType: 'mouse', button: 0, clientX: x, clientY: y });
+            target.dispatchEvent(event);
+        };
+        for (const target of [second.querySelector('label'), second.querySelector('input')]) {
+            dispatch('pointerdown', target, 20, 30);
+            dispatch('pointermove', target, 20, 5);
+            expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+            expect(api.settings.overviewMetricOrder.slice(0, 2))
+                .toEqual(['utilization', 'temperature']);
+            dispatch('pointerup', target, 20, 5);
+        }
+        const checkbox = second.querySelector('input');
+        const checkedBefore = checkbox.checked;
+        checkbox.click();
+        expect(checkbox.checked).toBe(!checkedBefore);
+        expect(api.settings.overviewMetricOrder.slice(0, 2))
+            .toEqual(['utilization', 'temperature']);
+        dispatch('pointerdown', grip, 20, 30);
+        dispatch('pointermove', grip, 20, 5);
+        expect(document.querySelector('.settings-metric-ghost')).not.toBeNull();
+        expect(second.classList.contains('settings-metric-moving')).toBe(true);
+        expect(fieldset.setPointerCapture).toHaveBeenCalledWith(7);
+        expect(first.animate).toHaveBeenCalled();
+        dispatch('pointerup', grip, 20, 5);
+        expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+        expect(api.settings.overviewMetricOrder.slice(0, 2)).toEqual(['temperature', 'utilization']);
+
+        const stored = localStorage.getItem(api.STORAGE_KEY);
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        dispatch('pointerdown', grip, 20, 30);
+        dispatch('pointerup', grip, 20, 30);
+        expect(localStorage.getItem(api.STORAGE_KEY)).toBe(stored);
+        expect(write).not.toHaveBeenCalled();
+
+        const reloaded = loadSettingsModule();
+        expect(reloaded.settings.overviewMetricOrder.slice(0, 2)).toEqual(['temperature', 'utilization']);
+    });
+
+    it('lets a phone swipe scroll and a still touch hold start ordering', () => {
+        vi.useFakeTimers();
+        const previousMatchMedia = window.matchMedia;
+        try {
+            const fieldset = metricPanelRows();
+            const body = fieldset.parentElement;
+            window.matchMedia = vi.fn(() => ({ matches: true }));
+            const api = loadSettingsModule();
+            api.initSettingsPanel();
+            fieldset.setPointerCapture = vi.fn();
+            const first = fieldset.querySelector('[data-metric-order="utilization"]');
+            const second = fieldset.querySelector('[data-metric-order="temperature"]');
+            const grip = second.querySelector('.settings-metric-grip');
+            first.getBoundingClientRect = () => ({ top: 0, height: 20 });
+            second.getBoundingClientRect = () => ({ left: 10, top: 20, width: 200, height: 20 });
+            document.elementFromPoint = vi.fn(() => first);
+            const dispatch = (type, x, y) => {
+                const event = new Event(type, { bubbles: true, cancelable: true });
+                Object.assign(event, { pointerId: 8, pointerType: 'touch', button: 0, clientX: x, clientY: y });
+                grip.dispatchEvent(event);
+            };
+            body.scrollTop = 50;
+            dispatch('pointerdown', 20, 30);
+            expect(fieldset.setPointerCapture).toHaveBeenCalledWith(8);
+            dispatch('pointermove', 20, 10);
+            expect(body.scrollTop).toBe(70);
+            expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+            dispatch('pointerup', 20, 10);
+            expect(api.settings.overviewMetricOrder[0]).toBe('utilization');
+
+            dispatch('pointerdown', 20, 30);
+            vi.advanceTimersByTime(300);
+            dispatch('pointermove', 20, 5);
+            expect(document.querySelector('.settings-metric-ghost')).not.toBeNull();
+            dispatch('pointerup', 20, 5);
+            expect(api.settings.overviewMetricOrder[0]).toBe('temperature');
+        } finally {
+            window.matchMedia = previousMatchMedia;
+            vi.useRealTimers();
+        }
+    });
+
+    it('cancels a metric drag without changing the saved order', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        fieldset.setPointerCapture = vi.fn();
+        const first = fieldset.querySelector('[data-metric-order="utilization"]');
+        const second = fieldset.querySelector('[data-metric-order="temperature"]');
+        const grip = second.querySelector('.settings-metric-grip');
+        second.getBoundingClientRect = () => ({ left: 10, top: 20, width: 200, height: 20 });
+        first.getBoundingClientRect = () => ({ left: 10, top: 0, width: 200, height: 20 });
+        document.elementFromPoint = vi.fn(() => first);
+        const dispatch = type => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.assign(event, { pointerId: 9, pointerType: 'mouse', button: 0,
+                clientX: 20, clientY: type === 'pointerdown' ? 30 : 5 });
+            grip.dispatchEvent(event);
+        };
+        const before = localStorage.getItem(api.STORAGE_KEY);
+        dispatch('pointerdown');
+        dispatch('pointermove');
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('temperature');
+        dispatch('pointercancel');
+
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('utilization');
+        expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+        expect(localStorage.getItem(api.STORAGE_KEY)).toBe(before);
+        expect(api.settings.overviewMetricOrder.slice(0, 2)).toEqual(['utilization', 'temperature']);
+    });
+
+    it('Escape cancels a metric drag without closing Settings or saving the order', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        document.getElementById('settings-open').click();
+        fieldset.setPointerCapture = vi.fn();
+        const first = fieldset.querySelector('[data-metric-order="utilization"]');
+        const second = fieldset.querySelector('[data-metric-order="temperature"]');
+        const grip = second.querySelector('.settings-metric-grip');
+        first.getBoundingClientRect = () => ({ left: 10, top: 0, width: 200, height: 20 });
+        second.getBoundingClientRect = () => ({ left: 10, top: 20, width: 200, height: 20 });
+        document.elementFromPoint = vi.fn(() => first);
+        const dispatch = type => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.assign(event, { pointerId: 10, pointerType: 'mouse', button: 0,
+                clientX: 20, clientY: type === 'pointerdown' ? 30 : 5 });
+            grip.dispatchEvent(event);
+        };
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        dispatch('pointerdown');
+        dispatch('pointermove');
+        expect(document.querySelector('.settings-metric-ghost')).not.toBeNull();
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('temperature');
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        document.body.dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(document.getElementById('settings-panel').hidden).toBe(false);
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('utilization');
+        expect(document.querySelector('.settings-metric-ghost')).toBeNull();
+        dispatch('pointerup');
+        expect(write).not.toHaveBeenCalled();
+        expect(api.settings.overviewMetricOrder.slice(0, 2)).toEqual(['utilization', 'temperature']);
+    });
+
+    it('restores the metric rows when saving their order fails', () => {
+        const fieldset = metricPanelRows();
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('storage unavailable');
+        });
+        const grip = fieldset.querySelector('[data-metric-order="temperature"] .settings-metric-grip');
+        grip.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
+
+        expect(fieldset.querySelector('.settings-metric-row').dataset.metricOrder).toBe('utilization');
+        expect(api.settings.overviewMetricOrder[0]).toBe('utilization');
+        expect(document.getElementById('settings-status').textContent)
+            .toBe('This order could not be saved. Try again.');
+        expect(document.activeElement).toBe(grip);
+    });
 
     it('is hidden until the gear opens it and restores focus when closed', () => {
         const openButton = document.getElementById('settings-open');

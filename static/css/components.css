@@ -1438,6 +1438,83 @@ html.settings-connection-in-panel #dashboard-status-home {
     gap: var(--space-sm);
     cursor: pointer;
 }
+
+.settings-metric-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: -16px;
+    padding-left: 16px;
+}
+
+.settings-metric-row label {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-metric-grip {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: grab;
+    opacity: 0;
+    touch-action: none;
+}
+
+.settings-metric-grip::before,
+.settings-metric-grip::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 3px;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 5px currentColor, 0 10px currentColor;
+}
+
+.settings-metric-grip::after { left: 9px; }
+
+.settings-metric-row:hover .settings-metric-grip,
+.settings-metric-grip:focus-visible {
+    opacity: 1;
+}
+
+.settings-metric-row.settings-metric-moving {
+    visibility: hidden;
+}
+
+.settings-metric-ghost {
+    position: fixed;
+    z-index: 220;
+    margin: 0;
+    pointer-events: none;
+    background: var(--bg-elevated);
+    box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.25);
+    opacity: 0.9;
+}
+
+.settings-metric-ghost .settings-metric-grip {
+    opacity: 1;
+}
+
+.single-overview-extra .overview-metric-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+}
+
+@media (hover: none) {
+    .settings-metric-grip { opacity: 1; }
+}
 .settings-group .settings-field {
     display: grid;
 }

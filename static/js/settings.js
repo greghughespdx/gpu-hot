@@ -36,6 +36,7 @@
         ...EXTRA_OVERVIEW_METRICS,
         'chart'
     ]);
+    const METRIC_ORDER = Object.freeze([...CORE_OVERVIEW_METRICS, ...EXTRA_OVERVIEW_METRICS]);
     const NOTICE_SETTINGS = Object.freeze([
         'noticeGpuThrottle',
         'noticeGpuMissing',
@@ -46,6 +47,8 @@
         ...Object.fromEntries(CORE_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, true])),
         ...Object.fromEntries(EXTRA_OVERVIEW_METRICS.map(metric => [`overview.${metric}`, false])),
         'overview.chart': true,
+        overviewMetricOrder: METRIC_ORDER,
+        overviewMetricsCustomized: false,
         theme: 'default',
         showStarPrompt: true,
         overviewMiniChartBehindDim: 25,
@@ -66,6 +69,16 @@
     const labelTargets = new Map();
     const pendingLabelDrafts = new Map();
     const detachingLabelInputs = new WeakSet();
+
+    function normalizeMetricOrder(candidate) {
+        if (!Array.isArray(candidate) || candidate.length > METRIC_ORDER.length) return null;
+        const seen = new Set();
+        for (const metric of candidate) {
+            if (!METRIC_ORDER.includes(metric) || seen.has(metric)) return null;
+            seen.add(metric);
+        }
+        return [...candidate, ...METRIC_ORDER.filter(metric => !seen.has(metric))];
+    }
 
     function isSidebarOrderKey(candidate) {
         if (typeof candidate !== 'string' || candidate.length > MAX_SIDEBAR_ORDER_KEY_LENGTH) return false;
@@ -134,12 +147,14 @@
         showStarPrompt: value => typeof value === 'boolean',
         theme: value => THEMES.includes(value),
         sidebarOrder: isSidebarOrder,
+        overviewMetricOrder: value => normalizeMetricOrder(value) !== null,
+        overviewMetricsCustomized: value => typeof value === 'boolean',
         labelOverrides: normalizeLabelOverrides,
         ...Object.fromEntries(NOTICE_SETTINGS.map(key => [key, value => typeof value === 'boolean']))
     });
 
     function defaultSettings() {
-        return { ...DEFAULT_SETTINGS };
+        return { ...DEFAULT_SETTINGS, overviewMetricOrder: [...METRIC_ORDER] };
     }
 
     function sanitizeSettings(candidate) {
@@ -152,6 +167,9 @@
             if (key === 'labelOverrides') {
                 const normalized = validator(candidate[key]);
                 if (normalized !== undefined) clean[key] = normalized;
+            } else if (key === 'overviewMetricOrder') {
+                const normalized = normalizeMetricOrder(candidate[key]);
+                if (normalized) clean[key] = normalized;
             } else if (validator(candidate[key])) {
                 clean[key] = candidate[key];
             }
@@ -231,6 +249,86 @@
             .length;
     }
 
+    function singleMetricsCustomized() {
+        return settings.overviewMetricsCustomized === true
+            || METRIC_ORDER.some((metric, index) => settings.overviewMetricOrder[index] !== metric)
+            || CORE_OVERVIEW_METRICS.some(metric => !isOverviewMetricVisible(metric))
+            || EXTRA_OVERVIEW_METRICS.some(metric => isOverviewMetricVisible(metric))
+            || !isOverviewMetricVisible('chart');
+    }
+
+    function prepareSingleMetricCells(card) {
+        const grid = card.querySelector('.sgo-metrics-grid');
+        if (!grid) return;
+        const gpuId = card.dataset.gpuId;
+        for (const [metric, prefix] of [
+            ['utilization', 'sgo-util-'], ['temperature', 'sgo-temp-'],
+            ['memory', 'sgo-mem-'], ['power', 'sgo-power-'], ['fan-speed', 'sgo-fan-']
+        ]) {
+            card.ownerDocument.getElementById(`${prefix}${gpuId}`)
+                ?.closest('.metric-cell')?.setAttribute('data-overview-metric', metric);
+        }
+        EXTRA_OVERVIEW_METRICS.filter(metric => metric !== 'fan-speed').forEach(metric => {
+            if (grid.querySelector(`[data-overview-extra="${metric}"]`)) return;
+            const cell = card.ownerDocument.createElement('div');
+            cell.className = 'metric-cell overview-metric single-overview-extra';
+            cell.dataset.overviewMetric = metric;
+            cell.dataset.overviewExtra = metric;
+            const value = card.ownerDocument.createElement('div');
+            value.className = 'overview-metric-value';
+            value.id = `overview-extra-${metric}-${gpuId}`;
+            value.textContent = 'Not reported';
+            const label = card.ownerDocument.createElement('div');
+            label.className = 'overview-metric-label';
+            label.textContent = metric.replaceAll('-', ' ').toUpperCase();
+            cell.append(value, label);
+            grid.appendChild(cell);
+        });
+    }
+
+    function restoreSingleMetricCells(card) {
+        const grid = card.querySelector('.sgo-metrics-grid');
+        if (!grid) return;
+        if (!grid.querySelector('[data-overview-metric], .single-overview-extra')) return;
+        grid.querySelectorAll('.single-overview-extra').forEach(cell => cell.remove());
+        const cells = Array.from(grid.querySelectorAll(':scope > .metric-cell'));
+        cells.forEach(cell => {
+            cell.removeAttribute('data-overview-metric');
+            cell.hidden = false;
+        });
+        const gpuId = card.dataset.gpuId;
+        ['sgo-util-', 'sgo-temp-', 'sgo-mem-', 'sgo-power-', 'sgo-fan-']
+            .forEach(prefix => {
+                const cell = card.ownerDocument.getElementById(`${prefix}${gpuId}`)?.closest('.metric-cell');
+                if (cell) grid.appendChild(cell);
+            });
+    }
+
+    function applyOverviewMetricOrder(documentRef = global.document) {
+        if (!documentRef) return;
+        const order = settings.overviewMetricOrder || METRIC_ORDER;
+        const cards = documentRef.matches?.('.overview-gpu-card, .single-gpu-overview')
+            ? [documentRef]
+            : Array.from(documentRef.querySelectorAll('.overview-gpu-card, .single-gpu-overview'));
+        cards.forEach(card => {
+            const single = card.classList.contains('single-gpu-overview');
+            if (single && !singleMetricsCustomized()) {
+                restoreSingleMetricCells(card);
+                card.querySelector('.sgo-mini-chart')?.removeAttribute('hidden');
+                return;
+            }
+            if (single) prepareSingleMetricCells(card);
+            const grid = card.querySelector(single ? '.sgo-metrics-grid' : '.overview-metrics');
+            if (!grid) return;
+            const cells = new Map(Array.from(grid.querySelectorAll(':scope > [data-overview-metric]'))
+                .map(cell => [cell.dataset.overviewMetric, cell]));
+            const orderedCells = order.map(metric => cells.get(metric)).filter(Boolean);
+            if (orderedCells.some((cell, index) => cell !== Array.from(cells.values())[index])) {
+                orderedCells.forEach(cell => grid.appendChild(cell));
+            }
+        });
+    }
+
     function resetOverviewBehindMask(card, chart) {
         card.style.removeProperty('--overview-chart-behind-fade-start');
         card.style.removeProperty('--overview-chart-behind-fade-end');
@@ -298,11 +396,16 @@
 
     function applyOverviewMetricVisibility(documentRef = global.document) {
         if (!documentRef) return;
+        applyOverviewMetricOrder(documentRef);
         OVERVIEW_METRICS.forEach(metric => {
             const visible = isOverviewMetricVisible(metric);
             documentRef.querySelectorAll(`[data-overview-metric="${metric}"]`).forEach(element => {
+                if (!singleMetricsCustomized() && element.closest('.single-gpu-overview')) return;
                 element.hidden = !visible;
             });
+        });
+        documentRef.querySelectorAll('.single-gpu-overview .sgo-mini-chart').forEach(chart => {
+            chart.hidden = singleMetricsCustomized() && !isOverviewMetricVisible('chart');
         });
         global.refreshVisibleOverviewExtraMetrics?.(documentRef);
         documentRef.querySelectorAll('.overview-gpu-card').forEach(card => {
@@ -693,12 +796,199 @@
         syncSidebarControls();
         applySidebarSettings(documentRef);
         const metricInputs = Array.from(panel.querySelectorAll('[data-overview-setting]'));
+        const metricFieldset = metricInputs[0]?.closest('fieldset');
+        const chartOption = metricInputs.find(input => input.dataset.overviewSetting === 'chart')?.closest('label');
+        const metricListEnd = metricInputs[metricInputs.length - 1]
+            ?.closest('label')?.nextElementSibling || null;
+        const metricRows = new Map();
+        if (metricFieldset && chartOption) {
+            METRIC_ORDER.forEach(metric => {
+                const label = metricInputs.find(input => input.dataset.overviewSetting === metric)?.closest('label');
+                if (!label) return;
+                const row = documentRef.createElement('div');
+                row.className = 'settings-metric-row';
+                row.dataset.metricOrder = metric;
+                const grip = documentRef.createElement('button');
+                grip.type = 'button';
+                grip.className = 'settings-metric-grip';
+                grip.setAttribute('aria-label', `Move ${label.textContent.trim()}`);
+                grip.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
+                metricFieldset.insertBefore(row, label);
+                row.append(grip, label);
+                metricRows.set(metric, row);
+            });
+        }
+
+        function orderedMetricRows() {
+            return Array.from(metricFieldset?.querySelectorAll(':scope > .settings-metric-row') || []);
+        }
+
+        function placeChartOption() {
+            const fifthMetric = orderedMetricRows()[4];
+            if (fifthMetric && chartOption.nextElementSibling !== fifthMetric) {
+                metricFieldset.insertBefore(chartOption, fifthMetric);
+            }
+        }
+
+        function applyMetricRows() {
+            if (!metricFieldset || !chartOption) return;
+            const rows = settings.overviewMetricOrder.map(metric => metricRows.get(metric)).filter(Boolean);
+            if (rows.some((row, index) => row !== orderedMetricRows()[index])) {
+                rows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
+            }
+            placeChartOption();
+        }
+
+        function saveMetricRows(previousRows) {
+            const order = orderedMetricRows().map(row => row.dataset.metricOrder);
+            if (order.every((metric, index) => metric === settings.overviewMetricOrder[index])) return true;
+            const nextSettings = { ...settings, overviewMetricOrder: order, overviewMetricsCustomized: true };
+            if (!saveSettings(nextSettings)) {
+                previousRows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
+                placeChartOption();
+                status.textContent = 'This order could not be saved. Try again.';
+                return false;
+            }
+            Object.assign(settings, sanitizeSettings(nextSettings));
+            applyOverviewMetricVisibility(documentRef);
+            status.textContent = '';
+            return true;
+        }
+
+        applyMetricRows();
+        let metricMove = null;
+        function cancelMetricMoveOnEscape(event) {
+            if (event.key !== 'Escape' || !metricMove) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            finishMetricMove(true);
+        }
+        metricFieldset?.addEventListener('pointerdown', event => {
+            const grip = event.target.closest('.settings-metric-grip');
+            if (!grip || metricMove || event.isPrimary === false
+                || (event.button !== undefined && event.button !== 0)) return;
+            const row = grip.closest('.settings-metric-row');
+            const phone = global.matchMedia?.('(max-width: 768px), (max-height: 480px) and (orientation: landscape)').matches;
+            metricMove = {
+                row, grip, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+                previousRows: orderedMetricRows(), moved: false, ready: !phone, ghost: null,
+                lastY: event.clientY, timer: null, animations: []
+            };
+            documentRef.addEventListener('keydown', cancelMetricMoveOnEscape, true);
+            metricFieldset.setPointerCapture?.(event.pointerId);
+            if (phone && event.pointerType === 'touch') {
+                metricMove.ready = false;
+                const move = metricMove;
+                move.timer = global.setTimeout(() => {
+                    if (metricMove === move) move.ready = true;
+                }, 300);
+            } else metricMove.ready = true;
+        });
+
+        function finishMetricMove(cancelled) {
+            if (!metricMove) return;
+            const move = metricMove;
+            documentRef.removeEventListener('keydown', cancelMetricMoveOnEscape, true);
+            if (move.timer !== null) global.clearTimeout(move.timer);
+            if (cancelled) {
+                move.previousRows.forEach(row => metricFieldset.insertBefore(row, metricListEnd));
+                placeChartOption();
+            }
+            else if (move.moved) saveMetricRows(move.previousRows);
+            move.row.classList.remove('settings-metric-moving');
+            move.ghost?.remove();
+            move.animations.forEach(animation => animation.cancel());
+            if (metricFieldset.hasPointerCapture?.(move.pointerId)) {
+                metricFieldset.releasePointerCapture(move.pointerId);
+            }
+            metricMove = null;
+        }
+
+        metricFieldset?.addEventListener('pointermove', event => {
+            if (!metricMove || event.pointerId !== metricMove.pointerId) return;
+            const move = metricMove;
+            const distance = Math.hypot(event.clientX - move.startX, event.clientY - move.startY);
+            if (!move.ready) {
+                if (distance >= 8) {
+                    if (move.timer !== null) global.clearTimeout(move.timer);
+                    move.timer = null;
+                    const body = panel.querySelector('.settings-body');
+                    if (body) body.scrollTop -= event.clientY - move.lastY;
+                    move.lastY = event.clientY;
+                }
+                return;
+            }
+            if (!move.moved && distance < 8) return;
+            if (!move.moved) {
+                move.moved = true;
+                const box = move.row.getBoundingClientRect();
+                move.ghost = move.row.cloneNode(true);
+                move.ghost.classList.add('settings-metric-ghost');
+                move.ghost.setAttribute('aria-hidden', 'true');
+                move.ghost.setAttribute('inert', '');
+                Object.assign(move.ghost.style, {
+                    left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`
+                });
+                documentRef.body.appendChild(move.ghost);
+                move.row.classList.add('settings-metric-moving');
+            }
+            move.ghost.style.transform = `translate(${event.clientX - move.startX}px, ${event.clientY - move.startY}px)`;
+            const target = documentRef.elementFromPoint(event.clientX, event.clientY)
+                ?.closest('.settings-metric-row');
+            if (target && target !== move.row && target.parentElement === metricFieldset) {
+                const box = target.getBoundingClientRect();
+                const reference = event.clientY < box.top + box.height / 2 ? target : target.nextSibling;
+                if (reference !== move.row && move.row.nextSibling !== reference) {
+                    move.animations.forEach(animation => animation.cancel());
+                    move.animations = [];
+                    const before = new Map(orderedMetricRows()
+                        .map(row => [row, row.getBoundingClientRect()]));
+                    metricFieldset.insertBefore(move.row, reference);
+                    placeChartOption();
+                    orderedMetricRows().forEach(row => {
+                        const previous = before.get(row);
+                        const current = row.getBoundingClientRect();
+                        const distance = previous.top - current.top;
+                        if (distance && typeof row.animate === 'function') {
+                            move.animations.push(row.animate([
+                                { transform: `translateY(${distance}px)` },
+                                { transform: 'translateY(0)' }
+                            ], { duration: 150, easing: 'ease-out' }));
+                        }
+                    });
+                }
+            }
+            event.preventDefault();
+        });
+        metricFieldset?.addEventListener('pointerup', event => {
+            if (metricMove?.pointerId === event.pointerId) finishMetricMove(false);
+        });
+        metricFieldset?.addEventListener('pointercancel', event => {
+            if (metricMove?.pointerId === event.pointerId) finishMetricMove(true);
+        });
+        metricFieldset?.addEventListener('keydown', event => {
+            if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            const grip = event.target.closest('.settings-metric-grip');
+            if (!grip) return;
+            const row = grip.closest('.settings-metric-row');
+            const previousRows = orderedMetricRows();
+            const offset = event.key === 'ArrowUp' ? -1 : 1;
+            const target = previousRows[previousRows.indexOf(row) + offset];
+            if (!target) return;
+            metricFieldset.insertBefore(row, offset < 0 ? target : target.nextSibling);
+            placeChartOption();
+            if (saveMetricRows(previousRows)) {
+                status.textContent = `${row.querySelector('label').textContent.trim()} moved to position ${orderedMetricRows().indexOf(row) + 1}.`;
+            }
+            grip.focus();
+            event.preventDefault();
+        });
         metricInputs.forEach(input => {
             const metric = input.dataset.overviewSetting;
             input.checked = isOverviewMetricVisible(metric);
             input.addEventListener('change', () => {
                 const previousValue = isOverviewMetricVisible(metric);
-                const nextSettings = { ...settings, [`overview.${metric}`]: input.checked };
+                const nextSettings = { ...settings, [`overview.${metric}`]: input.checked, overviewMetricsCustomized: true };
                 if (!saveSettings(nextSettings)) {
                     input.checked = previousValue;
                     status.textContent = 'This setting could not be saved. Try again.';
@@ -893,6 +1183,7 @@
             metricInputs.forEach(input => {
                 input.checked = isOverviewMetricVisible(input.dataset.overviewSetting);
             });
+            applyMetricRows();
             applyOverviewMetricVisibility(documentRef);
             if (chartWidth) chartWidth.value = 'auto';
             applyOverviewMiniChartWidth('auto', documentRef);
@@ -987,6 +1278,7 @@
         applyConnectionDetailsLocation,
         isOverviewMetricVisible,
         visibleOverviewMetricCount,
+        applyOverviewMetricOrder,
         applyOverviewMetricVisibility,
         scheduleOverviewBehindMasks,
         applyOverviewMiniChartWidth,
