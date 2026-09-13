@@ -131,6 +131,14 @@
     {
       "name": "process table order and card name",
       "commit": "ed955a23fa45f4943def582d84e06aba270c0d56"
+    },
+    {
+      "name": "All page metric ordering",
+      "commit": "5a53c227b67396977ddf1e138841c5d08db6efa4"
+    },
+    {
+      "name": "grouped settings panel",
+      "commit": "3a825ee1505f8bdedddeacc8ed4d335b9da6d79b"
     }
   ],
   "upstream_review": {
