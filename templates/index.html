@@ -216,14 +216,6 @@
                         <option value="wide">Wide</option>
                     </select>
                 </label>
-                <label class="settings-field" for="settings-sidebar-label">
-                    <span>GPU labels</span>
-                    <select id="settings-sidebar-label">
-                        <option value="index">Index</option>
-                        <option value="node-index">Node and index</option>
-                        <option value="short-name">Short name</option>
-                    </select>
-                </label>
                 <label class="settings-option">
                     <input id="settings-sidebar-auto-hide" type="checkbox">
                     <span>Hide when not in use</span>
@@ -234,7 +226,15 @@
                 </label>
             </fieldset>
             <section class="settings-group" aria-labelledby="settings-labels-title">
-                <h3 id="settings-labels-title">Labels</h3>
+                <h3 id="settings-labels-title">Names</h3>
+                <label class="settings-field" for="settings-sidebar-label">
+                    <span>GPU name style</span>
+                    <select id="settings-sidebar-label">
+                        <option value="index">Index</option>
+                        <option value="node-index">Node and index</option>
+                        <option value="short-name">Short name</option>
+                    </select>
+                </label>
                 <p class="settings-help">Choose names that are easier to recognize. Clear a field to restore its default.</p>
                 <div class="settings-label-list" id="settings-label-list"></div>
             </section>

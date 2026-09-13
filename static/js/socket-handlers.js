@@ -562,15 +562,11 @@ function handleClusterData(data) {
 
     // Render GPUs grouped by node (minimal grouping)
     Object.entries(data.nodes).forEach(([nodeName, nodeData]) => {
-        // Get or create node group container
         let nodeGroup = findDataElement(overviewContainer, '.node-group', 'node', nodeName);
-        if (!nodeGroup) {
-            nodeGroup = createNodeGroup(overviewContainer, nodeName, nodeName);
-        }
-
-        const nodeGrid = nodeGroup.querySelector('.node-grid');
 
         if (nodeData.status === 'online') {
+            if (!nodeGroup) nodeGroup = createNodeGroup(overviewContainer, nodeName, nodeName);
+            const nodeGrid = nodeGroup.querySelector('.node-grid');
             // Node is online - process its GPUs normally
             Object.entries(nodeData.gpus).forEach(([gpuId, gpuInfo]) => {
                 const fullGpuId = `${nodeName}-${gpuId}`;
@@ -618,7 +614,8 @@ function handleClusterData(data) {
             });
         } else {
             // Node is offline - remove entire node group
-            const existingCards = nodeGrid.querySelectorAll('[data-gpu-id]');
+            if (!nodeGroup) return;
+            const existingCards = nodeGroup.querySelectorAll('[data-gpu-id]');
             existingCards.forEach(card => {
                 const gpuId = card.getAttribute('data-gpu-id');
                 // Clean up chart data
@@ -634,6 +631,7 @@ function handleClusterData(data) {
 
             // Remove the entire node group from the UI
             nodeGroup.remove();
+            window.GPUHotSettings?.pruneLabelTargets?.();
         }
     });
 

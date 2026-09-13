@@ -416,6 +416,27 @@
         bindLabel(element, labelKey('gpu', nodeName, gpuId), fallback, output);
     }
 
+    function shownLabelName(target, documentRef) {
+        const displayed = Array.from(documentRef.querySelectorAll('[data-display-label-key]'))
+            .find(element => element.dataset.displayLabelKey === target.key
+                && !element.closest('#settings-panel'));
+        return displayed?.textContent?.trim() || displayed?.title || displayLabel(target.key, target.fallback);
+    }
+
+    function refreshLabelControlNames(documentRef) {
+        documentRef.querySelectorAll('.settings-label-node').forEach(group => {
+            group.querySelector('h4').textContent = nodeDisplayLabel(group.dataset.node);
+        });
+        documentRef.querySelectorAll('.settings-label-field[data-label-key]').forEach(field => {
+            const target = labelTargets.get(field.dataset.labelKey);
+            if (!target) return;
+            const caption = field.querySelector('span');
+            caption.textContent = target.kind === 'node'
+                ? `Node name (shown as ${shownLabelName(target, documentRef)})`
+                : `GPU ${target.gpu} (shown as ${shownLabelName(target, documentRef)})`;
+        });
+    }
+
     function renderLabelControls(documentRef = global.document) {
         const list = documentRef?.getElementById('settings-label-list');
         if (!list) return;
@@ -429,50 +450,81 @@
             return;
         }
 
+        const targetsByNode = new Map();
         labelTargets.forEach(target => {
-            const field = documentRef.createElement('label');
-            field.className = 'settings-label-field';
-            const caption = documentRef.createElement('span');
-            caption.textContent = target.kind === 'node'
-                ? `Node: ${target.node}`
-                : `GPU: ${target.node} / ${target.gpu}`;
-            const input = documentRef.createElement('input');
-            input.type = 'text';
-            input.maxLength = MAX_LABEL_LENGTH;
-            input.placeholder = target.fallback;
-            input.value = overrides.get(target.key) || '';
-            input.addEventListener('change', () => {
-                const previousLabel = overrideMap().get(target.key) || '';
-                const label = input.value.trim().slice(0, MAX_LABEL_LENGTH);
-                input.value = label;
-                const next = (settings.labelOverrides || [])
-                    .filter(item => labelKey(item.kind, item.node, item.gpu) !== target.key);
-                if (label) next.push({
-                    kind: target.kind,
-                    node: target.node,
-                    ...(target.kind === 'gpu' ? { gpu: target.gpu } : {}),
-                    label
-                });
-                const nextSettings = { ...settings };
-                if (next.length > 0) nextSettings.labelOverrides = next;
-                else delete nextSettings.labelOverrides;
-                if (!saveSettings(nextSettings)) {
-                    input.value = previousLabel;
+            if (!targetsByNode.has(target.node)) targetsByNode.set(target.node, []);
+            targetsByNode.get(target.node).push(target);
+        });
+
+        targetsByNode.forEach((targets, nodeName) => {
+            const group = documentRef.createElement('div');
+            group.className = 'settings-label-node';
+            group.dataset.node = nodeName;
+            const heading = documentRef.createElement('h4');
+            heading.textContent = nodeDisplayLabel(nodeName);
+            group.appendChild(heading);
+            targets.forEach(target => {
+                const field = documentRef.createElement('label');
+                field.className = 'settings-label-field';
+                field.dataset.labelKey = target.key;
+                const caption = documentRef.createElement('span');
+                caption.textContent = target.kind === 'node'
+                    ? `Node name (shown as ${shownLabelName(target, documentRef)})`
+                    : `GPU ${target.gpu} (shown as ${shownLabelName(target, documentRef)})`;
+                const input = documentRef.createElement('input');
+                input.type = 'text';
+                input.maxLength = MAX_LABEL_LENGTH;
+                input.placeholder = target.fallback;
+                input.value = overrides.get(target.key) || '';
+                input.addEventListener('change', () => {
+                    const previousLabel = overrideMap().get(target.key) || '';
+                    const label = input.value.trim().slice(0, MAX_LABEL_LENGTH);
+                    input.value = label;
+                    const next = (settings.labelOverrides || [])
+                        .filter(item => labelKey(item.kind, item.node, item.gpu) !== target.key);
+                    if (label) next.push({
+                        kind: target.kind,
+                        node: target.node,
+                        ...(target.kind === 'gpu' ? { gpu: target.gpu } : {}),
+                        label
+                    });
+                    const nextSettings = { ...settings };
+                    if (next.length > 0) nextSettings.labelOverrides = next;
+                    else delete nextSettings.labelOverrides;
+                    if (!saveSettings(nextSettings)) {
+                        input.value = previousLabel;
+                        const status = documentRef.getElementById('settings-status');
+                        if (status) status.textContent = 'Labels could not be saved. Try again.';
+                        return;
+                    }
+                    Object.keys(settings).forEach(key => delete settings[key]);
+                    Object.assign(settings, nextSettings);
+                    applyDisplayLabels(documentRef);
+                    refreshLabelControlNames(documentRef);
+                    global.GPUHotNotices?.render?.();
                     const status = documentRef.getElementById('settings-status');
-                    if (status) status.textContent = 'Labels could not be saved. Try again.';
-                    return;
-                }
-                Object.keys(settings).forEach(key => delete settings[key]);
-                Object.assign(settings, nextSettings);
-                applyDisplayLabels(documentRef);
-                global.GPUHotNotices?.render?.();
-                const status = documentRef.getElementById('settings-status');
-                if (status) status.textContent = label ? 'Label saved.' : 'Default label restored.';
+                    if (status) status.textContent = label ? 'Label saved.' : 'Default label restored.';
+                });
+                field.append(caption, input);
+                group.appendChild(field);
             });
-            field.append(caption, input);
-            list.appendChild(field);
+            list.appendChild(group);
         });
         updateSettingsPanelOverflow(documentRef);
+    }
+
+    function pruneLabelTargets(documentRef = global.document) {
+        if (!documentRef) return;
+        const displayedKeys = new Set(Array.from(documentRef.querySelectorAll('[data-display-label-key]'))
+            .filter(element => !element.closest('#settings-panel'))
+            .map(element => element.dataset.displayLabelKey));
+        let changed = false;
+        labelTargets.forEach((target, key) => {
+            if (displayedKeys.has(key)) return;
+            labelTargets.delete(key);
+            changed = true;
+        });
+        if (changed) renderLabelControls(documentRef);
     }
 
     function updateSettingsPanelOverflow(documentRef = global.document) {
@@ -551,6 +603,7 @@
             Object.assign(settings, sanitizeSettings(nextSettings));
             syncSidebarControls();
             applySidebarSettings(documentRef);
+            refreshLabelControlNames(documentRef);
             status.textContent = '';
         }
 
@@ -761,6 +814,7 @@
 
         function openPanel() {
             if (isOpen()) return;
+            refreshLabelControlNames(documentRef);
             documentRef.addEventListener('keydown', handleDocumentKeydown);
             panel.hidden = false;
             panel.removeAttribute('inert');
@@ -891,7 +945,8 @@
         gpuDisplayLabel,
         initSettingsPanel,
         registerGpuLabelTarget,
-        registerNodeLabelTarget
+        registerNodeLabelTarget,
+        pruneLabelTargets
     });
 
     if (global.document) {

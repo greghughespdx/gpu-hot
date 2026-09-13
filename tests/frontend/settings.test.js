@@ -1151,6 +1151,51 @@ describe('settings panel', () => {
         expect(api.settings.labelOverrides).toHaveLength(3);
     });
 
+    it('groups the current names by displayed node and keeps overrides above the style', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const node = document.createElement('div');
+        const gpu = document.createElement('button');
+        document.body.append(node, gpu);
+        api.registerNodeLabelTarget('node-a');
+        api.registerGpuLabelTarget('node-a', '0');
+        api.bindNodeLabel(node, 'node-a');
+        api.bindGpuLabel(gpu, 'node-a', '0', '0');
+        document.getElementById('settings-open').click();
+
+        const group = document.querySelector('.settings-label-node');
+        expect(group.dataset.node).toBe('node-a');
+        expect(group.querySelector('h4').textContent).toBe('node-a');
+        expect(Array.from(group.querySelectorAll('.settings-label-field span'), item => item.textContent))
+            .toEqual(['Node name (shown as node-a)', 'GPU 0 (shown as 0)']);
+
+        const gpuInput = group.querySelectorAll('input')[1];
+        gpuInput.value = 'Training card';
+        gpuInput.dispatchEvent(new Event('change'));
+        expect(gpu.textContent).toBe('Training card');
+        expect(group.querySelectorAll('.settings-label-field span')[1].textContent)
+            .toBe('GPU 0 (shown as Training card)');
+        expect(group.querySelectorAll('input')[1]).toBe(gpuInput);
+    });
+
+    it('drops disconnected names from the panel without deleting saved overrides', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const node = document.createElement('div');
+        document.body.append(node);
+        api.registerNodeLabelTarget('node-a');
+        api.bindNodeLabel(node, 'node-a');
+        const input = document.querySelector('#settings-label-list input');
+        input.value = 'Workstation';
+        input.dispatchEvent(new Event('change'));
+        node.remove();
+
+        api.pruneLabelTargets(document);
+
+        expect(document.querySelectorAll('#settings-label-list input')).toHaveLength(0);
+        expect(api.settings.labelOverrides).toEqual([{ kind: 'node', node: 'node-a', label: 'Workstation' }]);
+    });
+
     it('does not replace an active field when the same GPU is reported again', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();
@@ -1450,6 +1495,10 @@ describe('settings page contract', () => {
             .map(option => option.value)).toEqual(['standard', 'comfortable', 'wide']);
         expect(Array.from(parsed.getElementById('settings-sidebar-label').options)
             .map(option => option.value)).toEqual(['index', 'node-index', 'short-name']);
+        expect(parsed.getElementById('settings-sidebar-label').closest('#settings-label-list')).toBeNull();
+        expect(parsed.getElementById('settings-sidebar-label').closest('[aria-labelledby="settings-labels-title"]'))
+            .not.toBeNull();
+        expect(parsed.getElementById('settings-labels-title').textContent).toBe('Names');
         expect(parsed.getElementById('settings-sidebar-auto-hide')).not.toBeNull();
         expect(parsed.getElementById('settings-sidebar-pinned')).not.toBeNull();
     });
