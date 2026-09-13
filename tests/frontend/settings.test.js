@@ -133,18 +133,20 @@ function metricPanelRows() {
     const metricList = document.createElement('div');
     metricList.className = 'settings-metric-list';
     inputs[0].before(metricList);
+    const displayOptions = document.createElement('div');
+    displayOptions.className = 'settings-overview-display-options';
     inputs.forEach(input => {
         const label = document.createElement('label');
         label.className = 'settings-check-row';
         label.textContent = input.dataset.overviewSetting.replaceAll('-', ' ');
         input.replaceWith(label);
         label.prepend(input);
-        metricList.appendChild(label);
+        (input.dataset.overviewSetting === 'chart' ? displayOptions : metricList).appendChild(label);
     });
     const body = document.createElement('div');
     body.className = 'settings-body';
     metricList.before(body);
-    body.appendChild(metricList);
+    body.append(metricList, displayOptions);
     return metricList;
 }
 
@@ -836,22 +838,23 @@ describe('settings panel', () => {
         expect(new Set(order).size).toBe(17);
     });
 
-    it('keeps Mini chart in its original fifth settings position', () => {
-        const fieldset = metricPanelRows();
+    it('keeps the graph control outside the orderable metric list', () => {
+        const metricList = metricPanelRows();
         const api = loadSettingsModule();
         api.initSettingsPanel();
-        const displayedMetrics = () => Array.from(fieldset.children)
-            .filter(child => child.matches('.settings-metric-row, label'))
-            .map(child => child.dataset.metricOrder
-                || child.querySelector('[data-overview-setting]')?.dataset.overviewSetting);
+        const displayedMetrics = () => Array.from(metricList.children)
+            .map(child => child.dataset.metricOrder);
 
-        expect(displayedMetrics().slice(0, 6))
-            .toEqual(['utilization', 'temperature', 'memory', 'power', 'chart', 'fan-speed']);
-        const grip = fieldset.querySelector('[data-metric-order="fan-speed"] .settings-metric-grip');
+        expect(displayedMetrics().slice(0, 5))
+            .toEqual(['utilization', 'temperature', 'memory', 'power', 'fan-speed']);
+        expect(metricList.querySelector('[data-overview-setting="chart"]')).toBeNull();
+        expect(document.querySelector('.settings-overview-display-options [data-overview-setting="chart"]'))
+            .not.toBeNull();
+        const grip = metricList.querySelector('[data-metric-order="fan-speed"] .settings-metric-grip');
         grip.dispatchEvent(new KeyboardEvent('keydown', {
             key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true
         }));
-        expect(displayedMetrics()[4]).toBe('chart');
+        expect(displayedMetrics()[3]).toBe('fan-speed');
         expect(api.settings.overviewMetricOrder[3]).toBe('fan-speed');
     });
 
@@ -2128,11 +2131,11 @@ describe('settings page contract', () => {
             .map(input => input.dataset.overviewSetting);
 
         expect(metrics).toEqual([
-            'utilization', 'temperature', 'memory', 'power', 'chart',
-            'fan-speed', 'graphics-clock', 'memory-clock', 'memory-used',
+            'utilization', 'temperature', 'memory', 'power', 'fan-speed',
+            'graphics-clock', 'memory-clock', 'memory-used',
             'power-limit', 'memory-temperature', 'throttle-status', 'process-count',
             'pcie-generation', 'pcie-width', 'encoder-load', 'decoder-load',
-            'performance-state'
+            'performance-state', 'chart'
         ]);
         expect(new Set(metrics).size).toBe(18);
     });
@@ -2169,7 +2172,7 @@ describe('settings page contract', () => {
         const sections = Array.from(parsed.querySelectorAll('.settings-body > .settings-group'));
 
         expect(sections.map(section => section.querySelector('h3').textContent))
-            .toEqual(['General', 'All page metrics', 'Left bar', 'Names', 'Event notices']);
+            .toEqual(['General', 'Left bar', 'All page metrics', 'Names', 'Event notifications']);
         expect(parsed.querySelectorAll('fieldset, legend')).toHaveLength(0);
         expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
         expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
@@ -2180,13 +2183,25 @@ describe('settings page contract', () => {
             .toBe('Move connection details into this panel');
         expect(parsed.querySelectorAll('.settings-body .settings-help')).toHaveLength(0);
         expect(parsed.querySelectorAll('.settings-body .settings-note')).toHaveLength(1);
-        expect(sections[1].querySelector('.settings-note').textContent).toBe('Drag to reorder');
-        expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
-        expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
-        expect(sections[1].querySelector('.settings-metric-list').children).toHaveLength(20);
-        expect(sections[1].querySelector('[data-overview-setting="chart"]')
-            .closest('.settings-chart-row')).not.toBeNull();
-        expect(sections[1].querySelector('.settings-subgroup-after').children).toHaveLength(2);
+        expect(sections[2].querySelector('.settings-note').textContent).toBe('Drag to reorder');
+        expect(sections[2].querySelector('#settings-overview-chart-width')).not.toBeNull();
+        expect(sections[2].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
+        expect(sections[2].querySelector('.settings-metric-list').children).toHaveLength(17);
+        expect(sections[2].querySelector('.settings-metric-list [data-overview-setting="chart"]'))
+            .toBeNull();
+        expect(Array.from(sections[2].querySelectorAll('.settings-overview-display-options label'),
+            row => row.textContent.trim()))
+            .toEqual(['Show live utilization graph', 'Show model', 'Show card ID']);
+        expect(sections[2].querySelector('.settings-overview-display-options').nextElementSibling
+            .querySelector('#settings-overview-chart-width').closest('label').textContent)
+            .toContain('Graph width');
+        expect(sections[2].querySelector('.settings-overview-display-options').nextElementSibling.children)
+            .toHaveLength(2);
+        expect(parsed.getElementById('settings-connection-details').parentElement)
+            .toBe(parsed.querySelector('.settings-header-main'));
+        expect(parsed.querySelector('.settings-header-main').lastElementChild.id).toBe('settings-close');
+        expect(parsed.querySelector('.event-notices').getAttribute('aria-label'))
+            .toBe('Event notifications');
     });
 
     it('gives every section the grouped-card style and every select the same row shape', () => {
@@ -2213,8 +2228,8 @@ describe('settings page contract', () => {
                 expect(page.window.getComputedStyle(field).gridTemplateColumns)
                     .toBe('minmax(0, 1fr) minmax(0, 190px)');
             });
-            const chartRow = page.window.document.querySelector('.settings-chart-row');
-            expect(page.window.getComputedStyle(chartRow).paddingLeft).toBe('22px');
+            const displayOptions = page.window.document.querySelector('.settings-overview-display-options');
+            expect(page.window.getComputedStyle(displayOptions).marginTop).toBe('var(--space-md)');
         } finally {
             page.window.close();
         }

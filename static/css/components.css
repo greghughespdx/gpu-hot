@@ -1280,10 +1280,6 @@ html.overview-chart-width-behind .overview-gpu-card.overview-metrics-wrapped:not
 }
 
 .settings-header {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-md);
     padding: var(--space-sm) var(--space-lg);
     border-bottom: 1px solid var(--border-subtle);
 }
@@ -1384,13 +1380,34 @@ html.overview-chart-width-behind .overview-gpu-card.overview-metrics-wrapped:not
     display: none;
 }
 
+.settings-connection-details {
+    flex: 1;
+    min-width: 0;
+}
+
 html.settings-connection-in-panel #dashboard-status-home {
     display: none;
 }
 
 .settings-connection-details .header-row {
-    min-height: 24px;
-    flex-wrap: wrap;
+    min-height: 36px;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    gap: var(--space-sm);
+}
+
+.settings-connection-details .header-status {
+    min-width: 0;
+}
+
+.settings-connection-details #connection-status {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-connection-details .version-info {
+    flex: none;
 }
 
 .settings-option span {
@@ -1503,10 +1520,6 @@ html.settings-connection-in-panel #dashboard-status-home {
     justify-self: center;
 }
 
-.settings-panel .settings-chart-row {
-    padding-left: 22px;
-}
-
 .settings-panel .settings-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 190px);
@@ -1571,7 +1584,7 @@ html.settings-connection-in-panel #dashboard-status-home {
     gap: var(--space-sm);
 }
 
-.settings-panel .settings-subgroup-after {
+.settings-panel .settings-overview-display-options {
     margin-top: var(--space-md);
 }
 
