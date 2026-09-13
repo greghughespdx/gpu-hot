@@ -523,13 +523,26 @@ function sidebarLabel(gpuId, gpuInfo) {
 
 function applySidebarButtonLabel(button, gpuId, gpuInfo, nodeName, sourceGpuId) {
     const fallback = sidebarLabel(gpuId, gpuInfo);
-    button.textContent = fallback;
+    const titleFallback = fallback === String(sourceGpuId)
+        ? `GPU ${gpuId}`
+        : `${fallback} (GPU ${gpuId})`;
+    let label = button.querySelector(':scope > .sidebar-btn-label');
+    if (!label) {
+        label = button.ownerDocument.createElement('span');
+        label.className = 'sidebar-btn-label';
+        button.replaceChildren(label);
+    }
+    label.textContent = fallback;
+    button.title = titleFallback;
     window.GPUHotSettings?.registerGpuLabelTarget?.(nodeName, sourceGpuId);
     window.GPUHotSettings?.bindGpuLabel?.(
-        button,
+        label,
         nodeName,
         sourceGpuId,
         fallback
+    );
+    window.GPUHotSettings?.bindGpuLabel?.(
+        button, nodeName, sourceGpuId, titleFallback, 'title'
     );
 }
 
@@ -637,11 +650,9 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
         btn.dataset.gpuNode = String(nodeName);
         btn.dataset.sourceGpuId = String(sourceGpuId);
         applySidebarButtonLabel(btn, gpuId, gpuInfo, nodeName, sourceGpuId);
-        btn.title = `GPU ${gpuId}`;
         btn.onclick = () => switchToView(`gpu-${gpuId}`);
         viewSelector.appendChild(btn);
         registerSidebarOrder(btn, nodeName, sourceGpuId);
-        window.GPUHotSettings?.bindGpuLabel?.(btn, nodeName, sourceGpuId, `GPU ${gpuId}`, 'title');
 
         // Create tab content
         const tabContent = document.createElement('div');
