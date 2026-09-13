@@ -255,10 +255,12 @@ describe('ensureGPUTab', () => {
     });
 
     it('keeps a custom GPU label above the selected scheme', () => {
-        const bindGpuLabel = vi.fn((button, nodeName, gpuId, fallback) => {
-            button.textContent = nodeName === 'node-a' && gpuId === '1'
+        const bindGpuLabel = vi.fn((element, nodeName, gpuId, fallback, output = 'text') => {
+            const label = nodeName === 'node-a' && gpuId === '1'
                 ? 'Training card'
                 : fallback;
+            if (output === 'title') element.title = label;
+            else element.textContent = label;
         });
         window.GPUHotSettings = {
             settings: { sidebarLabel: 'index' },
@@ -274,14 +276,17 @@ describe('ensureGPUTab', () => {
         const button = document.querySelector('[data-view="gpu-node-a-1"]');
         expect(button.textContent).toBe('Training card');
         expect(bindGpuLabel).toHaveBeenNthCalledWith(
-            1, button, 'node-a', '1', '1'
+            1, button.querySelector('.sidebar-btn-label'), 'node-a', '1', '1'
         );
 
         window.GPUHotSettings.settings.sidebarLabel = 'short-name';
         window.updateSidebarLabels();
 
         expect(button.textContent).toBe('Training card');
-        expect(bindGpuLabel).toHaveBeenCalledWith(button, 'node-a', '1', 'RTX 4090');
+        expect(button.title).toBe('Training card');
+        expect(bindGpuLabel).toHaveBeenCalledWith(
+            button.querySelector('.sidebar-btn-label'), 'node-a', '1', 'RTX 4090'
+        );
         expect(button.dataset.gpuNode).toBe('node-a');
         expect(button.dataset.sourceGpuId).toBe('1');
     });
@@ -937,6 +942,32 @@ describe('All page ordering', () => {
         expect(label.textContent).toBe('Renamed node');
     });
 
+    it('keeps the grip usable and clones the full height of a wrapped card', () => {
+        const group = addDashboardNode('node-a', ['0']);
+        const card = group.querySelector('.overview-gpu-card');
+        const name = card.querySelector('.overview-gpu-name');
+        name.append(document.createTextNode('A'.repeat(80)));
+        card.getBoundingClientRect = () => ({ left: 20, top: 30, width: 300, height: 90 });
+        const grip = name.querySelector('.dashboard-order-grip');
+        grip.setPointerCapture = vi.fn();
+
+        dispatchPointer(grip, 'pointerdown', {
+            pointerId: 35, pointerType: 'mouse', button: 0, clientX: 25, clientY: 35
+        });
+        dispatchPointer(grip, 'pointermove', {
+            pointerId: 35, pointerType: 'mouse', clientX: 45, clientY: 55
+        });
+
+        const ghost = document.querySelector('.dashboard-order-ghost');
+        expect(ghost).not.toBeNull();
+        expect(ghost.style.height).toBe('90px');
+        expect(ghost.querySelector('.dashboard-order-grip')).not.toBeNull();
+        expect(ghost.textContent).toContain('A'.repeat(80));
+
+        dispatchPointer(grip, 'pointercancel', { pointerId: 35, pointerType: 'mouse' });
+        expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
+    });
+
     it('ignores a second non-primary touch', () => {
         const group = addDashboardNode('node-a', ['0', '1']);
         const [first, second] = Array.from(group.querySelectorAll('.overview-gpu-card'));
@@ -1076,6 +1107,7 @@ describe('label override integration', () => {
         expect(() => ensureGPUTab('0', { name: 'RTX 3090', utilization: 50 }, false))
             .not.toThrow();
         expect(document.querySelector('[data-view="gpu-0"]').textContent).toBe('0');
+        expect(document.querySelector('[data-view="gpu-0"]').title).toBe('GPU 0');
         const card = document.getElementById('gpu-0');
         expect(card.querySelector('.gpu-detail-title').textContent).toBe('GPU 0');
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
@@ -1121,6 +1153,55 @@ describe('label override integration', () => {
         expect(button.title).toBe('Training card');
         expect(card.querySelector('.gpu-detail-title').textContent).toBe('Training card');
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
+    });
+
+    it.each(['standard', 'comfortable', 'wide'])(
+        'keeps all six live node-and-index labels complete at %s width', width => {
+            const api = loadSettingsModule();
+            api.settings.sidebarWidth = width;
+            api.settings.sidebarLabel = 'node-index';
+            api.applySidebarSettings(document);
+            const liveGpus = [
+                ['p4000-vm', '0'],
+                ['inf2', '0'], ['inf2', '1'],
+                ['inf1', '0'], ['inf1', '1'],
+                ['truenas-a10m', '0']
+            ];
+            liveGpus.forEach(([nodeName, gpuId]) => addOrderedGpu(nodeName, gpuId));
+
+            const buttons = Array.from(document.querySelectorAll('.sidebar-btn[data-gpu-id]'));
+            expect(buttons.map(button => button.textContent)).toEqual(
+                liveGpus.map(([nodeName, gpuId]) => `${nodeName} ${gpuId}`)
+            );
+            buttons.forEach(button => {
+                expect(button.querySelector(':scope > .sidebar-btn-label')).not.toBeNull();
+                expect(button.title).toContain(button.textContent);
+            });
+        }
+    );
+
+    it('keeps a long custom label available when the visible line count is capped', () => {
+        const customLabel = 'A'.repeat(80);
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({
+            version: 1,
+            settings: {
+                sidebarWidth: 'standard',
+                labelOverrides: [{ kind: 'gpu', node: 'node-a', gpu: '0', label: customLabel }]
+            }
+        }));
+        loadSettingsModule();
+        const button = addOrderedGpu('node-a', '0');
+        const style = document.createElement('style');
+        style.textContent = layoutCss;
+        document.head.appendChild(style);
+
+        expect(button.querySelector('.sidebar-btn-label').textContent).toBe(customLabel);
+        expect(button.title).toBe(customLabel);
+        expect(getComputedStyle(button.querySelector('.sidebar-btn-label')).getPropertyValue('-webkit-line-clamp'))
+            .toBe('3');
+        expect(getComputedStyle(button.querySelector('.sidebar-btn-label')).overflowWrap).toBe('anywhere');
+        expect(layoutCss).toMatch(/@media \(max-width: 768px\), \(max-height: 480px\) and \(orientation: landscape\)[\s\S]*?\.sidebar-btn \{\s*width: 40px;/);
+        style.remove();
     });
 
     it('builds a detailed card without parsing its identity or model as HTML', () => {
