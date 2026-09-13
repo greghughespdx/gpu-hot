@@ -17,6 +17,10 @@
     {
       "name": "known server model fields in node collectors",
       "commit": "b982f88b8ef38cd2e90cd5f8f3c43a593b57406a"
+    },
+    {
+      "name": "Ollama running model lookup and node overlay",
+      "commit": "36d1e547a8c6f1e590a02011218dd2bcf6f38f04"
     }
   ],
   "upstream_review": {
