@@ -1398,16 +1398,28 @@ html.settings-connection-in-panel #dashboard-status-home {
 
 .settings-group {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-sm);
     margin: 0;
     padding: 0;
     border: 0;
 }
 
+.settings-group + .settings-group {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+}
+
 .settings-group legend {
     margin-bottom: var(--space-sm);
     color: var(--text-primary);
-    font-weight: 600;
+}
+
+.settings-group h3,
+.settings-group legend {
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 
 .settings-group label {
@@ -1415,6 +1427,9 @@ html.settings-connection-in-panel #dashboard-status-home {
     align-items: center;
     gap: var(--space-sm);
     cursor: pointer;
+}
+.settings-group .settings-field {
+    display: grid;
 }
 .settings-field {
     display: grid;

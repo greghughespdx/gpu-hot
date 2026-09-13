@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { JSDOM } from 'jsdom';
 import vm from 'vm';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -1541,6 +1542,42 @@ describe('settings page contract', () => {
         expect(parsed.getElementById('settings-sidebar-auto-hide').parentElement.textContent)
             .toContain('Hide the left bar when not in use');
         expect(parsed.getElementById('settings-sidebar-pinned')).toBeNull();
+    });
+
+    it('keeps the settings in five subtly separated sections', () => {
+        const parsed = new DOMParser().parseFromString(template, 'text/html');
+        const sections = Array.from(parsed.querySelectorAll('.settings-body > .settings-group'));
+
+        expect(sections.map(section => section.querySelector('h3, legend').textContent))
+            .toEqual(['General', 'All page metrics', 'Left bar', 'Labels', 'Event notices']);
+        expect(sections[0].querySelector('#settings-theme')).not.toBeNull();
+        expect(sections[0].querySelector('#settings-move-connection-details')).not.toBeNull();
+        expect(sections[0].querySelector('#settings-show-star-prompt')).not.toBeNull();
+        expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
+        expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
+        expect(componentsCss).toMatch(/\.settings-group \+ \.settings-group \{[^}]*margin-top: 10px;[^}]*padding-top: 10px;[^}]*border-top: 1px solid var\(--border-subtle\);/);
+    });
+
+    it('renders every section heading at the same weight and gives controls a full-width grid column', () => {
+        const page = new JSDOM(template, { pretendToBeVisual: true });
+        try {
+            const style = page.window.document.createElement('style');
+            style.textContent = componentsCss;
+            page.window.document.head.appendChild(style);
+
+            const sections = Array.from(page.window.document.querySelectorAll('.settings-body > .settings-group'));
+            for (const section of sections) {
+                const heading = section.querySelector('h3, legend');
+                const headingStyle = page.window.getComputedStyle(heading);
+                expect(headingStyle.fontWeight).toBe('700');
+                expect(headingStyle.letterSpacing).toBe('0.03em');
+                expect(page.window.getComputedStyle(section).gridTemplateColumns).toBe('minmax(0, 1fr)');
+            }
+            const themeField = page.window.document.querySelector('#settings-theme').closest('.settings-field');
+            expect(page.window.getComputedStyle(themeField).display).toBe('grid');
+        } finally {
+            page.window.close();
+        }
     });
 
     it('uses the full viewport width at phone size', () => {
