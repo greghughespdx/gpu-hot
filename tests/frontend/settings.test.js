@@ -1235,6 +1235,33 @@ describe('settings panel', () => {
         expect(api.settings.labelOverrides).toEqual([{ kind: 'node', node: 'node-a', label: 'Workstation' }]);
     });
 
+    it('keeps an unfinished name edit when a different node disconnects', () => {
+        const api = loadSettingsModule();
+        api.initSettingsPanel();
+        const firstNode = document.createElement('span');
+        const secondNode = document.createElement('span');
+        document.body.append(firstNode, secondNode);
+        api.registerNodeLabelTarget('node-a');
+        api.registerNodeLabelTarget('node-b');
+        api.bindNodeLabel(firstNode, 'node-a');
+        api.bindNodeLabel(secondNode, 'node-b');
+        document.getElementById('settings-open').click();
+        const draftInput = document.querySelector('.settings-label-node[data-node="node-a"] input');
+        draftInput.focus();
+        draftInput.value = 'Still typing';
+        const write = vi.spyOn(Storage.prototype, 'setItem');
+        secondNode.remove();
+
+        api.pruneLabelTargets(document);
+
+        expect(document.querySelector('.settings-label-node[data-node="node-a"] input')).toBe(draftInput);
+        expect(document.activeElement).toBe(draftInput);
+        expect(draftInput.value).toBe('Still typing');
+        expect(document.querySelector('.settings-label-node[data-node="node-b"]')).toBeNull();
+        expect(write).not.toHaveBeenCalled();
+        expect(api.settings.labelOverrides).toBeUndefined();
+    });
+
     it('does not replace an active field when the same GPU is reported again', () => {
         const api = loadSettingsModule();
         api.initSettingsPanel();

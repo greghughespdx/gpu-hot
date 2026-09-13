@@ -530,13 +530,24 @@
         const displayedKeys = new Set(Array.from(documentRef.querySelectorAll('[data-display-label-key]'))
             .filter(element => !element.closest('#settings-panel'))
             .map(element => element.dataset.displayLabelKey));
-        let changed = false;
+        const removedKeys = new Set();
         labelTargets.forEach((target, key) => {
             if (displayedKeys.has(key)) return;
             labelTargets.delete(key);
-            changed = true;
+            removedKeys.add(key);
         });
-        if (changed) renderLabelControls(documentRef);
+        if (removedKeys.size === 0) return;
+        if (labelTargets.size === 0) {
+            renderLabelControls(documentRef);
+            return;
+        }
+        documentRef.querySelectorAll('#settings-label-list .settings-label-field').forEach(field => {
+            if (!removedKeys.has(field.dataset.labelKey)) return;
+            const group = field.closest('.settings-label-node');
+            field.remove();
+            if (!group.querySelector('.settings-label-field')) group.remove();
+        });
+        updateSettingsPanelOverflow(documentRef);
     }
 
     function updateSettingsPanelOverflow(documentRef = global.document) {
