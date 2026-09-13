@@ -139,6 +139,26 @@
     {
       "name": "grouped settings panel",
       "commit": "3a825ee1505f8bdedddeacc8ed4d335b9da6d79b"
+    },
+    {
+      "name": "grouped settings geometry tests",
+      "commit": "b60ae3709b6b6316b9d55ccfb069b87068bf1673"
+    },
+    {
+      "name": "process model display",
+      "commit": "3e5b30d5258e1a15efb6e5405a5d9bfe6aa53671"
+    },
+    {
+      "name": "setup code transfer",
+      "commit": "e1c9392fec72f792501c5b6b6b79321167df0f39"
+    },
+    {
+      "name": "wrapped chart opacity",
+      "commit": "9caec5b72a39bcfc39a99305144a873b1c0e5d5f"
+    },
+    {
+      "name": "static demo page",
+      "commit": "22b8994d7273ae84af514109a38ef41487dad36b"
     }
   ],
   "upstream_review": {
