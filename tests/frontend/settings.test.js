@@ -114,6 +114,11 @@ function panelMarkup() {
                 <button id="settings-setup-cancel" type="button">Cancel</button>
                 <button id="settings-setup-import" type="button">Import</button>
             </dialog>
+            <dialog id="settings-copy-dialog" hidden>
+                <h4 id="settings-copy-dialog-title">Copy setup code</h4>
+                <textarea id="settings-copy-code" readonly></textarea>
+                <button id="settings-copy-close" type="button">Close</button>
+            </dialog>
             <input type="checkbox" data-notice-setting="noticeGpuThrottle">
             <input type="checkbox" data-notice-setting="noticeGpuMissing">
             <input type="checkbox" data-notice-setting="noticeNodeOffline">
@@ -293,6 +298,7 @@ describe('settings storage', () => {
         const execCommand = vi.fn(() => {
             const selected = document.activeElement;
             expect(selected.className).toBe('settings-copy-buffer');
+            expect(document.getElementById('settings-panel').contains(selected)).toBe(true);
             expect(selected.selectionStart).toBe(0);
             expect(selected.selectionEnd).toBe(selected.value.length);
             selectedCode = selected.value;
@@ -300,11 +306,12 @@ describe('settings storage', () => {
         });
         Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
         const api = loadSettingsModule();
+        document.getElementById('settings-open').click();
         document.getElementById('settings-copy-setup').click();
         await vi.waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
         if (mode === 'rejected') expect(writeText).toHaveBeenCalledOnce();
         expect(document.querySelector('.settings-copy-buffer')).toBeNull();
-        expect(document.querySelector('.settings-copy-code')).toBeNull();
+        expect(document.getElementById('settings-copy-dialog').open).toBe(false);
         expect(document.getElementById('settings-setup-status').textContent).toBe('Copied to clipboard');
         expect(api.decodeSetupCode(selectedCode)).toEqual(defaults);
         if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
@@ -313,7 +320,7 @@ describe('settings storage', () => {
         else delete document.execCommand;
     });
 
-    it('shows a selected code field only when both copy methods fail', async () => {
+    it('opens a dialog with selected code only when both copy methods fail', async () => {
         panelMarkup();
         const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard');
         const originalCommand = Object.getOwnPropertyDescriptor(document, 'execCommand');
@@ -322,15 +329,20 @@ describe('settings storage', () => {
             configurable: true, value: vi.fn(() => false)
         });
         const api = loadSettingsModule();
+        document.getElementById('settings-open').click();
         document.getElementById('settings-copy-setup').click();
-        await vi.waitFor(() => expect(document.querySelector('.settings-copy-code')).not.toBeNull());
-        const field = document.querySelector('.settings-copy-code');
+        await vi.waitFor(() => expect(document.getElementById('settings-copy-dialog').open).toBe(true));
+        const field = document.getElementById('settings-copy-code');
         expect(api.decodeSetupCode(field.value)).toEqual(defaults);
         expect(document.activeElement).toBe(field);
         expect(field.selectionStart).toBe(0);
         expect(field.selectionEnd).toBe(field.value.length);
-        expect(document.getElementById('settings-setup-status').textContent)
-            .toBe('Copy the setup code from the selected field.');
+        expect(document.getElementById('settings-setup-status').textContent).not.toBe('Copied to clipboard');
+        document.getElementById('settings-open').focus();
+        expect(document.activeElement).toBe(field);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.getElementById('settings-copy-dialog').open).toBe(false);
+        expect(document.getElementById('settings-panel').hidden).toBe(false);
         if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard);
         else delete window.navigator.clipboard;
         if (originalCommand) Object.defineProperty(document, 'execCommand', originalCommand);

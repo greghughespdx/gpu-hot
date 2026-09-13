@@ -863,6 +863,8 @@
         const setupDialog = documentRef.getElementById('settings-setup-dialog');
         const setupCode = documentRef.getElementById('settings-setup-code');
         const setupDialogStatus = documentRef.getElementById('settings-setup-dialog-status');
+        const copyDialog = documentRef.getElementById('settings-copy-dialog');
+        const copyCode = documentRef.getElementById('settings-copy-code');
         if (!openButton || !closeButton || !resetButton || !overlay || !panel || !status) return;
         const noticeInputs = Array.from(panel.querySelectorAll('[data-notice-setting]'));
         if (panel.dataset.settingsInitialized === 'true') return;
@@ -888,27 +890,34 @@
             buffer.value = code;
             buffer.readOnly = true;
             buffer.setAttribute('aria-hidden', 'true');
-            documentRef.body.appendChild(buffer);
+            panel.appendChild(buffer);
             buffer.focus();
             buffer.select();
             let copied = false;
-            try { copied = documentRef.execCommand?.('copy') === true; }
-            catch (error) { /* The selectable field below handles blocked copying. */ }
+            try {
+                copied = documentRef.activeElement === buffer
+                    && buffer.selectionStart === 0
+                    && buffer.selectionEnd === code.length
+                    && documentRef.execCommand?.('copy') === true;
+            } catch (error) { /* The copy dialog below handles blocked copying. */ }
             buffer.remove();
             return copied;
         }
-        function showSelectableSetupCode(code) {
-            const actions = copySetup.closest('.settings-setup-actions');
-            const field = documentRef.createElement('textarea');
-            field.className = 'settings-copy-code';
-            field.setAttribute('aria-label', 'Setup code to copy');
-            field.readOnly = true;
-            field.rows = 3;
-            field.value = code;
-            actions.appendChild(field);
-            field.focus();
-            field.select();
-            showSetupStatus('Copy the setup code from the selected field.');
+        function closeCopyDialog() {
+            if (!copyDialog?.open) return;
+            if (typeof copyDialog.close === 'function') copyDialog.close();
+            else copyDialog.removeAttribute('open');
+            copyDialog.hidden = true;
+            copySetup?.focus();
+        }
+        function openCopyDialog(code) {
+            if (!copyDialog || !copyCode) return;
+            copyCode.value = code;
+            copyDialog.hidden = false;
+            if (typeof copyDialog.showModal === 'function') copyDialog.showModal();
+            else copyDialog.setAttribute('open', '');
+            copyCode.focus();
+            copyCode.select();
         }
         function closeSetupDialog() {
             if (!setupDialog?.open) return;
@@ -965,7 +974,6 @@
         }
         copySetup?.addEventListener('click', async () => {
             const code = exportSetupCode();
-            copySetup.closest('.settings-setup-actions').querySelector('.settings-copy-code')?.remove();
             let copied = false;
             try {
                 if (typeof global.navigator?.clipboard?.writeText === 'function') {
@@ -979,7 +987,9 @@
                 showSetupStatus('Copied to clipboard');
                 fadeSetupStatus();
             } else {
-                showSelectableSetupCode(code);
+                setupStatus.textContent = '';
+                setupStatus.classList.remove('is-visible');
+                openCopyDialog(code);
             }
         });
         pasteSetup?.addEventListener('click', async () => {
@@ -1003,6 +1013,11 @@
         setupDialog?.addEventListener('cancel', event => {
             event.preventDefault();
             closeSetupDialog();
+        });
+        documentRef.getElementById('settings-copy-close')?.addEventListener('click', closeCopyDialog);
+        copyDialog?.addEventListener('cancel', event => {
+            event.preventDefault();
+            closeCopyDialog();
         });
         global.addEventListener('resize', () => scheduleOverviewBehindMasks(documentRef));
         renderLabelControls(documentRef);
@@ -1382,6 +1397,7 @@
         function closePanel() {
             if (!isOpen()) return;
             closeSetupDialog();
+            closeCopyDialog();
             documentRef.removeEventListener('keydown', handleDocumentKeydown);
             documentRef.removeEventListener('focusin', handleDocumentFocus);
             panel.hidden = true;
@@ -1458,7 +1474,7 @@
             status.textContent = 'Settings reset.';
         });
         function panelFocusableControls() {
-            const focusRoot = setupDialog?.open ? setupDialog : panel;
+            const focusRoot = copyDialog?.open ? copyDialog : (setupDialog?.open ? setupDialog : panel);
             return Array.from(focusRoot.querySelectorAll(
                 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
             )).filter(element => {
@@ -1473,6 +1489,10 @@
         }
 
         function handleDocumentFocus(event) {
+            if (copyDialog?.open && !copyDialog.contains(event.target)) {
+                copyCode.focus();
+                return;
+            }
             if (setupDialog?.open && !setupDialog.contains(event.target)) {
                 setupCode.focus();
                 return;
@@ -1485,6 +1505,10 @@
             if (!isOpen()) return;
             if (event.key === 'Escape') {
                 event.preventDefault();
+                if (copyDialog?.open) {
+                    closeCopyDialog();
+                    return;
+                }
                 if (setupDialog?.open) {
                     closeSetupDialog();
                     return;
