@@ -16,6 +16,8 @@ const defaults = {
     'overview.memory': true,
     'overview.power': true,
     'overview.chart': true,
+    'overview.showModel': false,
+    'overview.showCardId': true,
     'overview.fan-speed': false,
     'overview.graphics-clock': false,
     'overview.memory-clock': false,
@@ -72,6 +74,8 @@ function panelMarkup() {
             <input type="checkbox" data-overview-setting="encoder-load">
             <input type="checkbox" data-overview-setting="decoder-load">
             <input type="checkbox" data-overview-setting="performance-state">
+            <input type="checkbox" data-overview-display="showModel">
+            <input type="checkbox" data-overview-display="showCardId">
             <select id="settings-overview-chart-width">
                 <option value="auto">Automatic</option>
                 <option value="wide">Wide</option>
@@ -115,6 +119,7 @@ function panelMarkup() {
             </div>
         </div>
         <div class="overview-gpu-card">
+            <p class="gpu-uuid">GPU-id</p>
             <div class="overview-mini-chart" data-overview-metric="chart">
                 <canvas id="overview-chart-0"></canvas>
             </div>
@@ -297,6 +302,32 @@ describe('settings storage', () => {
             version: 1,
             settings: { ...defaults, moveConnectionDetails: true }
         });
+    });
+
+    it('keeps model off and card ID on by default, then saves and resets both choices', () => {
+        panelMarkup();
+        const api = loadSettingsModule();
+        const model = document.querySelector('[data-overview-display="showModel"]');
+        const cardId = document.querySelector('[data-overview-display="showCardId"]');
+        const uuid = document.querySelector('.gpu-uuid');
+        expect(model.checked).toBe(false);
+        expect(cardId.checked).toBe(true);
+        expect(uuid.hidden).toBe(false);
+        expect(componentsCss).toMatch(/\.gpu-uuid\[hidden\],\s*\.gpu-detail-uuid\[hidden\]\s*\{\s*display:\s*none;/);
+
+        model.checked = true;
+        model.dispatchEvent(new Event('change'));
+        cardId.checked = false;
+        cardId.dispatchEvent(new Event('change'));
+        expect(api.settings['overview.showModel']).toBe(true);
+        expect(api.settings['overview.showCardId']).toBe(false);
+        expect(uuid.hidden).toBe(true);
+        expect(JSON.parse(localStorage.getItem(api.STORAGE_KEY)).settings['overview.showModel']).toBe(true);
+
+        document.getElementById('settings-reset').click();
+        expect(model.checked).toBe(false);
+        expect(cardId.checked).toBe(true);
+        expect(uuid.hidden).toBe(false);
     });
 
     it('stores each event notice choice independently and leaves the others off', () => {
@@ -2128,7 +2159,7 @@ describe('settings page contract', () => {
         expect(sections[1].querySelector('.settings-note').textContent).toBe('Drag to reorder');
         expect(sections[1].querySelector('#settings-overview-chart-width')).not.toBeNull();
         expect(sections[1].querySelector('#settings-overview-chart-behind-dim')).not.toBeNull();
-        expect(sections[1].querySelector('.settings-metric-list').children).toHaveLength(18);
+        expect(sections[1].querySelector('.settings-metric-list').children).toHaveLength(20);
         expect(sections[1].querySelector('[data-overview-setting="chart"]')
             .closest('.settings-chart-row')).not.toBeNull();
         expect(sections[1].querySelector('.settings-subgroup-after').children).toHaveLength(2);

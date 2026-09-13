@@ -1260,8 +1260,42 @@ let latestProcesses = [];
 
 function updateProcesses(processes) {
     latestProcesses = Array.isArray(processes) ? processes : [];
+    refreshOverviewProcessModels();
     renderProcessesForView(typeof currentTab === 'string' ? currentTab : 'overview');
 }
+
+function modelsForOverviewCard(card) {
+    if (window.GPUHotSettings?.settings?.['overview.showModel'] !== true) return [];
+    return [...new Set(latestProcesses
+        .filter(process => String(process.gpu_key) === card.dataset.gpuId)
+        .map(process => process.model)
+        .filter(model => typeof model === 'string' && model.trim())
+        .map(model => model.trim()))];
+}
+
+function setOverviewCardModels(card) {
+    const nameBlock = card.querySelector('.overview-gpu-name, .gpu-detail-header');
+    if (!nameBlock) return;
+    const models = modelsForOverviewCard(card);
+    const oldLines = [...nameBlock.querySelectorAll('.overview-gpu-model')];
+    if (oldLines.length === models.length
+        && oldLines.every((line, index) => line.textContent === `Model: ${models[index]}`)) return;
+    oldLines.forEach(line => line.remove());
+    const anchor = nameBlock.querySelector('.gpu-uuid, .gpu-detail-uuid');
+    models.forEach(model => {
+        const line = document.createElement(card.classList.contains('single-gpu-overview') ? 'span' : 'p');
+        line.className = 'overview-gpu-model';
+        line.textContent = `Model: ${model}`;
+        nameBlock.insertBefore(line, anchor);
+    });
+}
+
+function refreshOverviewProcessModels() {
+    document.querySelectorAll('#overview-container .overview-gpu-card, #overview-container .single-gpu-overview')
+        .forEach(setOverviewCardModels);
+}
+
+window.refreshOverviewProcessModels = refreshOverviewProcessModels;
 
 function processesForView(processes, viewName) {
     if (!viewName || !viewName.startsWith('gpu-')) return processes;
@@ -1316,6 +1350,7 @@ function appendProcessHeader(container) {
     for (const [className, label] of [
         ['process-system-heading', 'System'],
         ['process-card-heading', 'Card'],
+        ['process-model-heading', 'Model'],
         ['process-name-heading', 'Process'],
         ['process-pid-heading', 'PID'],
         ['process-memory-heading', 'VRAM']
@@ -1349,6 +1384,7 @@ function createProcessRow(process) {
     window.GPUHotSettings?.bindNodeLabel?.(systemCell, card.nodeName);
     const cardCell = appendProcessCell(row, 'process-card', card.label);
     window.GPUHotSettings?.bindGpuLabel?.(cardCell, card.nodeName, card.gpuId, card.label);
+    appendProcessCell(row, 'process-model', typeof process.model === 'string' ? process.model : '');
     appendProcessCell(row, 'process-name', process.name || 'Unknown process');
     appendProcessCell(row, 'process-pid', process.pid ?? 'Unknown');
     appendProcessCell(row, 'process-memory', `${formatMemory(process.memory)}${formatMemoryUnit(process.memory)}`);
