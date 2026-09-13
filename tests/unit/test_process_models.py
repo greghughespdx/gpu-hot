@@ -46,8 +46,8 @@ def test_llama_without_alias_uses_model_file():
     assert model_from_command_line(INF1_Q4[:-2]) == "Qwen3.8-27B-UD-Q4_K_XL.gguf"
 
 
-def test_truenas_ollama_runner_uses_reported_path():
-    assert model_from_command_line(OLLAMA_TRUENAS) == OLLAMA_TRUENAS[2]
+def test_truenas_ollama_runner_uses_file_name_without_lookup():
+    assert model_from_command_line(OLLAMA_TRUENAS) == OLLAMA_TRUENAS[2].rsplit("/", 1)[-1]
 
 
 def test_ollama_single_manifest_returns_model_tag(tmp_path, monkeypatch):
