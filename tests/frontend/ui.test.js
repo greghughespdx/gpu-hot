@@ -560,6 +560,9 @@ describe('All page ordering', () => {
     });
 
     it('removes the moving node copy and restores its gap on cancel', () => {
+        const layoutStyles = document.createElement('style');
+        layoutStyles.textContent = layoutCss;
+        document.head.appendChild(layoutStyles);
         const first = addDashboardNode('node-a', ['0']);
         const second = addDashboardNode('node-b', ['0']);
         first.getBoundingClientRect = () => ({ top: 0, left: 0, width: 600, height: 100 });
@@ -573,13 +576,46 @@ describe('All page ordering', () => {
         dispatchPointer(grip, 'pointermove', {
             pointerId: 42, pointerType: 'touch', clientX: 30, clientY: 180
         });
-        expect(document.querySelector('.dashboard-order-ghost')).not.toBeNull();
+        const ghost = document.querySelector('.dashboard-order-ghost');
+        expect(ghost).not.toBeNull();
+        expect(ghost.hasAttribute('data-layout-kind')).toBe(false);
+        expect(getComputedStyle(ghost).position).toBe('fixed');
         expect(first.classList.contains('dashboard-ordering')).toBe(true);
 
         dispatchPointer(grip, 'pointercancel', { pointerId: 42, pointerType: 'touch' });
         expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
         expect(first.classList.contains('dashboard-ordering')).toBe(false);
         expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-b', '0')]);
+        expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
+        layoutStyles.remove();
+    });
+
+    it('restores the starting order when Escape cancels a node drag', () => {
+        const first = addDashboardNode('node-a', ['0']);
+        const second = addDashboardNode('node-b', ['0']);
+        second.getBoundingClientRect = () => ({ top: 100, left: 0, width: 300, height: 60 });
+        document.elementFromPoint.mockReturnValue(second.querySelector('.node-label'));
+        const grip = first.querySelector(':scope > .dashboard-order-grip');
+
+        dispatchPointer(grip, 'pointerdown', {
+            pointerId: 43, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10
+        });
+        dispatchPointer(grip, 'pointermove', {
+            pointerId: 43, pointerType: 'mouse', clientX: 10, clientY: 140
+        });
+        expect(dashboardKeys()).toEqual([orderKey('node-b', '0'), orderKey('node-a', '0')]);
+
+        const escape = new KeyboardEvent('keydown', {
+            key: 'Escape', bubbles: true, cancelable: true
+        });
+        document.dispatchEvent(escape);
+        expect(escape.defaultPrevented).toBe(true);
+        expect(dashboardKeys()).toEqual([orderKey('node-a', '0'), orderKey('node-b', '0')]);
+        expect(document.querySelector('.dashboard-order-ghost')).toBeNull();
+        expect(first.classList.contains('dashboard-ordering')).toBe(false);
+        expect(document.getElementById('overview-container').classList.contains('dashboard-ordering-active')).toBe(false);
+
+        dispatchPointer(grip, 'pointerup', { pointerId: 43, pointerType: 'mouse' });
         expect(window.GPUHotSettings.saveSettings).not.toHaveBeenCalled();
     });
 

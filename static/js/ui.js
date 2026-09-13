@@ -296,12 +296,14 @@ function beginDashboardMove(event) {
         moveAnimations: new Map()
     };
     if (typeof grabTarget.setPointerCapture === 'function') grabTarget.setPointerCapture(event.pointerId);
+    item.ownerDocument.addEventListener('keydown', cancelDashboardMoveOnEscape, true);
 }
 
 function showDashboardMoveGhost(move, documentRef) {
     const box = move.item.getBoundingClientRect();
     const ghost = move.item.cloneNode(true);
     ghost.removeAttribute('id');
+    ghost.removeAttribute('data-layout-kind');
     ghost.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
     ghost.classList.remove('dashboard-ordering');
     ghost.classList.add('dashboard-order-ghost');
@@ -376,6 +378,7 @@ function continueDashboardMove(event, documentRef) {
 
 function finishDashboardMove(documentRef, cancelled) {
     if (!activeDashboardMove) return;
+    documentRef.removeEventListener('keydown', cancelDashboardMoveOnEscape, true);
     const { item, container, initialElements, moved, ghost, moveAnimations } = activeDashboardMove;
     const currentElements = Array.from(container.children)
         .filter(element => element.dataset.layoutKind === activeDashboardMove.kind);
@@ -394,6 +397,13 @@ function finishDashboardMove(documentRef, cancelled) {
     container.closest('#overview-container')?.classList.remove('dashboard-ordering-active');
     activeDashboardMove = null;
     applyDashboardOrder(documentRef);
+}
+
+function cancelDashboardMoveOnEscape(event) {
+    if (event.key !== 'Escape') return;
+    finishDashboardMove(event.currentTarget, true);
+    event.preventDefault();
+    event.stopImmediatePropagation();
 }
 
 function moveDashboardItemByKey(event, documentRef) {
