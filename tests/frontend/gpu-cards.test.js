@@ -209,6 +209,57 @@ describe('updateProcesses', () => {
         expect([...container.querySelectorAll('.process-system')].map(el => el.textContent)).toEqual(['render-1', 'render-2']);
         expect([...container.querySelectorAll('.process-card')].map(el => el.textContent)).toEqual(['GPU 0', 'GPU 0']);
         expect([...container.querySelectorAll('.process-card-heading')].map(el => el.textContent)).toEqual(['Card']);
+        expect([...container.querySelectorAll('.process-model-heading')].map(el => el.textContent)).toEqual(['Model']);
+        expect([...container.querySelectorAll('.process-model')].map(el => el.textContent)).toEqual(['', '']);
+    });
+
+    it('shows distinct models above the card ID only when requested', () => {
+        const overview = document.getElementById('overview-container');
+        overview.innerHTML = `
+            <article class="overview-gpu-card" data-gpu-id="inf1-0">
+                <div class="overview-gpu-name"><h2>GPU 0</h2><p>A10</p><p class="gpu-uuid">GPU-id</p></div>
+            </article>
+            <article class="overview-gpu-card" data-gpu-id="inf1-1">
+                <div class="overview-gpu-name"><h2>GPU 1</h2><p>A10</p><p class="gpu-uuid">GPU-id-1</p></div>
+            </article>`;
+        const unchanged = overview.innerHTML;
+        const settings = { 'overview.showModel': false };
+        window.GPUHotSettings = { settings };
+        const processes = [
+            { gpu_key: 'inf1-0', model: 'qwen38-q4', memory: 1 },
+            { gpu_key: 'inf1-0', model: 'qwen38-q4', memory: 1 },
+            { gpu_key: 'inf1-0', model: 'second-model', memory: 1 },
+            { gpu_key: 'inf1-1', model: 'qwen38-q4', memory: 1 }
+        ];
+        updateProcesses(processes);
+        expect(overview.innerHTML).toBe(unchanged);
+        settings['overview.showModel'] = true;
+        refreshOverviewProcessModels();
+        const cards = overview.querySelectorAll('.overview-gpu-card');
+        expect([...cards[0].querySelectorAll('.overview-gpu-model')].map(line => line.textContent))
+            .toEqual(['Model: qwen38-q4', 'Model: second-model']);
+        expect(cards[0].querySelector('.overview-gpu-model').nextElementSibling.textContent).toBe('Model: second-model');
+        expect(cards[0].querySelectorAll('.overview-gpu-model')[1].nextElementSibling.className).toBe('gpu-uuid');
+        expect([...cards[1].querySelectorAll('.overview-gpu-model')].map(line => line.textContent))
+            .toEqual(['Model: qwen38-q4']);
+        settings['overview.showModel'] = false;
+        refreshOverviewProcessModels();
+        expect(overview.innerHTML).toBe(unchanged);
+    });
+
+    it('renders a model as text in the process table', () => {
+        document.getElementById('overview-container').innerHTML = `
+            <article class="overview-gpu-card" data-gpu-id="0">
+                <div class="overview-gpu-name"><h2>GPU 0</h2><p>A10</p><p class="gpu-uuid">GPU-id</p></div>
+            </article>`;
+        window.GPUHotSettings = { settings: { 'overview.showModel': true } };
+        updateProcesses([{ name: 'llama-server', pid: '7', memory: 100, gpu_id: '0',
+            gpu_key: '0', model: '<img src=x onerror=alert(1)>' }]);
+        expect(document.querySelector('.process-model').textContent).toBe('<img src=x onerror=alert(1)>');
+        expect(document.querySelector('.process-model img')).toBeNull();
+        expect(document.querySelector('.overview-gpu-model').textContent)
+            .toBe('Model: <img src=x onerror=alert(1)>');
+        expect(document.querySelector('.overview-gpu-name img')).toBeNull();
     });
 
     it('follows node and card order on the All page after a move', () => {

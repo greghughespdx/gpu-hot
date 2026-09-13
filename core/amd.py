@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from .process_models import model_for_pid
+
 logger = logging.getLogger(__name__)
 
 MAX_SYSFS_BYTES = 4096
@@ -677,6 +679,9 @@ class AMDCollector:
         memory_mib = self._process_memory_mib(process_info)
         if memory_mib is not None:
             process_record["memory"] = memory_mib
+        model = model_for_pid(process_info["pid"])
+        if model:
+            process_record["model"] = model
         return process_record
 
     @staticmethod
