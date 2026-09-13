@@ -199,7 +199,7 @@ class GPUMonitor:
                                 'gpu_id': gpu_id,
                                 'memory': float(proc.usedGpuMemory / (1024 ** 2))
                             }
-                            model = model_for_pid(proc.pid)
+                            model = model_for_pid(proc.pid, record['memory'])
                             if model:
                                 record['model'] = model
                             all_processes.append(record)

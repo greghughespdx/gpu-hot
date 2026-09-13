@@ -55,17 +55,10 @@ def test_amd_smi_override_allows_host_process_inspection():
     assert service["security_opt"] == ["apparmor=unconfined"]
 
 
-def test_ollama_overlay_is_read_only_and_only_used_by_the_ollama_node():
+def test_ollama_overlay_only_sets_the_api_for_the_ollama_node():
     base = _service("deploy/node/compose.yaml")
     overlay = _service("deploy/node-ollama/compose.yaml")
     assert "volumes" not in base
     assert "GPU_HOT_OLLAMA_API" not in base["environment"]
-    assert overlay["volumes"] == [{
-        "type": "bind",
-        "source": "/mnt/.ix-apps/app_mounts/ollama/data/models/manifests",
-        "target": "/run/gpu-hot/ollama-manifests",
-        "read_only": True,
-    }]
-    assert set(overlay["environment"]) == {
-        "GPU_HOT_OLLAMA_MANIFESTS", "GPU_HOT_OLLAMA_API"
-    }
+    assert "volumes" not in overlay
+    assert set(overlay["environment"]) == {"GPU_HOT_OLLAMA_API"}

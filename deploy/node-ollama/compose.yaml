@@ -1,10 +1,4 @@
 services:
   gpu-hot:
     environment:
-      GPU_HOT_OLLAMA_MANIFESTS: ${GPU_HOT_OLLAMA_MANIFESTS:?GPU_HOT_OLLAMA_MANIFESTS is required for the Ollama node}
       GPU_HOT_OLLAMA_API: ${GPU_HOT_OLLAMA_API:?GPU_HOT_OLLAMA_API is required for the Ollama node}
-    volumes:
-      - type: bind
-        source: /mnt/.ix-apps/app_mounts/ollama/data/models/manifests
-        target: /run/gpu-hot/ollama-manifests
-        read_only: true

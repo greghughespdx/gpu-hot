@@ -1,6 +1,7 @@
 """Tests for core/monitor.py"""
 
 import asyncio
+import json
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 import pynvml
@@ -159,6 +160,32 @@ class TestGetProcessName:
         assert [(record['gpu_id'], record['model']) for record in records] == [
             ('0', 'qwen38-q4'), ('1', 'qwen38-q4')
         ]
+
+    def test_nvml_ollama_record_uses_reported_gpu_memory(self, tmp_path, monkeypatch):
+        monkeypatch.setenv('OLLAMA_MODELS', str(tmp_path))
+        monkeypatch.setenv('GPU_HOT_OLLAMA_API', 'http://ollama-nvml-test')
+        monitor = self._make_monitor()
+        running = MagicMock(pid=696825, usedGpuMemory=16 * 1024 ** 3)
+        process = MagicMock()
+        process.name.return_value = 'llama-server'
+        process.cmdline.return_value = [
+            '/usr/lib/ollama/llama-server', '--model',
+            '/root/.ollama/models/blobs/sha256-e7b273f9636059a689e3ddcab3716e4f65abe0143ac978e46673ad0e52d09efb'
+        ]
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = json.dumps({'models': [
+            {'name': 'gpt-oss-32k:latest', 'digest': 'first', 'size_vram': 16 * 1024 ** 3},
+            {'name': 'gemma3', 'digest': 'second', 'size_vram': 5 * 1024 ** 3},
+        ]}).encode()
+        with patch('pynvml.nvmlDeviceGetCount', return_value=1), \
+             patch('pynvml.nvmlDeviceGetHandleByIndex'), \
+             patch('pynvml.nvmlDeviceGetUUID', return_value='GPU-test'), \
+             patch('pynvml.nvmlDeviceGetComputeRunningProcesses', return_value=[running]), \
+             patch('psutil.Process', return_value=process), \
+             patch('core.process_models.request.urlopen', return_value=response):
+            records = monitor._get_processes_sync()
+        assert records[0]['model'] == 'gpt-oss-32k:latest'
 
     @patch('psutil.Process')
     def test_normal_process(self, mock_process_cls):
