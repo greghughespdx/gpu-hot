@@ -14,6 +14,26 @@ const settingsSource = readFileSync(join(
 
 // Helper functions are loaded into global scope by setup.js
 
+describe('shared throttle presentation', () => {
+    it.each(['UNTHROTTLED', 'unthrottled', 'None', 'N/A', ''])
+    ('shows %s as a normal state', raw => {
+        expect(window.GPUHotThrottle.status(raw, 'amd')).toEqual({
+            display: 'None', active: false, noticeDetail: null
+        });
+    });
+
+    it('keeps a real AMD limit visible and alarming', () => {
+        expect(window.GPUHotThrottle.status('POWER_LIMIT', 'amd')).toEqual({
+            display: 'POWER_LIMIT', active: true, noticeDetail: 'POWER_LIMIT'
+        });
+    });
+
+    it('does not trust objects in a collector status field', () => {
+        expect(window.GPUHotThrottle.status({ toString: 'bad' }, { toString: 'bad' }))
+            .toEqual({ display: 'None', active: false, noticeDetail: null });
+    });
+});
+
 describe('formatMemory', () => {
     it('returns GB for values >= 1024', () => {
         expect(formatMemory(2048)).toBe('2.0');
@@ -556,6 +576,24 @@ describe('opt-in All page metrics', () => {
         });
         expect(card.classList.contains('overview-has-extra-metrics')).toBe(true);
         expect(card.dataset.overviewVisibleMetrics).toBe('17');
+    });
+
+    it('shows AMD unthrottled as None on the All page and detail card', () => {
+        const info = { vendor: 'amd', name: 'Example GPU', memory_used: 1024,
+            memory_total: 16384, throttle_reasons: 'UNTHROTTLED' };
+        const overview = gpuCardElementFromMarkup(createCompactOverviewCard, '0', info);
+        expect(overview.querySelector('[data-overview-extra="throttle-status"] .overview-metric-value')
+            .textContent).toBe('None');
+        const detail = document.createElement('div');
+        detail.innerHTML = createGPUCard('0', info);
+        expect(detail.querySelector('#throttle-0').textContent).toBe('None');
+        expect(detail.querySelector('#throttle-0').style.color).toBe('');
+        expect(detail.querySelector('#throttle-sub-0').textContent).toBe('Not throttled');
+        expect(info.throttle_reasons).toBe('UNTHROTTLED');
+        document.body.appendChild(detail);
+        updateGPUDisplay('0', { ...info, throttle_reasons: 'POWER_LIMIT' });
+        expect(detail.querySelector('#throttle-0').textContent).toBe('POWER_LIMIT');
+        expect(detail.querySelector('#throttle-sub-0').textContent).toBe('Throttling');
     });
 
     it('uses text rendering for collector status and explains missing values', () => {

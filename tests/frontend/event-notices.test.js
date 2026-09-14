@@ -6,6 +6,7 @@ import vm from 'vm';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(testDir, '../../static/js/event-notices.js'), 'utf8');
+const throttleSource = readFileSync(join(testDir, '../../static/js/throttle-display.js'), 'utf8');
 const template = readFileSync(join(testDir, '../../templates/index.html'), 'utf8');
 const componentsCss = readFileSync(join(testDir, '../../static/css/components.css'), 'utf8');
 
@@ -20,6 +21,7 @@ function markup() {
 
 function loadNotices(settings = {}) {
     delete window.GPUHotNotices;
+    vm.runInThisContext(throttleSource, { filename: 'throttle-display.js' });
     window.GPUHotSettings = {
         settings: {
             noticeGpuThrottle: false,
@@ -266,6 +268,7 @@ describe('event notices', () => {
         }) }));
 
         expect(api.notices.map(notice => notice.gpu)).toEqual(['n1', 'a1']);
+        expect(window.GPUHotThrottle.status('UNTHROTTLED', 'amd').display).toBe('None');
     });
 
     it('detects a missing GPU only after a complete online roster', () => {

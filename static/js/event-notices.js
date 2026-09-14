@@ -16,13 +16,6 @@
         nodeOffline: { setting: 'noticeNodeOffline', label: 'Node offline' },
         externalFanStopped: { setting: 'noticeExternalFanStopped', label: 'External fan stopped' }
     });
-    const NORMAL_THROTTLE_STATES = new Set(['', 'none', 'n/a', 'unthrottled']);
-    const NVIDIA_THROTTLE_REASONS = new Set([
-        'hw slowdown',
-        'sw thermal',
-        'hw thermal',
-        'power brake'
-    ]);
 
     let notices = loadHistory();
     let activeByIdentity = rebuildActiveIndex(notices);
@@ -210,20 +203,7 @@
     }
 
     function throttleDetail(gpuInfo) {
-        const raw = gpuInfo?.throttle_reasons;
-        const values = Array.isArray(raw) ? raw : [raw];
-        const parts = values.flatMap(value => typeof value === 'string' ? value.split(',') : [])
-            .map(value => value.trim())
-            .filter(Boolean);
-        if (parts.length === 0) return null;
-        const vendor = String(gpuInfo?.vendor || '').toLowerCase();
-        if (vendor === 'amd') {
-            const alarming = parts.filter(value => !NORMAL_THROTTLE_STATES.has(value.toLowerCase()));
-            return alarming.length > 0 ? alarming.join(', ') : null;
-        }
-        if (vendor !== 'nvidia') return null;
-        const alarming = parts.filter(value => NVIDIA_THROTTLE_REASONS.has(value.toLowerCase()));
-        return alarming.length > 0 ? alarming.join(', ') : null;
+        return global.GPUHotThrottle.status(gpuInfo?.throttle_reasons, gpuInfo?.vendor).noticeDetail;
     }
 
     function fanStoppedDetail(gpuInfo) {

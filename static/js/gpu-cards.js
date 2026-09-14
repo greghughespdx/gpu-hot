@@ -79,7 +79,7 @@ const OVERVIEW_EXTRA_METRIC_DEFINITIONS = Object.freeze([
     { id: 'memory-used', label: 'MEMORY USED', value: gpu => formatOverviewMemoryGb(gpu.memory_used) },
     { id: 'power-limit', label: 'POWER LIMIT', value: gpu => formatOverviewNumber(gpu.power_limit, ' W') },
     { id: 'memory-temperature', label: 'MEMORY TEMP', value: gpu => formatOverviewNumber(gpu.temperature_memory, ' C') },
-    { id: 'throttle-status', label: 'THROTTLE', value: gpu => formatOverviewText(gpu.throttle_reasons) },
+    { id: 'throttle-status', label: 'THROTTLE', value: gpu => window.GPUHotThrottle.status(gpu.throttle_reasons, gpu.vendor).display },
     { id: 'process-count', label: 'PROCESSES', value: (gpu, context) => formatOverviewCount(context.processCount) },
     { id: 'pcie-generation', label: 'PCIE GEN', value: gpu => formatOverviewNumber(gpu.pcie_gen, '', 'Gen ') },
     { id: 'pcie-width', label: 'PCIE WIDTH', value: gpu => formatOverviewNumber(gpu.pcie_width, '', 'x') },
@@ -707,15 +707,15 @@ function createGPUCard(gpuId, gpuInfo) {
             </div>`;
     }
 
-    const throttle_reasons = getMetricValue(gpuInfo, 'throttle_reasons', 'None');
-    const isThrottling = throttle_reasons && throttle_reasons !== 'None' && throttle_reasons !== 'N/A';
+    const throttleStatus = window.GPUHotThrottle.status(gpuInfo.throttle_reasons, gpuInfo.vendor);
+    const isThrottling = throttleStatus.active;
     extraMetrics += `
         <div class="metric-cell">
             <div class="metric-num-row">
                 <span class="metric-num" id="throttle-${gpuId}" data-collector-text="throttle_reasons"${isThrottling ? ' style="color:var(--warning);"' : ''}></span>
             </div>
             <span class="metric-label">THROTTLE STATUS</span>
-            <span class="metric-sub" id="throttle-sub-${gpuId}">${isThrottling ? 'Throttling' : 'Performance'}</span>
+            <span class="metric-sub" id="throttle-sub-${gpuId}">${isThrottling ? 'Throttling' : 'Not throttled'}</span>
         </div>`;
 
     // Build sparkline chart containers
@@ -1039,7 +1039,7 @@ function createGPUCard(gpuId, gpuInfo) {
         driver_version: gpuInfo.driver_version,
         architecture: gpuInfo.architecture || 'Unknown',
         brand: gpuInfo.brand || 'N/A',
-        throttle_reasons: isThrottling ? throttle_reasons : 'GPU Idle'
+        throttle_reasons: throttleStatus.display
     });
 }
 
@@ -1161,12 +1161,11 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         const decUtilEl = document.getElementById(`dec-util-${gpuId}`);
         if (decUtilEl) decUtilEl.textContent = `${getMetricValue(gpuInfo, 'decoder_utilization', 0)}% utilization`;
         if (throttleEl) {
-            const tr = getMetricValue(gpuInfo, 'throttle_reasons', 'None');
-            const isT = tr && tr !== 'None' && tr !== 'N/A';
-            throttleEl.textContent = isT ? tr : 'GPU Idle';
-            throttleEl.style.color = isT ? 'var(--warning)' : '';
+            const throttleStatus = window.GPUHotThrottle.status(gpuInfo.throttle_reasons, gpuInfo.vendor);
+            throttleEl.textContent = throttleStatus.display;
+            throttleEl.style.color = throttleStatus.active ? 'var(--warning)' : '';
             const throttleSubEl = document.getElementById(`throttle-sub-${gpuId}`);
-            if (throttleSubEl) throttleSubEl.textContent = isT ? 'Throttling' : 'Performance';
+            if (throttleSubEl) throttleSubEl.textContent = throttleStatus.active ? 'Throttling' : 'Not throttled';
         }
 
         if (hasMetric(gpuInfo, 'energy_consumption_wh')) {

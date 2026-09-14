@@ -66,6 +66,7 @@ HTMLCanvasElement.prototype.getContext = function getContext(type) {
 const loadOrder = [
     'chart-config.js',
     'chart-manager.js',
+    'throttle-display.js',
     'gpu-cards.js',
     'ui.js',
 ];
