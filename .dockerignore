@@ -14,6 +14,9 @@ build/
 !README.md
 docs/*
 !docs/demo.html
+!docs/demo-replay.js
+!docs/demo-traces/
+!docs/demo-traces/*.json
 *.png
 LICENSE
 .DS_Store

@@ -73,7 +73,7 @@
 
 <body>
     <div class="demo-banner" role="note">
-        <span id="demo-mode-label">Default mode with simulated data</span>
+        <span id="demo-mode-label">Default mode with recorded GPU activity</span>
         <a href="?preset=default" id="demo-default">Default</a>
         <a href="?preset=features" id="demo-features">New features</a>
         <a href="./demo.html" id="demo-reset">Reset</a>
@@ -346,6 +346,7 @@
     <script src="../static/js/gpu-cards.js"></script>
     <script src="../static/js/ui.js"></script>
     <script src="../static/js/event-notices.js"></script>
+    <script src="./demo-replay.js"></script>
     <script>
         // This page supplies a hub-shaped feed without opening a network socket.
         (function installDemoFeed() {
@@ -365,10 +366,17 @@
                 return nativeFetch(input, options);
             };
 
-            const clamp = value => Math.max(0, Math.min(100, Math.round(value)));
+            let replay;
+            const replayReady = window.GPUHotDemoReplay.loadTraces(window.fetch)
+                .then(traces => {
+                    replay = window.GPUHotDemoReplay.createReplay(traces);
+                    return replay;
+                });
+            let historyPrimed = false;
+            let demoTick = 0;
 
             // Capacity, power, PCIe and cooling follow published board specs.
-            // Clock ceilings and temperature bands keep the simulation in range.
+            // Clock ceilings and temperature bands keep the demo in range.
             const GPU_SPECS = Object.freeze({
                 a10m: Object.freeze({
                     name: 'NVIDIA A10M', vendor: 'nvidia', memoryTotal: 24576,
@@ -413,43 +421,65 @@
                 0: 13312, 1: 17408, 2: 40960, 3: 17408, 4: 17408, 5: 256, 6: 13312
             });
 
-            function traffic(id, seconds) {
-                if (seconds < 0) return 0;
-                if (id === 0 || id === 6) {
-                    // Inference alternates loaded bursts with quiet gaps. Short prompt reads
-                    // make distinct peaks even during the lower-utilization part of a cycle.
-                    const phase = (seconds + id * 7) % 62;
-                    if (phase < 6) return 2 + 2 * Math.sin(seconds * 3);
-                    if (phase < 10) return 72 + 24 * Math.abs(Math.sin(seconds * 2));
-                    if (phase < 34) return 96 + 3 * Math.sin(seconds * 1.4);
-                    if (phase < 39) return 70 + 27 * Math.abs(Math.sin(seconds * 2.7));
-                    return 1 + 3 * Math.abs(Math.sin(seconds * 0.8));
+            function roleForId(id, tick) {
+                if (id === 0 || id === 6) return 'observer';
+                if (id === 1 || id === 2) return 'busy-inference';
+                if (id === 3) return 'idle-model';
+                if (id === 4) return tick < 36 ? 'idle-empty' : 'observer';
+                return 'idle-empty';
+            }
+
+            function fillChartHistory(dataId, spec, history, labels) {
+                initGPUData(dataId, { powerLimit: spec.powerLimit });
+                const chartHistory = chartData[dataId];
+                const columns = {
+                    utilization: history.map(frame => frame.utilization),
+                    temperature: history.map(frame => frame.temperature),
+                    memory: history.map(frame => frame.memoryUsed / spec.memoryTotal * 100),
+                    power: history.map(frame => frame.powerDraw),
+                    fanSpeed: history.map(frame => frame.fanSpeed),
+                    efficiency: history.map(frame => frame.powerDraw > 0
+                        ? frame.utilization / frame.powerDraw : 0)
+                };
+                for (const [name, values] of Object.entries(columns)) {
+                    chartHistory[name].labels = [...labels];
+                    chartHistory[name].data = values;
                 }
-                if (id === 1 || id === 2) {
-                    const phase = (seconds + id * 11) % 31;
-                    if (phase < 2) return 43 + 12 * Math.sin(seconds * 3);
-                    return 94 + 4 * Math.sin(seconds * 0.9 + id);
+                chartHistory.clocks.labels = [...labels];
+                chartHistory.clocks.graphicsData = history.map(frame => frame.graphicsClock);
+                chartHistory.clocks.smData = [...chartHistory.clocks.graphicsData];
+                chartHistory.clocks.memoryData = history.map(frame => Math.round(
+                    spec.maxMemoryClock * (frame.memoryUsed ? 0.85 : 0.4)));
+            }
+
+            function primeDemoHistory() {
+                if (historyPrimed || typeof initGPUData !== 'function' ||
+                    typeof chartData === 'undefined') return;
+                const cards = [
+                    ['truenas-a10m', '0', 'a10m', 0], ['inf1', '0', 'a6000', 1],
+                    ['inf1', '1', 'a6000', 2], ['inf2', '0', 'rtx4090', 3],
+                    ['inf2', '1', 'v620', 4], ['p4000-vm', '0', 'p4000', 5],
+                    ['http://compute-04.demo.invalid:1313', '0', 'rtx4090', 6]
+                ];
+                const labels = Array.from({ length: 240 }, (_, index) =>
+                    new Date(Date.now() - (239 - index) * 1000).toLocaleTimeString());
+                for (const [node, gpuId, specKey, id] of cards) {
+                    const spec = GPU_SPECS[specKey];
+                    const history = replay.prime(roleForId(id, 0), id, 240).map(frame =>
+                        window.GPUHotDemoReplay.scaleFrame(spec, id === 4 ? 0 : MEMORY_USED[id], frame));
+                    fillChartHistory(`${node}-${gpuId}`, spec, history, labels);
                 }
-                if (id === 4) {
-                    if (seconds < 18) return 0;
-                    const phase = (seconds - 18) % 48;
-                    return phase < 29 ? 95 + 4 * Math.sin(seconds * 1.7) : 2;
-                }
-                return 0;
+                historyPrimed = true;
             }
 
             function gpu(specKey, id, tick) {
                 const spec = GPU_SPECS[specKey];
-                const seconds = tick / 2;
-                const utilization = clamp(traffic(id, seconds));
-                const laggedPower = clamp(traffic(id, seconds - 2));
-                const laggedTemperature = clamp(traffic(id, seconds - 6));
-                const temperature = spec.idleTemperature + Math.round(
-                    (spec.loadTemperature - spec.idleTemperature) * laggedTemperature / 100
-                );
-                const memoryUsed = id === 4 && seconds < 18 ? 0 : MEMORY_USED[id];
-                const fanSpeed = spec.fan
-                    ? clamp(18 + (temperature - spec.idleTemperature) * 1.7) : 0;
+                const role = roleForId(id, tick);
+                const footprint = id === 4 && tick < 36 ? 0 : MEMORY_USED[id];
+                const frame = replay.sample(role, id, tick);
+                const scaled = window.GPUHotDemoReplay.scaleFrame(spec, footprint, frame);
+                const { utilization, temperature, memoryUsed, powerDraw, graphicsClock,
+                    fanSpeed } = scaled;
                 const record = {
                     name: spec.name, vendor: spec.vendor,
                     brand: spec.vendor === 'amd' ? 'Radeon Pro' : 'NVIDIA',
@@ -458,15 +488,13 @@
                     memory_used: memoryUsed,
                     memory_total: spec.memoryTotal,
                     memory_free: spec.memoryTotal - memoryUsed,
-                    power_draw: spec.idlePower + Math.round(
-                        (spec.powerLimit - spec.idlePower) * laggedPower / 100
-                    ),
+                    power_draw: powerDraw,
                     power_limit: spec.powerLimit,
                     fan_speed: fanSpeed,
                     fan_rpm: spec.fan ? Math.round(500 + fanSpeed * 32) : 0,
-                    clock_graphics: Math.round(spec.maxGraphicsClock * (0.35 + utilization * 0.0065)),
+                    clock_graphics: graphicsClock,
                     clock_memory: Math.round(spec.maxMemoryClock * (memoryUsed ? 0.85 : 0.4)),
-                    clock_sm: Math.round(spec.maxGraphicsClock * (0.35 + utilization * 0.0065)),
+                    clock_sm: graphicsClock,
                     clock_sm_max: spec.maxGraphicsClock,
                     clock_video: Math.round(spec.maxGraphicsClock * 0.6),
                     temperature_memory: Math.min(spec.loadTemperature, temperature + 5),
@@ -495,40 +523,48 @@
             }
 
             function generateHubPayload(tick) {
+                const a10m = gpu('a10m', 0, tick);
                 const inf1First = gpu('a6000', 1, tick);
+                const inf1Second = gpu('a6000', 2, tick);
+                const inf2First = gpu('rtx4090', 3, tick);
+                const inf2Second = gpu('v620', 4, tick);
                 inf1First.throttle_reasons = 'HW Thermal';
                 return {
                     mode: 'hub',
                     nodes: {
                         'truenas-a10m': {
                             status: 'online', system: system(tick),
-                            gpus: { '0': gpu('a10m', 0, tick) },
+                            gpus: { '0': a10m },
                             processes: [{ pid: 421, gpu_id: '0', name: 'ollama runner',
-                                memory: 13312, model: MODEL_NAMES.ollama }]
+                                memory: Math.min(13312, a10m.memory_used), model: MODEL_NAMES.ollama }]
                         },
                         inf1: {
                             status: 'online', system: system(tick),
                             gpus: {
                                 '0': inf1First,
-                                '1': gpu('a6000', 2, tick)
+                                '1': inf1Second
                             },
                             processes: [
-                                { pid: 696825, gpu_id: '0', name: 'llama-server', memory: 17408,
+                                { pid: 696825, gpu_id: '0', name: 'llama-server',
+                                    memory: Math.min(17408, inf1First.memory_used),
                                     model: MODEL_NAMES.qwen },
-                                { pid: 696826, gpu_id: '1', name: 'llama-server', memory: 40960,
+                                { pid: 696826, gpu_id: '1', name: 'llama-server',
+                                    memory: Math.min(40960, inf1Second.memory_used),
                                     model: MODEL_NAMES.llama }
                             ]
                         },
                         inf2: {
                             status: 'online', system: system(tick),
                             gpus: {
-                                '0': gpu('rtx4090', 3, tick),
-                                '1': gpu('v620', 4, tick)
+                                '0': inf2First,
+                                '1': inf2Second
                             },
                             processes: [
-                                { pid: 808, gpu_id: '0', name: 'vllm', memory: 17408,
+                                { pid: 808, gpu_id: '0', name: 'vllm',
+                                    memory: Math.min(17408, inf2First.memory_used),
                                     model: MODEL_NAMES.flash },
-                                ...(tick >= 36 ? [{ pid: 809, gpu_id: '1', name: 'vllm', memory: 17408,
+                                ...(tick >= 36 ? [{ pid: 809, gpu_id: '1', name: 'vllm',
+                                    memory: Math.min(17408, inf2Second.memory_used),
                                     model: MODEL_NAMES.flash }] : [])
                             ]
                         },
@@ -555,19 +591,24 @@
 
                 constructor() {
                     this.readyState = DemoWebSocket.CONNECTING;
-                    this.tick = 0;
                     setTimeout(() => {
-                        if (this.readyState === DemoWebSocket.CLOSED) return;
-                        this.readyState = DemoWebSocket.OPEN;
-                        this.onopen?.();
-                        this.emit();
-                        this.timer = setInterval(() => this.emit(), 500);
+                        replayReady.then(() => {
+                            if (this.readyState === DemoWebSocket.CLOSED) return;
+                            primeDemoHistory();
+                            this.readyState = DemoWebSocket.OPEN;
+                            this.onopen?.();
+                            this.emit();
+                            this.timer = setInterval(() => this.emit(), 1000);
+                        }).catch(() => {
+                            this.onerror?.(new Event('error'));
+                            this.close();
+                        });
                     }, 100);
                 }
 
                 emit() {
                     if (this.readyState !== DemoWebSocket.OPEN) return;
-                    this.onmessage?.({ data: JSON.stringify(generateHubPayload(this.tick++)) });
+                    this.onmessage?.({ data: JSON.stringify(generateHubPayload(demoTick++)) });
                 }
 
                 send() {}
@@ -578,13 +619,14 @@
             }
 
             window.WebSocket = DemoWebSocket;
-            window.GPUHotDemo = Object.freeze({ generateHubPayload });
+            window.GPUHotDemo = Object.freeze({ generateHubPayload, ready: replayReady });
             document.addEventListener('DOMContentLoaded', () => {
                 const current = window.GPUHotSettings?.settings;
                 const mode = current?.theme === 'midnight' && current?.overviewMiniChartWidth === 'behind'
                     ? 'features' : 'default';
                 document.getElementById('demo-mode-label').textContent = mode === 'features'
-                    ? 'New features with simulated data' : 'Default mode with simulated data';
+                    ? 'New features with recorded GPU activity' :
+                        'Default mode with recorded GPU activity';
                 document.getElementById(`demo-${mode}`)?.setAttribute('aria-current', 'page');
                 document.getElementById('demo-reset')?.addEventListener('click', event => {
                     event.preventDefault();

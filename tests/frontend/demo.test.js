@@ -6,8 +6,10 @@ import { JSDOM } from 'jsdom';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const demo = readFileSync(join(testDir, '../../docs/demo.html'), 'utf8');
+const replayScript = readFileSync(join(testDir, '../../docs/demo-replay.js'), 'utf8');
 const settings = readFileSync(join(testDir, '../../static/js/settings.js'), 'utf8');
 const cards = readFileSync(join(testDir, '../../static/js/gpu-cards.js'), 'utf8');
+const chartManager = readFileSync(join(testDir, '../../static/js/chart-manager.js'), 'utf8');
 
 function demoWindow(search = '') {
     const page = new JSDOM(demo, {
@@ -18,7 +20,23 @@ function demoWindow(search = '') {
     window.TextEncoder = TextEncoder;
     window.TextDecoder = TextDecoder;
     window.Response = Response;
-    window.fetch = async () => ({ ok: true, json: async () => ({}) });
+    window.fetch = async input => {
+        const role = /demo-traces\/([a-z-]+)\.json$/.exec(String(input))?.[1];
+        if (!role) return { ok: true, json: async () => ({}) };
+        return { ok: true, json: async () => ({
+            role,
+            source: { power_limit: 300, clock_graphics_max: 2000,
+                temp_idle: 35, temp_load: 80, memory_baseline: 12000 },
+            samples: Array.from({ length: 80 }, (_, index) => {
+                const util = role === 'idle-empty' || role === 'idle-model' ? 0 :
+                    role === 'observer' ? index % 30 < 10 ? 96 : 2 : 80 + index % 10;
+                return { util, mem_used: 12000 + index % 4, mem_total: 24576,
+                    power: 40 + util * 2, temp: 35 + util * 0.4,
+                    clock_graphics: 500 + util * 12, fan: 25 + util * 0.4 };
+            })
+        }) };
+    };
+    window.eval(replayScript);
     const inlineScripts = Array.from(window.document.querySelectorAll('script:not([src])'));
     const preset = inlineScripts.find(script => script.textContent.includes('demoPreset'));
     const feed = inlineScripts.find(script => script.textContent.includes('installDemoFeed'));
@@ -72,9 +90,10 @@ describe('static fork demo', () => {
         page.window.close();
     });
 
-    it('generates four fresh nodes, an offline placeholder, model processes, and drifting metrics', () => {
+    it('generates four fresh nodes, an offline placeholder, model processes, and drifting metrics', async () => {
         const { page, window, feed } = demoWindow();
         window.eval(feed.textContent);
+        await window.GPUHotDemo.ready;
         const first = window.GPUHotDemo.generateHubPayload(0);
         const later = window.GPUHotDemo.generateHubPayload(5);
         expect(first.mode).toBe('hub');
@@ -95,33 +114,27 @@ describe('static fork demo', () => {
         page.window.close();
     });
 
-    it('generates distinct burst, sustained, idle, and model-loading traffic', () => {
+    it('uses recorded roles for busy, observer, idle and model-loading cards', async () => {
         const { page, window, feed } = demoWindow();
         window.eval(feed.textContent);
-        const at = second => window.GPUHotDemo.generateHubPayload(second * 2);
-        const inference = second => at(second).nodes['truenas-a10m'].gpus['0'];
-        expect(inference(3).utilization).toBeLessThan(5);
-        expect(inference(17).utilization).toBeGreaterThanOrEqual(90);
-        expect(inference(50).utilization).toBeLessThan(5);
-        expect(at(15).nodes.inf1.gpus['0'].utilization).toBeGreaterThanOrEqual(90);
-        expect(at(25).nodes.inf2.gpus['1'].utilization).toBeGreaterThanOrEqual(90);
-        expect(at(15).nodes.inf2.gpus['0'].utilization).toBe(0);
-        expect(at(15).nodes['p4000-vm'].gpus['0'].memory_used).toBe(256);
-        expect(at(17).nodes.inf2.gpus['1'].memory_used).toBe(0);
-        expect(at(18).nodes.inf2.gpus['1'].memory_used).toBe(17408);
-        expect(at(18).nodes.inf2.gpus['1'].utilization).toBeGreaterThan(90);
-        expect(at(18).nodes.inf2.processes.some(process => process.gpu_id === '1')).toBe(true);
-        expect(inference(10).power_draw).toBeLessThan(inference(12).power_draw);
-        expect(inference(10).temperature).toBeLessThan(inference(16).temperature);
-        expect(inference(10).fan_speed).toBe(0);
-        expect(inference(16).fan_speed).toBe(0);
-        expect(at(15).nodes.inf1.gpus['0'].fan_speed).toBeGreaterThan(0);
+        await window.GPUHotDemo.ready;
+        const first = window.GPUHotDemo.generateHubPayload(0).nodes;
+        const later = window.GPUHotDemo.generateHubPayload(36).nodes;
+        expect(first.inf1.gpus['0'].utilization).toBeGreaterThanOrEqual(80);
+        expect(first.inf2.gpus['0'].utilization).toBe(0);
+        expect(first['p4000-vm'].gpus['0'].utilization).toBe(0);
+        expect(first.inf2.gpus['1'].memory_used).toBe(0);
+        expect(later.inf2.gpus['1'].memory_used).toBeGreaterThan(17000);
+        expect(later.inf2.processes.some(process => process.gpu_id === '1')).toBe(true);
+        expect(first['truenas-a10m'].gpus['0'].fan_speed).toBe(0);
+        expect(first.inf1.gpus['0'].fan_speed).toBeGreaterThan(0);
         page.window.close();
     });
 
-    it('keeps every simulated card inside its board limits with credible model placement', () => {
+    it('keeps every replayed card inside its board limits with credible model placement', async () => {
         const { page, window, feed } = demoWindow();
         window.eval(feed.textContent);
+        await window.GPUHotDemo.ready;
         const expected = {
             'NVIDIA A10M': { memory: 24576, power: 150, graphics: 1695,
                 memoryClock: 6251, pcie: 4, fan: false, temperature: [38, 77] },
@@ -138,9 +151,11 @@ describe('static fork demo', () => {
             'gpt-oss-32k:latest', 'qwen38-q4', 'Llama-3.3-70B-Instruct-Q4_K_M',
             'Qwen3.8-Flash-Next-Q4_K_M'
         ]);
+        const payloads = new Map();
 
         for (let tick = 0; tick <= 200; tick += 1) {
             const payload = window.GPUHotDemo.generateHubPayload(tick);
+            payloads.set(tick, payload);
             for (const node of Object.values(payload.nodes)) {
                 if (node.status !== 'online') continue;
                 for (const gpu of Object.values(node.gpus)) {
@@ -180,11 +195,11 @@ describe('static fork demo', () => {
                 }
             }
         }
-        const at = tick => window.GPUHotDemo.generateHubPayload(tick).nodes;
-        expect(at(0).inf1.gpus['1'].memory_used).toBe(40960);
+        const at = tick => payloads.get(tick).nodes;
+        expect(at(0).inf1.gpus['1'].memory_used).toBeGreaterThan(40000);
         expect(at(0).inf2.gpus['0'].utilization).toBe(0);
         expect(at(35).inf2.gpus['1'].memory_used).toBe(0);
-        expect(at(36).inf2.gpus['1'].memory_used).toBe(17408);
+        expect(at(36).inf2.gpus['1'].memory_used).toBeGreaterThan(17000);
         expect(at(36).inf2.processes[1].model).toBe('Qwen3.8-Flash-Next-Q4_K_M');
         expect(at(36)['p4000-vm'].processes).toHaveLength(0);
         page.window.close();
@@ -204,10 +219,29 @@ describe('static fork demo', () => {
         page.window.close();
     });
 
+    it('starts mini and detail charts with recorded history instead of a flat baseline', async () => {
+        const { page, window, feed } = demoWindow();
+        window.eval(`${chartManager}\n${feed.textContent}\nwindow.demoChartData = chartData;`);
+        const socket = new window.WebSocket();
+        await new Promise(resolve => { socket.onmessage = resolve; });
+        const history = window.demoChartData['truenas-a10m-0'];
+        expect(history.utilization.data).toHaveLength(240);
+        expect(new Set(history.utilization.data).size).toBeGreaterThan(1);
+        expect(history.temperature.data).toHaveLength(240);
+        expect(history.clocks.graphicsData).toHaveLength(240);
+        socket.close();
+        page.window.close();
+    });
+
     it('keeps the star-count request inside the demo', async () => {
         const { page, window, feed } = demoWindow();
         let networkCalls = 0;
-        window.fetch = async () => { networkCalls += 1; throw new Error('Unexpected network request'); };
+        const fixtureFetch = window.fetch;
+        window.fetch = async input => {
+            if (String(input).startsWith('./demo-traces/')) return fixtureFetch(input);
+            networkCalls += 1;
+            throw new Error('Unexpected network request');
+        };
         window.eval(feed.textContent);
 
         const response = await window.fetch('https://api.github.com/repos/psalias2006/gpu-hot');
