@@ -1315,7 +1315,17 @@ function refreshDetailProcessModels() {
         if (suffix?.textContent === text) return;
         const modelSuffix = suffix || document.createElement('span');
         modelSuffix.className = 'gpu-detail-model-suffix';
-        modelSuffix.textContent = text;
+        modelSuffix.replaceChildren();
+        // Keep a short suffix together, but allow long model names to wrap at
+        // their own separators before the browser has to break a letter run.
+        let start = 0;
+        for (let index = 3; index < text.length; index += 1) {
+            if (!'-_:.'.includes(text[index])) continue;
+            modelSuffix.appendChild(document.createTextNode(text.slice(start, index + 1)));
+            modelSuffix.appendChild(document.createElement('wbr'));
+            start = index + 1;
+        }
+        modelSuffix.appendChild(document.createTextNode(text.slice(start)));
         if (!suffix) title.appendChild(modelSuffix);
     });
 }

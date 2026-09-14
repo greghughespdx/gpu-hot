@@ -1238,6 +1238,7 @@ describe('label override integration', () => {
         settings.applyOverviewMetricVisibility(document);
         expect(title.textContent).toBe('GPU node-a-0 - Qwen3.8-27B');
         expect(title.querySelector('.gpu-detail-model-suffix').textContent).toBe(' - Qwen3.8-27B');
+        expect(title.querySelectorAll('.gpu-detail-model-suffix wbr')).toHaveLength(2);
         updateProcesses([{ gpu_key: 'node-a-0', model: '/models/Next.gguf', memory: 100 }]);
         expect(title.textContent).toBe('GPU node-a-0 - Next.gguf');
         updateProcesses([]);
