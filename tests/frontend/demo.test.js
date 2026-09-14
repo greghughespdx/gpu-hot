@@ -84,9 +84,11 @@ describe('static fork demo', () => {
         expect(first.nodes.inf1.gpus).toHaveProperty('1');
         expect(first.nodes.inf2.gpus).toHaveProperty('0');
         expect(first.nodes.inf2.gpus).toHaveProperty('1');
-        expect(first.nodes['http://offline-node.example.invalid:1313'].status).toBe('online');
-        expect(later.nodes['http://offline-node.example.invalid:1313'].status).toBe('offline');
+        expect(first.nodes['http://compute-04.demo.invalid:1313'].status).toBe('online');
+        expect(later.nodes['http://compute-04.demo.invalid:1313'].status).toBe('offline');
         expect(first.nodes.inf1.processes[0].model).toBe('qwen38-q4');
+        expect(first.nodes['truenas-a10m'].processes[0].model).toBe('gpt-oss-32k:latest');
+        expect(first.nodes.inf1.processes[1].model).toBe('Llama-3.3-70B-Instruct-Q4_K_M');
         expect(first.nodes.inf1.gpus['0'].throttle_reasons).toBe('HW Thermal');
         expect(first.nodes['p4000-vm'].gpus['0']).not.toHaveProperty('temperature_memory');
         expect(first.nodes.inf1.gpus['0'].utilization).not.toBe(later.nodes.inf1.gpus['0'].utilization);
@@ -104,14 +106,87 @@ describe('static fork demo', () => {
         expect(at(15).nodes.inf1.gpus['0'].utilization).toBeGreaterThanOrEqual(90);
         expect(at(25).nodes.inf2.gpus['1'].utilization).toBeGreaterThanOrEqual(90);
         expect(at(15).nodes.inf2.gpus['0'].utilization).toBe(0);
-        expect(at(15).nodes['p4000-vm'].gpus['0'].memory_used).toBe(6144);
+        expect(at(15).nodes['p4000-vm'].gpus['0'].memory_used).toBe(256);
         expect(at(17).nodes.inf2.gpus['1'].memory_used).toBe(0);
-        expect(at(18).nodes.inf2.gpus['1'].memory_used).toBe(8192);
+        expect(at(18).nodes.inf2.gpus['1'].memory_used).toBe(17408);
         expect(at(18).nodes.inf2.gpus['1'].utilization).toBeGreaterThan(90);
         expect(at(18).nodes.inf2.processes.some(process => process.gpu_id === '1')).toBe(true);
         expect(inference(10).power_draw).toBeLessThan(inference(12).power_draw);
         expect(inference(10).temperature).toBeLessThan(inference(16).temperature);
-        expect(inference(10).fan_speed).toBeLessThan(inference(16).fan_speed);
+        expect(inference(10).fan_speed).toBe(0);
+        expect(inference(16).fan_speed).toBe(0);
+        expect(at(15).nodes.inf1.gpus['0'].fan_speed).toBeGreaterThan(0);
+        page.window.close();
+    });
+
+    it('keeps every simulated card inside its board limits with credible model placement', () => {
+        const { page, window, feed } = demoWindow();
+        window.eval(feed.textContent);
+        const expected = {
+            'NVIDIA A10M': { memory: 24576, power: 150, graphics: 1695,
+                memoryClock: 6251, pcie: 4, fan: false, temperature: [38, 77] },
+            'NVIDIA RTX A6000': { memory: 49152, power: 300, graphics: 2100,
+                memoryClock: 8001, pcie: 4, fan: true, temperature: [36, 78] },
+            'NVIDIA RTX 4090': { memory: 24576, power: 450, graphics: 2520,
+                memoryClock: 10501, pcie: 4, fan: true, temperature: [36, 80] },
+            'AMD Radeon Pro V620': { memory: 32768, power: 300, graphics: 2200,
+                memoryClock: 2000, pcie: 4, fan: false, temperature: [39, 80] },
+            'NVIDIA Quadro P4000': { memory: 8192, power: 105, graphics: 1708,
+                memoryClock: 3802, pcie: 3, fan: true, temperature: [36, 76] }
+        };
+        const allowedModels = new Set([
+            'gpt-oss-32k:latest', 'qwen38-q4', 'Llama-3.3-70B-Instruct-Q4_K_M',
+            'Qwen3.8-Flash-Next-Q4_K_M'
+        ]);
+
+        for (let tick = 0; tick <= 200; tick += 1) {
+            const payload = window.GPUHotDemo.generateHubPayload(tick);
+            for (const node of Object.values(payload.nodes)) {
+                if (node.status !== 'online') continue;
+                for (const gpu of Object.values(node.gpus)) {
+                    const spec = expected[gpu.name];
+                    expect(spec, gpu.name).toBeDefined();
+                    expect(gpu.memory_total).toBe(spec.memory);
+                    expect(gpu.power_limit).toBe(spec.power);
+                    expect(gpu.pcie_gen_max).toBe(spec.pcie);
+                    expect(gpu.pcie_width_max).toBe(16);
+                    expect(gpu.memory_used).toBeGreaterThanOrEqual(0);
+                    expect(gpu.memory_used).toBeLessThanOrEqual(gpu.memory_total);
+                    expect(gpu.memory_free).toBe(gpu.memory_total - gpu.memory_used);
+                    expect(gpu.power_draw).toBeGreaterThanOrEqual(0);
+                    expect(gpu.power_draw).toBeLessThanOrEqual(gpu.power_limit);
+                    expect(gpu.clock_graphics).toBeLessThanOrEqual(spec.graphics);
+                    expect(gpu.clock_sm).toBeLessThanOrEqual(spec.graphics);
+                    expect(gpu.clock_sm_max).toBe(spec.graphics);
+                    expect(gpu.clock_memory).toBeLessThanOrEqual(spec.memoryClock);
+                    expect(gpu.temperature).toBeGreaterThanOrEqual(spec.temperature[0]);
+                    expect(gpu.temperature).toBeLessThanOrEqual(spec.temperature[1]);
+                    if (!spec.fan) {
+                        expect(gpu.fan_speed).toBe(0);
+                        expect(gpu.fan_rpm).toBe(0);
+                    } else {
+                        expect(gpu.fan_speed).toBeGreaterThan(0);
+                        expect(gpu.fan_rpm).toBeGreaterThan(0);
+                    }
+                }
+                for (const process of node.processes) {
+                    expect(allowedModels.has(process.model)).toBe(true);
+                    const gpu = node.gpus[process.gpu_id];
+                    expect(process.memory).toBeLessThanOrEqual(gpu.memory_used);
+                    if (process.model === 'Llama-3.3-70B-Instruct-Q4_K_M') {
+                        expect(gpu.memory_total).toBeGreaterThanOrEqual(49152);
+                        expect(process.memory).toBeGreaterThanOrEqual(35000);
+                    }
+                }
+            }
+        }
+        const at = tick => window.GPUHotDemo.generateHubPayload(tick).nodes;
+        expect(at(0).inf1.gpus['1'].memory_used).toBe(40960);
+        expect(at(0).inf2.gpus['0'].utilization).toBe(0);
+        expect(at(35).inf2.gpus['1'].memory_used).toBe(0);
+        expect(at(36).inf2.gpus['1'].memory_used).toBe(17408);
+        expect(at(36).inf2.processes[1].model).toBe('Qwen3.8-Flash-Next-Q4_K_M');
+        expect(at(36)['p4000-vm'].processes).toHaveLength(0);
         page.window.close();
     });
 

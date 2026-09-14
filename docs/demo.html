@@ -367,6 +367,52 @@
 
             const clamp = value => Math.max(0, Math.min(100, Math.round(value)));
 
+            // Capacity, power, PCIe and cooling follow published board specs.
+            // Clock ceilings and temperature bands keep the simulation in range.
+            const GPU_SPECS = Object.freeze({
+                a10m: Object.freeze({
+                    name: 'NVIDIA A10M', vendor: 'nvidia', memoryTotal: 24576,
+                    powerLimit: 150, maxGraphicsClock: 1695, maxMemoryClock: 6251,
+                    pcieGen: 4, pcieWidth: 16, idleTemperature: 38,
+                    loadTemperature: 77, idlePower: 28, fan: false
+                }),
+                a6000: Object.freeze({
+                    name: 'NVIDIA RTX A6000', vendor: 'nvidia', memoryTotal: 49152,
+                    powerLimit: 300, maxGraphicsClock: 2100, maxMemoryClock: 8001,
+                    pcieGen: 4, pcieWidth: 16, idleTemperature: 36,
+                    loadTemperature: 78, idlePower: 42, fan: true
+                }),
+                rtx4090: Object.freeze({
+                    name: 'NVIDIA RTX 4090', vendor: 'nvidia', memoryTotal: 24576,
+                    powerLimit: 450, maxGraphicsClock: 2520, maxMemoryClock: 10501,
+                    pcieGen: 4, pcieWidth: 16, idleTemperature: 36,
+                    loadTemperature: 80, idlePower: 35, fan: true
+                }),
+                v620: Object.freeze({
+                    name: 'AMD Radeon Pro V620', vendor: 'amd', memoryTotal: 32768,
+                    powerLimit: 300, maxGraphicsClock: 2200, maxMemoryClock: 2000,
+                    pcieGen: 4, pcieWidth: 16, idleTemperature: 39,
+                    loadTemperature: 80, idlePower: 38, fan: false
+                }),
+                p4000: Object.freeze({
+                    name: 'NVIDIA Quadro P4000', vendor: 'nvidia', memoryTotal: 8192,
+                    powerLimit: 105, maxGraphicsClock: 1708, maxMemoryClock: 3802,
+                    pcieGen: 3, pcieWidth: 16, idleTemperature: 36,
+                    loadTemperature: 76, idlePower: 22, fan: true
+                })
+            });
+
+            const MODEL_NAMES = Object.freeze({
+                ollama: 'gpt-oss-32k:latest',
+                qwen: 'qwen38-q4',
+                llama: 'Llama-3.3-70B-Instruct-Q4_K_M',
+                flash: 'Qwen3.8-Flash-Next-Q4_K_M'
+            });
+
+            const MEMORY_USED = Object.freeze({
+                0: 13312, 1: 17408, 2: 40960, 3: 17408, 4: 17408, 5: 256, 6: 13312
+            });
+
             function traffic(id, seconds) {
                 if (seconds < 0) return 0;
                 if (id === 0 || id === 6) {
@@ -392,36 +438,51 @@
                 return 0;
             }
 
-            function gpu(name, vendor, id, tick, missing = false) {
+            function gpu(specKey, id, tick) {
+                const spec = GPU_SPECS[specKey];
                 const seconds = tick / 2;
                 const utilization = clamp(traffic(id, seconds));
                 const laggedPower = clamp(traffic(id, seconds - 2));
                 const laggedTemperature = clamp(traffic(id, seconds - 6));
-                const temperature = 39 + Math.round(laggedTemperature * 0.34);
-                const memoryUsed = id === 4 ? (seconds < 18 ? 0 : 8192)
-                    : id === 3 || id === 5 ? 6144 : 2048 + id * 768;
+                const temperature = spec.idleTemperature + Math.round(
+                    (spec.loadTemperature - spec.idleTemperature) * laggedTemperature / 100
+                );
+                const memoryUsed = id === 4 && seconds < 18 ? 0 : MEMORY_USED[id];
+                const fanSpeed = spec.fan
+                    ? clamp(18 + (temperature - spec.idleTemperature) * 1.7) : 0;
                 const record = {
-                    name, vendor, brand: vendor === 'amd' ? 'Radeon Pro' : 'NVIDIA',
+                    name: spec.name, vendor: spec.vendor,
+                    brand: spec.vendor === 'amd' ? 'Radeon Pro' : 'NVIDIA',
                     uuid: `DEMO-${id}`, utilization,
                     temperature,
                     memory_used: memoryUsed,
-                    memory_total: 16384, memory_free: 16384 - memoryUsed,
-                    power_draw: 45 + Math.round(laggedPower * 1.5), power_limit: 250,
-                    fan_speed: clamp(25 + (temperature - 39) * 1.3),
-                    fan_rpm: 800 + Math.round((temperature - 39) * 30),
-                    clock_graphics: 600 + Math.round(utilization * 11),
-                    clock_memory: 7500 + id * 120,
-                    clock_sm: 1335 + id * 65, clock_sm_max: 1800,
-                    clock_video: 1150, temperature_memory: 58 + id,
-                    pcie_gen: 4, pcie_width: 16, pcie_gen_max: 4, pcie_width_max: 16,
+                    memory_total: spec.memoryTotal,
+                    memory_free: spec.memoryTotal - memoryUsed,
+                    power_draw: spec.idlePower + Math.round(
+                        (spec.powerLimit - spec.idlePower) * laggedPower / 100
+                    ),
+                    power_limit: spec.powerLimit,
+                    fan_speed: fanSpeed,
+                    fan_rpm: spec.fan ? Math.round(500 + fanSpeed * 32) : 0,
+                    clock_graphics: Math.round(spec.maxGraphicsClock * (0.35 + utilization * 0.0065)),
+                    clock_memory: Math.round(spec.maxMemoryClock * (memoryUsed ? 0.85 : 0.4)),
+                    clock_sm: Math.round(spec.maxGraphicsClock * (0.35 + utilization * 0.0065)),
+                    clock_sm_max: spec.maxGraphicsClock,
+                    clock_video: Math.round(spec.maxGraphicsClock * 0.6),
+                    temperature_memory: Math.min(spec.loadTemperature, temperature + 5),
+                    pcie_gen: spec.pcieGen, pcie_width: spec.pcieWidth,
+                    pcie_gen_max: spec.pcieGen, pcie_width_max: spec.pcieWidth,
                     encoder_sessions: 1, encoder_utilization: 12 + id,
                     decoder_sessions: 1, decoder_utilization: 8 + id,
-                    performance_state: 'P2', throttle_reasons: vendor === 'amd' ? 'UNTHROTTLED' : 'None'
+                    performance_state: 'P2',
+                    throttle_reasons: spec.vendor === 'amd' ? 'UNTHROTTLED' : 'None'
                 };
-                if (missing) {
-                    ['fan_speed', 'fan_rpm', 'temperature_memory', 'encoder_utilization',
-                        'decoder_utilization', 'power_limit', 'performance_state'].forEach(key => delete record[key]);
-                }
+                return record;
+            }
+
+            function omitOptionalMetrics(record) {
+                ['temperature_memory', 'encoder_utilization', 'decoder_utilization',
+                    'performance_state'].forEach(key => delete record[key]);
                 return record;
             }
 
@@ -434,54 +495,52 @@
             }
 
             function generateHubPayload(tick) {
-                const inf1First = gpu('NVIDIA RTX A6000', 'nvidia', 1, tick);
+                const inf1First = gpu('a6000', 1, tick);
                 inf1First.throttle_reasons = 'HW Thermal';
-                const truenas = gpu('AMD Radeon Pro V620', 'amd', 0, tick);
-                truenas.fan_source = 'external';
                 return {
                     mode: 'hub',
                     nodes: {
                         'truenas-a10m': {
                             status: 'online', system: system(tick),
-                            gpus: { '0': truenas },
+                            gpus: { '0': gpu('a10m', 0, tick) },
                             processes: [{ pid: 421, gpu_id: '0', name: 'ollama runner',
-                                memory: 3584, model: 'sha256-e7b273' }]
+                                memory: 13312, model: MODEL_NAMES.ollama }]
                         },
                         inf1: {
                             status: 'online', system: system(tick),
                             gpus: {
                                 '0': inf1First,
-                                '1': gpu('NVIDIA RTX A6000', 'nvidia', 2, tick)
+                                '1': gpu('a6000', 2, tick)
                             },
                             processes: [
-                                { pid: 696825, gpu_id: '0', name: 'llama-server', memory: 8192,
-                                    model: 'qwen38-q4' },
-                                { pid: 696825, gpu_id: '1', name: 'llama-server', memory: 6144,
-                                    model: 'qwen38-q4' }
+                                { pid: 696825, gpu_id: '0', name: 'llama-server', memory: 17408,
+                                    model: MODEL_NAMES.qwen },
+                                { pid: 696826, gpu_id: '1', name: 'llama-server', memory: 40960,
+                                    model: MODEL_NAMES.llama }
                             ]
                         },
                         inf2: {
                             status: 'online', system: system(tick),
                             gpus: {
-                                '0': gpu('NVIDIA RTX 4090', 'nvidia', 3, tick),
-                                '1': gpu('NVIDIA RTX 4090', 'nvidia', 4, tick)
+                                '0': gpu('rtx4090', 3, tick),
+                                '1': gpu('v620', 4, tick)
                             },
                             processes: [
-                                { pid: 808, gpu_id: '0', name: 'vllm', memory: 10240,
-                                    model: 'Llama-3.3-70B-Instruct' },
-                                ...(tick >= 36 ? [{ pid: 809, gpu_id: '1', name: 'vllm', memory: 8192,
-                                    model: 'Example loaded model' }] : [])
+                                { pid: 808, gpu_id: '0', name: 'vllm', memory: 17408,
+                                    model: MODEL_NAMES.flash },
+                                ...(tick >= 36 ? [{ pid: 809, gpu_id: '1', name: 'vllm', memory: 17408,
+                                    model: MODEL_NAMES.flash }] : [])
                             ]
                         },
                         'p4000-vm': {
                             status: 'online', system: system(tick),
-                            gpus: { '0': gpu('NVIDIA Quadro P4000', 'nvidia', 5, tick, true) },
+                            gpus: { '0': omitOptionalMetrics(gpu('p4000', 5, tick)) },
                             processes: []
                         },
-                        'http://offline-node.example.invalid:1313': tick === 0
+                        'http://compute-04.demo.invalid:1313': tick === 0
                             ? {
                                 status: 'online', system: system(tick),
-                                gpus: { '0': gpu('Example GPU', 'nvidia', 6, tick) },
+                                gpus: { '0': gpu('rtx4090', 6, tick) },
                                 processes: []
                             }
                             : { status: 'offline', gpus: {}, processes: [] }
