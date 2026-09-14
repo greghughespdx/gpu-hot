@@ -424,6 +424,11 @@
     letter-spacing: -0.5px;
 }
 
+.gpu-detail-model-suffix {
+    display: inline-block;
+    white-space: nowrap;
+}
+
 .gpu-detail-name {
     font-size: 13px;
     color: var(--text-tertiary);
