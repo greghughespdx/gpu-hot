@@ -93,6 +93,28 @@ describe('static fork demo', () => {
         page.window.close();
     });
 
+    it('generates distinct burst, sustained, idle, and model-loading traffic', () => {
+        const { page, window, feed } = demoWindow();
+        window.eval(feed.textContent);
+        const at = second => window.GPUHotDemo.generateHubPayload(second * 2);
+        const inference = second => at(second).nodes['truenas-a10m'].gpus['0'];
+        expect(inference(3).utilization).toBeLessThan(5);
+        expect(inference(17).utilization).toBeGreaterThanOrEqual(90);
+        expect(inference(50).utilization).toBeLessThan(5);
+        expect(at(15).nodes.inf1.gpus['0'].utilization).toBeGreaterThanOrEqual(90);
+        expect(at(25).nodes.inf2.gpus['1'].utilization).toBeGreaterThanOrEqual(90);
+        expect(at(15).nodes.inf2.gpus['0'].utilization).toBe(0);
+        expect(at(15).nodes['p4000-vm'].gpus['0'].memory_used).toBe(6144);
+        expect(at(17).nodes.inf2.gpus['1'].memory_used).toBe(0);
+        expect(at(18).nodes.inf2.gpus['1'].memory_used).toBe(8192);
+        expect(at(18).nodes.inf2.gpus['1'].utilization).toBeGreaterThan(90);
+        expect(at(18).nodes.inf2.processes.some(process => process.gpu_id === '1')).toBe(true);
+        expect(inference(10).power_draw).toBeLessThan(inference(12).power_draw);
+        expect(inference(10).temperature).toBeLessThan(inference(16).temperature);
+        expect(inference(10).fan_speed).toBeLessThan(inference(16).fan_speed);
+        page.window.close();
+    });
+
     it('delivers the generated frame through an in-page socket without a network connection', async () => {
         const { page, window, feed } = demoWindow();
         window.eval(feed.textContent);

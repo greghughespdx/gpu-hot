@@ -364,18 +364,51 @@
                 return nativeFetch(input, options);
             };
 
+            const clamp = value => Math.max(0, Math.min(100, Math.round(value)));
+
+            function traffic(id, seconds) {
+                if (seconds < 0) return 0;
+                if (id === 0 || id === 6) {
+                    // Inference alternates loaded bursts with quiet gaps. Short prompt reads
+                    // make distinct peaks even during the lower-utilization part of a cycle.
+                    const phase = (seconds + id * 7) % 62;
+                    if (phase < 6) return 2 + 2 * Math.sin(seconds * 3);
+                    if (phase < 10) return 72 + 24 * Math.abs(Math.sin(seconds * 2));
+                    if (phase < 34) return 96 + 3 * Math.sin(seconds * 1.4);
+                    if (phase < 39) return 70 + 27 * Math.abs(Math.sin(seconds * 2.7));
+                    return 1 + 3 * Math.abs(Math.sin(seconds * 0.8));
+                }
+                if (id === 1 || id === 2) {
+                    const phase = (seconds + id * 11) % 31;
+                    if (phase < 2) return 43 + 12 * Math.sin(seconds * 3);
+                    return 94 + 4 * Math.sin(seconds * 0.9 + id);
+                }
+                if (id === 4) {
+                    if (seconds < 18) return 0;
+                    const phase = (seconds - 18) % 48;
+                    return phase < 29 ? 95 + 4 * Math.sin(seconds * 1.7) : 2;
+                }
+                return 0;
+            }
+
             function gpu(name, vendor, id, tick, missing = false) {
-                const drift = Math.round(8 * Math.sin(tick / 4 + id));
-                const utilization = Math.max(0, Math.min(100, 38 + id * 7 + drift));
+                const seconds = tick / 2;
+                const utilization = clamp(traffic(id, seconds));
+                const laggedPower = clamp(traffic(id, seconds - 2));
+                const laggedTemperature = clamp(traffic(id, seconds - 6));
+                const temperature = 39 + Math.round(laggedTemperature * 0.34);
+                const memoryUsed = id === 4 ? (seconds < 18 ? 0 : 8192)
+                    : id === 3 || id === 5 ? 6144 : 2048 + id * 768;
                 const record = {
                     name, vendor, brand: vendor === 'amd' ? 'Radeon Pro' : 'NVIDIA',
                     uuid: `DEMO-${id}`, utilization,
-                    temperature: 44 + id + Math.round(drift / 3),
-                    memory_used: 2048 + id * 768 + tick % 9 * 24,
-                    memory_total: 16384, memory_free: 12288,
-                    power_draw: 70 + id * 12 + drift, power_limit: 250,
-                    fan_speed: 42 + id, fan_rpm: 1200 + id * 60,
-                    clock_graphics: 1350 + id * 65 + drift * 4,
+                    temperature,
+                    memory_used: memoryUsed,
+                    memory_total: 16384, memory_free: 16384 - memoryUsed,
+                    power_draw: 45 + Math.round(laggedPower * 1.5), power_limit: 250,
+                    fan_speed: clamp(25 + (temperature - 39) * 1.3),
+                    fan_rpm: 800 + Math.round((temperature - 39) * 30),
+                    clock_graphics: 600 + Math.round(utilization * 11),
                     clock_memory: 7500 + id * 120,
                     clock_sm: 1335 + id * 65, clock_sm_max: 1800,
                     clock_video: 1150, temperature_memory: 58 + id,
@@ -432,8 +465,12 @@
                                 '0': gpu('NVIDIA RTX 4090', 'nvidia', 3, tick),
                                 '1': gpu('NVIDIA RTX 4090', 'nvidia', 4, tick)
                             },
-                            processes: [{ pid: 808, gpu_id: '0', name: 'vllm', memory: 10240,
-                                model: 'Llama-3.3-70B-Instruct' }]
+                            processes: [
+                                { pid: 808, gpu_id: '0', name: 'vllm', memory: 10240,
+                                    model: 'Llama-3.3-70B-Instruct' },
+                                ...(tick >= 36 ? [{ pid: 809, gpu_id: '1', name: 'vllm', memory: 8192,
+                                    model: 'Example loaded model' }] : [])
+                            ]
                         },
                         'p4000-vm': {
                             status: 'online', system: system(tick),
