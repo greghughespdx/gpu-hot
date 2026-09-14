@@ -2110,6 +2110,15 @@ html.settings-connection-in-panel #dashboard-status-home {
         font-size: 18px;
     }
 
+    .gpu-detail-model-separator {
+        display: none;
+    }
+
+    .gpu-detail-model-suffix::before {
+        content: " ";
+        white-space: pre;
+    }
+
     .process-table-header,
     .process-item {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px;

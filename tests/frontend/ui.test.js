@@ -1237,12 +1237,14 @@ describe('label override integration', () => {
         settings.settings['overview.showModel'] = true;
         settings.applyOverviewMetricVisibility(document);
         expect(title.textContent).toBe('GPU node-a-0 - Qwen3.8-27B');
-        expect(title.querySelector('.gpu-detail-model-suffix').textContent).toBe(' - Qwen3.8-27B');
+        expect(title.querySelector('.gpu-detail-model-separator').textContent).toBe(' - ');
+        expect(title.querySelector('.gpu-detail-model-suffix').textContent).toBe('Qwen3.8-27B');
         expect(title.querySelectorAll('.gpu-detail-model-suffix wbr')).toHaveLength(2);
         updateProcesses([{ gpu_key: 'node-a-0', model: '/models/Next.gguf', memory: 100 }]);
         expect(title.textContent).toBe('GPU node-a-0 - Next.gguf');
         updateProcesses([]);
         expect(title.textContent).toBe('GPU node-a-0');
+        expect(title.querySelector('.gpu-detail-model-separator')).toBeNull();
         settings.settings['overview.showModel'] = false;
         settings.applyOverviewMetricVisibility(document);
         expect(title.querySelector('.gpu-detail-model-suffix')).toBeNull();

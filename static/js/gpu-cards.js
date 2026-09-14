@@ -1307,25 +1307,32 @@ function refreshDetailProcessModels() {
         if (!title) return;
         const model = modelsForGpuKey(tab.id.slice('tab-gpu-'.length)).join(', ');
         const suffix = title.querySelector('.gpu-detail-model-suffix');
+        const separator = title.querySelector('.gpu-detail-model-separator');
         if (!model) {
             suffix?.remove();
+            separator?.remove();
             return;
         }
-        const text = ` - ${model}`;
-        if (suffix?.textContent === text) return;
+        if (suffix?.textContent === model && separator) return;
         const modelSuffix = suffix || document.createElement('span');
         modelSuffix.className = 'gpu-detail-model-suffix';
         modelSuffix.replaceChildren();
         // Keep a short suffix together, but allow long model names to wrap at
         // their own separators before the browser has to break a letter run.
         let start = 0;
-        for (let index = 3; index < text.length; index += 1) {
-            if (!'-_:.'.includes(text[index])) continue;
-            modelSuffix.appendChild(document.createTextNode(text.slice(start, index + 1)));
+        for (let index = 0; index < model.length; index += 1) {
+            if (!'-_:.'.includes(model[index])) continue;
+            modelSuffix.appendChild(document.createTextNode(model.slice(start, index + 1)));
             modelSuffix.appendChild(document.createElement('wbr'));
             start = index + 1;
         }
-        modelSuffix.appendChild(document.createTextNode(text.slice(start)));
+        modelSuffix.appendChild(document.createTextNode(model.slice(start)));
+        if (!separator) {
+            const modelSeparator = document.createElement('span');
+            modelSeparator.className = 'gpu-detail-model-separator';
+            modelSeparator.textContent = ' - ';
+            title.insertBefore(modelSeparator, suffix);
+        }
         if (!suffix) title.appendChild(modelSuffix);
     });
 }
