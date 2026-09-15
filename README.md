@@ -17,6 +17,8 @@ Real-time NVIDIA GPU monitoring dashboard. Lightweight, web-based, and self-host
 </a>
 </p>
 
+https://github.com/user-attachments/assets/b673a43c-dd29-457a-879f-6e3f1ae075ef
+
 </div>
 
 ---
