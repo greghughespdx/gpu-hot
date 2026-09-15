@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Hot on real hardware</title>
+<meta name="description" content="Five minutes of GPU Hot on a four-node homelab while a real workload ran. Not synthetic data.">
+<style>
+  :root { --bg: #0a0a0f; --text: #ffffff; --muted: rgba(255,255,255,0.6); --border: rgba(255,255,255,0.08); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; padding: 32px 16px 64px; }
+  main { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  p { color: var(--muted); max-width: 70ch; line-height: 1.5; margin-bottom: 20px; }
+  video { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 6px; background: #000; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  a { color: #4facfe; }
+</style>
+</head>
+<body>
+<main>
+  <h1>GPU Hot on real hardware</h1>
+  <p>Four nodes, six GPUs, one evening. The two inf2 cards are running a document review workload; the A10M is answering short summaries; inf1 and the P4000 are idle. Nothing here is generated.</p>
+  <figure>
+    <video autoplay muted loop playsinline preload="metadata" poster="gpu-hot-live-2026-09-14.jpg" controls>
+      <source src="gpu-hot-live-2026-09-14.mp4" type="video/mp4">
+      <a href="gpu-hot-live-2026-09-14.mp4">Download the recording</a>
+    </video>
+    <figcaption>2026-09-14, 6:32 PM. Drag to reorder nodes, the inf1 and inf2 detail pages, and the settings panel. <a href="../demo.html?preset=features">Try the demo</a>, which replays traces recorded from these same feeds.</figcaption>
+  </figure>
+</main>
+</body>
+</html>
