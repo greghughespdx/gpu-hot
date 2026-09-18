@@ -557,6 +557,13 @@ function displayedGpuIdentity(gpuId, nodeName, sourceGpuId) {
     return `${displayedNodeName}-${sourceGpuId}`;
 }
 
+function detailGpuTitle(gpuId, nodeName, sourceGpuId) {
+    if (String(gpuId) === String(sourceGpuId)) return `GPU ${gpuId}`;
+    const displayedNodeName = window.GPUHotSettings?.nodeDisplayLabel?.(nodeName, nodeName)
+        || nodeName;
+    return `GPU ${sourceGpuId} - ${displayedNodeName}`;
+}
+
 function applySidebarButtonLabel(button, gpuId, gpuInfo, nodeName, sourceGpuId) {
     const displayedNodeName = window.GPUHotSettings?.nodeDisplayLabel?.(nodeName, nodeName)
         || nodeName;
@@ -602,7 +609,7 @@ function updateSidebarLabels() {
         if (title) {
             window.GPUHotSettings?.bindGpuLabel?.(
                 title, nodeName, sourceGpuId,
-                `GPU ${displayedGpuIdentity(gpuId, nodeName, sourceGpuId)}`
+                detailGpuTitle(gpuId, nodeName, sourceGpuId)
             );
         }
     });
@@ -727,7 +734,7 @@ function ensureGPUTab(gpuId, gpuInfo, options = {}) {
             card.querySelector('.gpu-detail-title'),
             nodeName,
             sourceGpuId,
-            `GPU ${displayedGpuIdentity(gpuId, nodeName, sourceGpuId)}`
+            detailGpuTitle(gpuId, nodeName, sourceGpuId)
         );
         window.refreshDetailProcessModels?.();
         if (!chartData[gpuId]) initGPUData(gpuId);

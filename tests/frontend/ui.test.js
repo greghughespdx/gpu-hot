@@ -1221,7 +1221,7 @@ describe('label override integration', () => {
         const card = document.getElementById('gpu-node-a-0');
         expect(button.textContent).toBe('0');
         expect(button.title).toBe('GPU node-a-0');
-        expect(card.querySelector('.gpu-detail-title').textContent).toBe('GPU node-a-0');
+        expect(card.querySelector('.gpu-detail-title').textContent).toBe('GPU 0 - node-a');
         expect(card.querySelector('.gpu-detail-name').textContent).toBe('RTX 3090');
     });
 
@@ -1233,21 +1233,39 @@ describe('label override integration', () => {
         const title = document.querySelector('#tab-gpu-node-a-0 .gpu-detail-title');
         updateProcesses([{ gpu_key: 'node-a-0', node_name: 'node-a', gpu_id: '0',
             name: 'llama-server', model: 'Qwen3.8-27B', memory: 100 }]);
-        expect(title.textContent).toBe('GPU node-a-0');
+        expect(title.textContent).toBe('GPU 0 - node-a');
         settings.settings['overview.showModel'] = true;
         settings.applyOverviewMetricVisibility(document);
-        expect(title.textContent).toBe('GPU node-a-0 - Qwen3.8-27B');
+        expect(title.textContent).toBe('GPU 0 - node-a - Qwen3.8-27B');
         expect(title.querySelector('.gpu-detail-model-separator').textContent).toBe(' - ');
         expect(title.querySelector('.gpu-detail-model-suffix').textContent).toBe('Qwen3.8-27B');
         expect(title.querySelectorAll('.gpu-detail-model-suffix wbr')).toHaveLength(2);
         updateProcesses([{ gpu_key: 'node-a-0', model: '/models/Next.gguf', memory: 100 }]);
-        expect(title.textContent).toBe('GPU node-a-0 - Next.gguf');
+        expect(title.textContent).toBe('GPU 0 - node-a - Next.gguf');
         updateProcesses([]);
-        expect(title.textContent).toBe('GPU node-a-0');
+        expect(title.textContent).toBe('GPU 0 - node-a');
         expect(title.querySelector('.gpu-detail-model-separator')).toBeNull();
         settings.settings['overview.showModel'] = false;
         settings.applyOverviewMetricVisibility(document);
         expect(title.querySelector('.gpu-detail-model-suffix')).toBeNull();
+    });
+
+    it('puts the GPU index before the displayed node name and process models', () => {
+        localStorage.setItem('gpu-hot.settings.v1', JSON.stringify({ version: 1, settings: {
+            labelOverrides: [{ kind: 'node', node: 'inf1', label: 'INF1 - BLAZE' }],
+            'overview.showModel': true
+        } }));
+        loadSettingsModule();
+        ensureGPUTab('inf1-0', { name: 'AMD Radeon Pro V620', utilization: 99 }, {
+            shouldUpdateDOM: false, nodeName: 'inf1', sourceGpuId: '0'
+        });
+        updateProcesses([
+            { gpu_key: 'inf1-0', model: 'qwen38-q4', memory: 100 },
+            { gpu_key: 'inf1-0', model: 'bonsai2-ternary', memory: 100 }
+        ]);
+
+        const title = document.querySelector('#tab-gpu-inf1-0 .gpu-detail-title');
+        expect(title.textContent).toBe('GPU 0 - INF1 - BLAZE - qwen38-q4, bonsai2-ternary');
     });
 
     it('keeps a custom card name ahead of the model after a label refresh', () => {
@@ -1318,7 +1336,7 @@ describe('label override integration', () => {
         expect(nodeLabel.textContent).toBe('Compute');
         expect(button.textContent).toBe('Compute 0');
         expect(button.title).toContain('Compute-0');
-        expect(detailTitle.textContent).toBe('GPU Compute-0');
+        expect(detailTitle.textContent).toBe('GPU 0 - Compute');
         expect(button.dataset.gpuNode).toBe('node-a');
         expect(button.dataset.sourceGpuId).toBe('0');
 
