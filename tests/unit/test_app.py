@@ -109,6 +109,49 @@ class TestEndpoints:
             assert "text/html" in response.headers.get("content-type", "")
 
     @pytest.mark.asyncio
+    async def test_compact_view_is_a_local_read_only_page(self):
+        """The embed route must not inherit dashboard controls or remote assets."""
+        from httpx import AsyncClient, ASGITransport
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/compact")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "default-src 'self'" in response.headers["content-security-policy"]
+        assert "/static/js/compact-view.js" in response.text
+        assert "https://" not in response.text
+        assert "<button" not in response.text
+        assert "<nav" not in response.text
+        assert "Processes" not in response.text
+
+    @pytest.mark.asyncio
+    async def test_compact_view_allows_only_the_configured_frame_origin(self):
+        from httpx import AsyncClient, ASGITransport
+        self.app_module.config.COMPACT_FRAME_ANCESTOR = 'http://192.168.15.10:8080'
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/compact")
+
+        assert "frame-ancestors http://192.168.15.10:8080" in response.headers[
+            "content-security-policy"
+        ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('unsafe_origin', [
+        '', 'javascript:alert(1)', 'http://safe.example/path',
+        "http://safe.example; script-src *", 'http://user:pass@safe.example',
+    ])
+    async def test_compact_view_blocks_invalid_frame_origins(self, unsafe_origin):
+        from httpx import AsyncClient, ASGITransport
+        self.app_module.config.COMPACT_FRAME_ANCESTOR = unsafe_origin
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/compact")
+
+        assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+
+    @pytest.mark.asyncio
     async def test_api_gpu_data(self):
         from httpx import AsyncClient, ASGITransport
         # Mock monitor_or_hub to return data

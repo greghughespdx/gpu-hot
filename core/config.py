@@ -34,3 +34,7 @@ NODE_URLS = [url.strip() for url in os.getenv('NODE_URLS', '').split(',') if url
 # See "External fans for passive cards" in the README.
 EXTERNAL_FANS = os.getenv('EXTERNAL_FANS', '')
 HUB_HEALTH_STALE_SECONDS = 30.0
+
+# One optional origin may embed the isolated compact view. The application
+# validates this value before placing it in a Content Security Policy header.
+COMPACT_FRAME_ANCESTOR = os.getenv('COMPACT_FRAME_ANCESTOR', '')

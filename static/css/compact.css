@@ -1,0 +1,49 @@
+:root {
+    color-scheme: dark;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #10141b;
+    color: #f4f7fb;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: #10141b; }
+
+.compact-view { padding: 16px; min-width: 280px; }
+
+.compact-header {
+    align-items: flex-start;
+    border-bottom: 1px solid #384554;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+}
+
+h1 { font-size: 16px; line-height: 1.25; margin: 0; }
+
+.compact-header p { color: #b9c5d1; font-size: 13px; margin: 3px 0 0; }
+
+.connection-state { color: #b9c5d1; font-size: 12px; line-height: 1.4; text-align: right; }
+.connection-state.is-ready { color: #8de2b4; }
+.connection-state.is-unavailable { color: #ffbd8a; }
+
+.gpu-list { display: grid; gap: 10px; }
+
+.gpu-card { background: #19212b; border: 1px solid #384554; border-radius: 8px; padding: 12px; }
+.gpu-card h2 { font-size: 14px; margin: 0 0 10px; }
+
+.metrics { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.metric-label { color: #b9c5d1; display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.metric-value { display: block; font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 700; margin-top: 2px; }
+
+.history-label { color: #b9c5d1; display: block; font-size: 11px; letter-spacing: .04em; margin-top: 12px; text-transform: uppercase; }
+.history { display: block; height: 36px; margin-top: 4px; width: 100%; }
+.history-baseline { stroke: #536578; stroke-width: 1; }
+.history-line { fill: none; stroke: #6fceff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.empty-state { color: #d9e1e8; margin: 0; padding: 16px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto; transition: none !important; }
+}

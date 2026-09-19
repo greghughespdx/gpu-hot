@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import aiohttp
+from urllib.parse import urlsplit
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -18,6 +19,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GPU Hot", version=__version__)
+
+
+def compact_frame_ancestor(configured_origin: str) -> str:
+    """Return one exact HTTP origin, or block framing when it is not valid."""
+    try:
+        if ';' in configured_origin or any(
+            character.isspace() for character in configured_origin
+        ):
+            return "'none'"
+        parsed = urlsplit(configured_origin)
+        if (
+            parsed.scheme not in {'http', 'https'}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {'', '/'}
+            or parsed.query
+            or parsed.fragment
+        ):
+            return "'none'"
+        port = f":{parsed.port}" if parsed.port is not None else ''
+        return f"{parsed.scheme}://{parsed.hostname}{port}"
+    except ValueError:
+        return "'none'"
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -56,6 +81,25 @@ async def index():
     """Serve the main dashboard"""
     with open("templates/index.html", "r") as f:
         return HTMLResponse(content=f.read())
+
+
+@app.get("/compact")
+async def compact():
+    """Serve the isolated, read-only GPU activity view for embedding."""
+    with open("templates/compact.html", "r") as f:
+        return HTMLResponse(
+            content=f.read(),
+            headers={
+                # The compact view has no third-party resources. Keep the browser on
+                # its own origin even when it is rendered inside another application.
+                "Content-Security-Policy": (
+                    "default-src 'self'; script-src 'self'; style-src 'self'; "
+                    "connect-src 'self'; img-src 'self' data:; object-src 'none'; "
+                    "base-uri 'none'; form-action 'none'; frame-ancestors "
+                    f"{compact_frame_ancestor(config.COMPACT_FRAME_ANCESTOR)}"
+                )
+            },
+        )
 
 
 @app.get("/api/gpu-data")

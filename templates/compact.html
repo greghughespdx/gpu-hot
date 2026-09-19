@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU activity</title>
+    <link rel="stylesheet" href="/static/css/compact.css">
+</head>
+<body>
+    <main class="compact-view" aria-labelledby="compact-title">
+        <header class="compact-header">
+            <div>
+                <h1 id="compact-title">GPU activity</h1>
+                <p>Current local model activity</p>
+            </div>
+            <span class="connection-state" id="connection-state" role="status" aria-live="polite">Loading GPU activity</span>
+        </header>
+        <section id="gpu-list" class="gpu-list" aria-live="polite" aria-busy="true">
+            <p class="empty-state">Loading GPU activity.</p>
+        </section>
+    </main>
+    <script src="/static/js/compact-view.js"></script>
+</body>
+</html>
